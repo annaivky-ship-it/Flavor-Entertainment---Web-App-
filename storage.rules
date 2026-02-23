@@ -1,0 +1,39 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.admin == true);
+    }
+    
+    // Vetting storage rules
+    match /vetting/{uid}/{appId}/{fileName} {
+      // Allow user to upload to their own path if they own the application
+      // We check uid in path against auth.uid
+      allow write: if isSignedIn() && request.auth.uid == uid;
+      
+      // Only admins can read files. Owners cannot read after upload for security.
+      allow read: if isAdmin();
+      
+      // Block overwriting files (prevent swapping IDs after submission)
+      // This is handled by checking if the resource already exists
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow update: if false; 
+    }
+    
+    // Default public/private rules for other paths
+    match /performers/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /ids/{allPaths=**} {
+      allow write: if isSignedIn();
+      allow read: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,380 @@
+import React, { useState } from 'react';
+import { Performer, PerformerStatus, Booking, Communication, AuditLog } from '../types';
+import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History } from 'lucide-react';
+import ChatDialog from './ChatDialog';
+import { api } from '../services/api';
+
+interface PerformerDashboardProps {
+  performer: Performer;
+  bookings: Booking[];
+  communications: Communication[];
+  auditLogs: AuditLog[];
+  onToggleStatus: (status: PerformerStatus) => Promise<void>;
+  onViewDoNotServe: () => void;
+  onBookingDecision: (bookingId: string, decision: 'accepted' | 'declined', eta?: number) => Promise<void>;
+}
+
+const statusConfig: Record<PerformerStatus, { color: string; label: string; icon: React.ElementType; bgColor: string; activeColor: string; description: string; }> = {
+    available: { 
+      color: 'text-green-400', 
+      label: 'Available', 
+      icon: CheckCircle, 
+      bgColor: 'bg-green-500/10', 
+      activeColor: 'bg-green-500 text-white',
+      description: 'You are visible in the "Available Now" gallery and can receive instant requests.'
+    },
+    busy: { 
+      color: 'text-yellow-400', 
+      label: 'Busy', 
+      icon: Radio, 
+      bgColor: 'bg-yellow-500/10', 
+      activeColor: 'bg-yellow-500 text-zinc-900',
+      description: 'You are currently on a booking. Clients can still see you but know you are occupied.'
+    },
+    offline: { 
+      color: 'text-zinc-400', 
+      label: 'Offline', 
+      icon: EyeOff, 
+      bgColor: 'bg-zinc-500/10', 
+      activeColor: 'bg-zinc-500 text-white',
+      description: 'You are hidden from the "Available Now" gallery and won\'t receive instant alerts.'
+    },
+};
+
+const bookingStatusClasses: Record<Booking['status'], string> = {
+  confirmed: 'text-green-400',
+  pending_deposit_confirmation: 'text-blue-400',
+  deposit_pending: 'text-orange-400',
+  pending_vetting: 'text-yellow-400',
+  pending_performer_acceptance: 'text-purple-400',
+  rejected: 'text-red-400'
+}
+
+interface BookingCardProps {
+  booking: Booking;
+  onDecision: (bookingId: string, decision: 'accepted' | 'declined', eta?: number) => Promise<void>;
+  etaValue: string;
+  onEtaChange: (bookingId: string, value: string) => void;
+  onOpenChat: (booking: Booking) => void;
+}
+
+const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue, onEtaChange, onOpenChat }) => {
+  const [isLoading, setIsLoading] = useState<'accept' | 'decline' | null>(null);
+
+  const handleDecision = async (decision: 'accepted' | 'declined') => {
+    setIsLoading(decision === 'accepted' ? 'accept' : 'decline');
+    try {
+      await onDecision(booking.id, decision, Number(etaValue) || undefined);
+    } catch (error) {
+      console.error("Failed to process booking decision", error);
+    } finally {
+      setIsLoading(null);
+    }
+  };
+
+  return (
+    <div className="bg-zinc-900/70 p-4 rounded-lg border border-zinc-700/50 hover:border-zinc-600 transition-colors">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2">
+            <div>
+                <p className="font-bold text-lg text-white">{booking.event_type}</p>
+                <p className={`text-sm font-semibold capitalize ${bookingStatusClasses[booking.status]}`}>{booking.status.replace(/_/g, ' ')}</p>
+            </div>
+            <div className="text-left sm:text-right text-sm">
+               <div className="flex items-center gap-2 text-zinc-300"><Calendar className="h-4 w-4 text-orange-400"/> {new Date(booking.event_date).toLocaleDateString()}</div>
+               <div className="flex items-center gap-2 text-zinc-300 mt-1"><Clock className="h-4 w-4 text-orange-400"/> {booking.event_time}</div>
+            </div>
+        </div>
+         <div className="mt-3 pt-3 border-t border-zinc-700 flex flex-wrap items-center gap-x-4 gap-y-1 text-zinc-400 text-sm">
+           <span className="flex items-center gap-2"><User className="h-4 w-4 text-orange-400" /> Client: {booking.client_name}</span>
+           <span className="flex items-center gap-2"><Users className="h-4 w-4 text-orange-400" /> Guests: {booking.number_of_guests}</span>
+        </div>
+        
+        <div className="mt-4 flex justify-end">
+             <button 
+                onClick={() => onOpenChat(booking)}
+                className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-600 hover:border-zinc-500 font-semibold py-1.5 px-3 rounded flex items-center gap-2 transition-colors"
+             >
+                <MessageCircle size={14} />
+                Message Client
+             </button>
+        </div>
+
+         {booking.status === 'pending_performer_acceptance' && (
+            <div className="mt-4 pt-4 border-t border-zinc-700/50 flex flex-col sm:flex-row items-center gap-3">
+                <p className="text-xs font-semibold text-zinc-300 mr-2 flex-shrink-0">Action Required:</p>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                   <div className="relative flex-grow group">
+                      <Timer className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none group-focus-within:text-orange-400 transition-colors" />
+                      <input
+                        type="number"
+                        placeholder="ETA (mins)"
+                        title="Estimated time of arrival in minutes"
+                        value={etaValue}
+                        onChange={(e) => onEtaChange(booking.id, e.target.value)}
+                        className="bg-zinc-800 border border-zinc-600 text-white text-xs rounded-md focus:ring-1 focus:ring-orange-500 focus:border-orange-500 block w-full pl-8 pr-2 py-1.5 transition-all"
+                        disabled={!!isLoading}
+                      />
+                   </div>
+                   <button onClick={() => handleDecision('accepted')} disabled={!!isLoading} className="text-xs bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-md flex-shrink-0 w-24">
+                      {isLoading === 'accept' ? <LoaderCircle size={14} className="animate-spin" /> : <><Check size={14}/> Accept</>}
+                   </button>
+                   <button onClick={() => handleDecision('declined')} disabled={!!isLoading} className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-md flex-shrink-0 w-24">
+                      {isLoading === 'decline' ? <LoaderCircle size={14} className="animate-spin" /> : <><X size={14}/> Decline</>}
+                   </button>
+                </div>
+            </div>
+        )}
+    </div>
+  );
+};
+
+
+const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onViewDoNotServe, onBookingDecision }) => {
+  const [etas, setEtas] = useState<Record<string, string>>({});
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<PerformerStatus | null>(null);
+  
+  // Chat State
+  const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
+  const [chatMessages, setChatMessages] = useState<Communication[]>([]);
+
+  const systemCommunications = communications.filter(c => c.type !== 'direct_message');
+
+  const handleEtaChange = (bookingId: string, value: string) => {
+    setEtas(prev => ({ ...prev, [bookingId]: value }));
+  };
+  
+  const handleStatusChange = async (newStatus: PerformerStatus) => {
+    if (newStatus === performer.status) return;
+    setIsUpdatingStatus(newStatus);
+    try {
+      await onToggleStatus(newStatus);
+    } catch (err) {
+      console.error("Status update failed:", err);
+    } finally {
+      setIsUpdatingStatus(null);
+    }
+  };
+  
+  const handleOpenChat = async (booking: Booking) => {
+      setActiveChatBooking(booking);
+      try {
+          const { data } = await api.getBookingMessages(booking.id);
+          setChatMessages(data || []);
+      } catch (err) {
+          console.error("Failed to load chat messages", err);
+      }
+  };
+  
+  const handleSendMessage = async (messageText: string) => {
+      if (!activeChatBooking) return;
+      
+      try {
+          const { data, error } = await api.sendBookingMessage(
+              activeChatBooking.id,
+              messageText,
+              performer.name,
+              activeChatBooking.client_name
+          );
+          
+          if (error) throw error;
+          if (data) {
+              setChatMessages(prev => [...prev, data]);
+          }
+      } catch (err) {
+          console.error("Failed to send message", err);
+      }
+  };
+
+  const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+  const pendingBookings = bookings.filter(b => b.status !== 'confirmed' && b.status !== 'rejected');
+
+  return (
+    <div className="animate-fade-in space-y-8 pb-20">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div>
+          <h1 className="text-4xl font-bold text-white tracking-tight">Performer Dashboard</h1>
+          <div className="flex items-center gap-2 mt-1">
+             <p className="text-xl text-orange-400">Welcome, {performer.name}</p>
+             <span className="h-1.5 w-1.5 rounded-full bg-zinc-600"></span>
+             <p className="text-sm text-zinc-500">ID: #{performer.id}</p>
+          </div>
+        </div>
+        <button 
+          onClick={onViewDoNotServe}
+          className="bg-red-600/90 hover:bg-red-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 shadow-lg shadow-red-500/10 hover:shadow-red-500/20"
+        >
+          <ShieldAlert className="h-5 w-5" />
+          'Do Not Serve' List
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="card-base !p-6 lg:col-span-1 flex flex-col h-full">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+               <Smartphone className="h-5 w-5 text-orange-400" />
+               <h2 className="text-2xl font-semibold text-white">Availability Status</h2>
+            </div>
+            <p className="text-sm text-zinc-400 mb-6">Clients see your live status in the gallery.</p>
+            
+            <div className="flex p-1.5 bg-zinc-950 rounded-xl border border-zinc-800 gap-1.5">
+              {(['available', 'busy', 'offline'] as PerformerStatus[]).map((status) => {
+                const Config = statusConfig[status];
+                const isActive = performer.status === status;
+                const isUpdating = isUpdatingStatus === status;
+                
+                return (
+                  <button
+                    key={status}
+                    onClick={() => handleStatusChange(status)}
+                    disabled={!!isUpdatingStatus}
+                    className={`flex-1 flex flex-col items-center justify-center py-3 px-2 rounded-lg transition-all duration-300 gap-1.5 border ${
+                      isActive 
+                        ? `${Config.activeColor} border-transparent shadow-lg shadow-black/50 scale-[1.02]` 
+                        : `bg-transparent border-transparent text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50`
+                    }`}
+                  >
+                    {isUpdating ? (
+                      <LoaderCircle size={18} className="animate-spin" />
+                    ) : (
+                      <Config.icon size={18} />
+                    )}
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{Config.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          <div className={`mt-6 p-4 rounded-xl border transition-all duration-500 ${statusConfig[performer.status].bgColor} ${statusConfig[performer.status].color} flex flex-col gap-2`}>
+             <div className="flex items-center gap-3">
+               <div className="p-2 rounded-full bg-black/20">
+                 {React.createElement(statusConfig[performer.status].icon, { size: 18 })}
+               </div>
+               <div>
+                 <p className="text-xs opacity-70 font-semibold uppercase tracking-tight">Active Mode</p>
+                 <p className="font-bold text-lg">{statusConfig[performer.status].label}</p>
+               </div>
+             </div>
+             <p className="text-xs opacity-80 leading-relaxed italic border-t border-white/10 pt-2 mt-1">
+               {statusConfig[performer.status].description}
+             </p>
+          </div>
+        </div>
+
+         <div className="card-base !p-6 lg:col-span-2">
+            <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-3"><MessageSquare /> Communications</h2>
+             {systemCommunications.length > 0 ? (
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-2 -mr-2">
+                  {systemCommunications.map(comm => (
+                    <div key={comm.id} className="bg-zinc-900/70 p-3 rounded-md text-sm border border-zinc-700/50">
+                        <p className="text-zinc-200">{comm.message}</p>
+                        <p className="text-xs text-zinc-500 mt-1">From: <span className="text-orange-400 font-semibold">{comm.sender}</span> &bull; {new Date(comm.created_at).toLocaleDateString()}</p>
+                    </div>
+                  ))}
+                </div>
+             ) : (
+                <div className="text-center py-8 text-zinc-500">
+                   <Inbox className="h-12 w-12 mx-auto mb-2 text-zinc-600" />
+                   <p>No new system notifications.</p>
+                </div>
+             )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <div className="card-base !p-6">
+             <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
+                <Calendar className="h-6 w-6 text-orange-400" />
+                Your Bookings
+             </h2>
+             
+             <div className="space-y-8">
+                <div>
+                  <h3 className="text-lg font-semibold text-orange-400 mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
+                    <span>Pending Actions</span>
+                    <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-xs">{pendingBookings.length}</span>
+                  </h3>
+                  {pendingBookings.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {pendingBookings.map(booking => <BookingCard key={booking.id} booking={booking} onDecision={onBookingDecision} etaValue={etas[booking.id] || ''} onEtaChange={handleEtaChange} onOpenChat={handleOpenChat} />)}
+                      </div>
+                  ) : (
+                      <div className="bg-zinc-950/30 border border-dashed border-zinc-800 rounded-lg py-8 text-center">
+                        <p className="text-zinc-500 text-sm">No pending booking requests at this time.</p>
+                      </div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-green-400 mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
+                    <span>Confirmed Bookings</span>
+                    <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded text-xs">{confirmedBookings.length}</span>
+                  </h3>
+                  {confirmedBookings.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         {confirmedBookings.map(booking => <BookingCard key={booking.id} booking={booking} onDecision={onBookingDecision} etaValue={''} onEtaChange={() => {}} onOpenChat={handleOpenChat} />)}
+                      </div>
+                  ) : (
+                      <div className="bg-zinc-950/30 border border-dashed border-zinc-800 rounded-lg py-8 text-center">
+                        <p className="text-zinc-500 text-sm">You have no confirmed upcoming bookings.</p>
+                      </div>
+                  )}
+                </div>
+             </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-1">
+          <div className="card-base !p-6 h-full">
+            <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
+                <History className="h-6 w-6 text-orange-400" />
+                Recent Activity
+             </h2>
+             <p className="text-xs text-zinc-500 mb-6">Real-time audit log of your platform actions.</p>
+             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                {auditLogs.length > 0 ? (
+                  auditLogs.map(log => (
+                    <div key={log.id} className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50 flex flex-col gap-2 hover:border-zinc-700 transition-colors group">
+                      <div className="flex justify-between items-start">
+                        <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">{log.action.replace(/_/g, ' ')}</span>
+                        <span className="text-[10px] text-zinc-600 group-hover:text-zinc-400 transition-colors">
+                          {/* Fix: Use createdAt instead of timestamp to match the interface. */}
+                          {log.createdAt?.toDate ? log.createdAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-300 leading-snug">
+                        {log.action === 'PERFORMER_STATUS_CHANGE' ? (
+                          <>Changed status from <span className="text-zinc-500 font-semibold">{log.details.oldStatus}</span> to <span className="text-white font-bold">{log.details.newStatus}</span></>
+                        ) : (
+                          <span>Performed administrative action.</span>
+                        )}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                     <Clock className="h-10 w-10 text-zinc-800 mx-auto mb-2" />
+                     <p className="text-sm text-zinc-600">No recent activity found.</p>
+                  </div>
+                )}
+             </div>
+          </div>
+        </div>
+      </div>
+      
+      {activeChatBooking && (
+          <ChatDialog
+              isOpen={!!activeChatBooking}
+              onClose={() => setActiveChatBooking(null)}
+              booking={activeChatBooking}
+              currentUser={performer}
+              messages={chatMessages}
+              onSendMessage={handleSendMessage}
+          />
+      )}
+    </div>
+  );
+};
+
+export default PerformerDashboard;

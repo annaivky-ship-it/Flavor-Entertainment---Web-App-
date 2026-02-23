@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && 
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
+         request.auth.token.admin == true);
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Vetting Applications
+    match /vetting_applications/{appId} {
+      // Users can read/create their own applications
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      // Only admins can update status and review fields
+      // Users can only update draft applications they own
+      allow update: if isAdmin() || (
+        isSignedIn() && 
+        resource.data.userId == request.auth.uid && 
+        resource.data.status == 'draft' &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'reviewedAt', 'reviewedBy', 'riskFlags', 'decisionReason'])
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // Audit Logs
+    match /audit_logs/{logId} {
+      allow read: if true;
+      allow create: if true; 
+      allow update, delete: if false;
+    }
+
+    // Legacy/Standard rules
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /performers/{performerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow create: if true;
+      allow read: if true;
+      allow update: if true;
+      allow delete: if isAdmin();
+    }
+
+    match /do_not_serve/{id} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+    }
+
+    match /communications/{id} {
+      allow create: if true;
+      allow read: if true;
+    }
+  }
+}
