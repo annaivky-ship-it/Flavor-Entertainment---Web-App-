@@ -219,3 +219,6 @@ export const twilioInboundWebhook = fns.https.onRequest(async (req: any, res: an
   }
   res.status(200).send('OK');
 });
+
+// Export KYC functions
+export * from './kyc';

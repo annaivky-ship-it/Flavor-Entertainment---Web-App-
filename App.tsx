@@ -61,7 +61,9 @@ const BookingStickyFooter: React.FC<{
 
 
 const App: React.FC = () => {
-  const [ageVerified, setAgeVerified] = useState(false);
+  const [ageVerified, setAgeVerified] = useState(() => {
+    return localStorage.getItem('ageVerified') === 'true';
+  });
   const [view, setView] = useState<GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq'>('available_now');
   const [bookingOrigin, setBookingOrigin] = useState<GalleryView>('available_now');
   const [viewedPerformer, setViewedPerformer] = useState<Performer | null>(null);
@@ -182,11 +184,6 @@ const App: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    const isVerified = localStorage.getItem('ageVerified') === 'true';
-    setAgeVerified(isVerified);
-  }, []);
-
   const handleAgeVerified = () => {
     localStorage.setItem('ageVerified', 'true');
     setAgeVerified(true);
@@ -296,7 +293,7 @@ const App: React.FC = () => {
       const clientMessageMap = {
           deposit_pending: `✅ Booking Approved! Your application for ${booking.event_type} with ${booking.performer?.name} is approved. Please pay the deposit to confirm.`,
           pending_deposit_confirmation: `🧾 Deposit Submitted! We've received your confirmation. An admin will verify it shortly.`,
-          rejected: `❗️ Booking Rejected. Unfortunately, your application for ${booking.event_type} has been rejected by administration.`,
+          rejected: `❗️ Booking Rejected. Unfortunately, your application for ${booking.event_type} has been rejected by administration. We suggest checking out other available entertainers.`,
       };
       
       const clientMessage = clientMessageMap[status as keyof typeof clientMessageMap];
@@ -380,7 +377,7 @@ const App: React.FC = () => {
       if (decision === 'declined') {
         await handleUpdateBookingStatus(bookingId, 'rejected');
         addCommunication({ sender: performerName, recipient: 'admin', message: `${performerName} has DECLINED the booking request from ${booking.client_name}.`, type: 'admin_message' });
-        addCommunication({ sender: 'System', recipient: 'user', message: `We're sorry, ${performerName} is unable to accept your booking request at this time. Please try booking another performer.`, booking_id: booking.id, type: 'booking_update' });
+        addCommunication({ sender: 'System', recipient: 'user', message: `We're sorry, ${performerName} is unable to accept your booking request at this time. Please try booking another performer. We have many other talented entertainers available!`, booking_id: booking.id, type: 'booking_update' });
         return;
       }
       
@@ -610,10 +607,6 @@ const App: React.FC = () => {
     });
   }, [performers, categoryFilter, availabilityFilter, view, searchQuery, serviceIdFilter, serviceAreaFilter]);
 
-
-  if (!ageVerified) {
-    return <AgeGate onVerified={handleAgeVerified} onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} />;
-  }
 
   const AccessDenied = () => (
     <div className="text-center py-20 card-base max-w-lg mx-auto">
@@ -918,6 +911,7 @@ const App: React.FC = () => {
       {showLogin && <Login onLogin={handleLogin} onClose={() => setShowLogin(false)} performers={performers} />}
       {showPresentation && <PresentationVideo onClose={() => setShowPresentation(false)} />}
       <BookingStickyFooter performers={selectedForBooking} onProceed={handleProceedToBooking} />
+      {!ageVerified && <AgeGate onVerified={handleAgeVerified} onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} />}
     </div>
   );
 };
