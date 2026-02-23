@@ -1,6 +1,9 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendWhatsApp, sendSms, verifyTwilioSignature } from './twilio';
+import { sendMessage } from './messaging/send';
+import { renderTemplate } from './messaging/templates';
+import { checkAndSetIdempotency } from './utils/idempotency';
 
 // Fix: Declaring Buffer to resolve 'Cannot find name Buffer' error in environments without node types.
 declare const Buffer: any;
@@ -219,6 +222,121 @@ export const twilioInboundWebhook = fns.https.onRequest(async (req: any, res: an
   }
   res.status(200).send('OK');
 });
+
+export const onBookingCreated = fns.firestore
+  .document('bookings/{bookingId}')
+  .onCreate(async (snap: any, context: any) => {
+    const bookingId = context.params.bookingId;
+    const data = snap.data();
+    
+    if (data.status !== 'pending_performer_acceptance' && data.status !== 'PENDING') return;
+
+    const idempotencyKey = `booking_created_${bookingId}`;
+    if (!(await checkAndSetIdempotency(idempotencyKey))) return;
+
+    const settingsDoc = await db.collection('settings').doc('messaging').get();
+    const adminNumbers = settingsDoc.data()?.adminNotifyNumbers || [];
+
+    // Notify Admin
+    for (const adminNum of adminNumbers) {
+      await sendMessage({
+        bookingId,
+        templateKey: 'NEW_BOOKING_ADMIN',
+        to: adminNum,
+        body: renderTemplate('NEW_BOOKING_ADMIN', data)
+      });
+    }
+
+    // Notify Performer
+    if (data.performerPhone) {
+      await sendMessage({
+        bookingId,
+        templateKey: 'NEW_BOOKING_PERFORMER',
+        to: data.performerPhone,
+        body: renderTemplate('NEW_BOOKING_PERFORMER', data)
+      });
+    }
+
+    // Notify Client
+    if (data.clientPhone || data.phone) {
+      await sendMessage({
+        bookingId,
+        templateKey: 'RECEIVED_CLIENT',
+        to: data.clientPhone || data.phone,
+        body: renderTemplate('RECEIVED_CLIENT', data)
+      });
+    }
+  });
+
+export const onBookingStatusChanged = fns.firestore
+  .document('bookings/{bookingId}')
+  .onUpdate(async (change: any, context: any) => {
+    const bookingId = context.params.bookingId;
+    const before = change.before.data();
+    const after = change.after.data();
+
+    if (before.status === after.status) return;
+
+    const idempotencyKey = `booking_status_${bookingId}_${after.status}`;
+    if (!(await checkAndSetIdempotency(idempotencyKey))) return;
+
+    const clientPhone = after.clientPhone || after.phone;
+    const performerPhone = after.performerPhone;
+
+    if (after.status === 'deposit_pending' || after.status === 'APPROVED') {
+      if (clientPhone) {
+        await sendMessage({
+          bookingId,
+          templateKey: 'APPROVED_PAYID_CLIENT',
+          to: clientPhone,
+          body: renderTemplate('APPROVED_PAYID_CLIENT', after)
+        });
+      }
+    } else if (after.status === 'confirmed' || after.status === 'CONFIRMED') {
+      if (clientPhone) {
+        await sendMessage({
+          bookingId,
+          templateKey: 'CONFIRMED_CLIENT',
+          to: clientPhone,
+          body: renderTemplate('CONFIRMED_CLIENT', after)
+        });
+      }
+      if (performerPhone) {
+        await sendMessage({
+          bookingId,
+          templateKey: 'CONFIRMED_PERFORMER',
+          to: performerPhone,
+          body: renderTemplate('CONFIRMED_PERFORMER', after)
+        });
+      }
+    } else if (after.status === 'rejected' || after.status === 'DECLINED') {
+      if (clientPhone) {
+        await sendMessage({
+          bookingId,
+          templateKey: 'DECLINED_CLIENT',
+          to: clientPhone,
+          body: renderTemplate('DECLINED_CLIENT', after)
+        });
+      }
+    } else if (after.status === 'cancelled' || after.status === 'CANCELLED') {
+      if (clientPhone) {
+        await sendMessage({
+          bookingId,
+          templateKey: 'CANCELLED_ALL',
+          to: clientPhone,
+          body: renderTemplate('CANCELLED_ALL', after)
+        });
+      }
+      if (performerPhone) {
+        await sendMessage({
+          bookingId,
+          templateKey: 'CANCELLED_ALL',
+          to: performerPhone,
+          body: renderTemplate('CANCELLED_ALL', after)
+        });
+      }
+    }
+  });
 
 // Export KYC functions
 export * from './kyc';

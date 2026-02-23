@@ -53,6 +53,18 @@ service cloud.firestore {
       }
     }
 
+    // Message Logs
+    match /message_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only updated via Cloud Functions
+    }
+
+    // Settings
+    match /settings/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     // Legacy/Standard rules
     match /users/{userId} {
       allow read: if true;
