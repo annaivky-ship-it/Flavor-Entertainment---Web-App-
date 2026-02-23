@@ -41,8 +41,8 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
         return (
           <div className="flex flex-col items-center justify-center text-center h-[450px]">
             <LoaderCircle className="h-16 w-16 animate-spin text-orange-500" />
-            <p className="mt-4 text-zinc-300 font-semibold text-lg">Processing Secure Payment...</p>
-            <p className="text-zinc-500 text-sm mt-2">Communicating with your bank via PayID network...</p>
+            <p className="mt-4 text-zinc-300 font-semibold text-lg">Submitting Confirmation...</p>
+            <p className="text-zinc-500 text-sm mt-2">Notifying admin of your PayID transfer...</p>
           </div>
         );
       case 'success':
@@ -51,8 +51,8 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
             <div className="bg-green-500/20 p-4 rounded-full mb-4">
                 <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
-            <p className="mt-4 text-zinc-100 font-bold text-2xl">Deposit Confirmed!</p>
-            <p className="text-zinc-400 mt-2 max-w-xs">Your booking status has been updated. We are notifying the team.</p>
+            <p className="mt-4 text-zinc-100 font-bold text-2xl">Confirmation Sent!</p>
+            <p className="text-zinc-400 mt-2 max-w-xs">Your booking status has been updated. Admin will verify the transfer shortly.</p>
           </div>
         );
       case 'idle':
@@ -107,17 +107,20 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
                         <p className="text-sm font-medium text-orange-400 truncate">{PAY_ID_EMAIL}</p>
                     </div>
                 </div>
+                <div className="mt-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                    <p className="text-xs text-orange-400 font-medium">Please transfer the deposit amount to the PayID above using your banking app. Once completed, click "Confirm Payment Sent".</p>
+                </div>
             </div>
 
             <button onClick={handlePay} className="btn-primary w-full py-4 text-lg font-bold flex items-center justify-center gap-3 shadow-2xl shadow-orange-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all">
               <CheckCircle className="h-5 w-5" />
-              Confirm & Pay
+              Confirm Payment Sent
             </button>
             
             <div className="mt-6 p-3 rounded-lg bg-zinc-800/30 flex items-start gap-2 border border-zinc-800">
                 <Shield size={14} className="text-zinc-500 mt-0.5 flex-shrink-0" />
                 <p className="text-[10px] text-zinc-500 leading-relaxed italic">
-                  This is a simulated transaction for platform demonstration purposes. Funds are not moved. By clicking you authorize the mock transfer.
+                  Your booking will be confirmed once the admin verifies the receipt of your PayID transfer.
                 </p>
             </div>
           </>

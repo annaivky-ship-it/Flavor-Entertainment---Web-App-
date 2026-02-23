@@ -42,6 +42,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // KYC Records
+    match /kyc_records/{userId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow write: if false; // Only updated via Cloud Functions / Webhooks
+      
+      match /dvs_checks/{checkId} {
+        allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+        allow write: if false; // Only updated via Cloud Functions
+      }
+    }
+
     // Legacy/Standard rules
     match /users/{userId} {
       allow read: if true;

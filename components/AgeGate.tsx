@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, FileText, Check } from 'lucide-react';
 
 interface AgeGateProps {
@@ -29,6 +29,13 @@ const CustomCheckbox: React.FC<CustomCheckboxProps> = ({ id, checked, onChange, 
 const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onShowTermsOfService }) => {
   const [agreedAge, setAgreedAge] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   const canEnter = agreedAge && agreedTerms;
 
