@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../services/firebaseClient';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
 import { DEPOSIT_PERCENTAGE } from '../constants';
@@ -202,27 +204,31 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     }, [stage]);
 
     useEffect(() => {
-        if (!bookings || bookingIds.length === 0) return;
-
-        const currentBooking = bookings.find(b => b.id === bookingIds[0]);
-        if (!currentBooking) return;
-
-        const currentStatus = currentBooking.status;
+        if (bookingIds.length === 0) return;
         
-        if (currentStatus === 'pending_performer_acceptance' && stage !== 'performer_acceptance_pending') {
-            setStage('performer_acceptance_pending');
-        } else if (currentStatus === 'pending_vetting' && stage !== 'vetting_pending') {
-            setStage('vetting_pending');
-        } else if (currentStatus === 'deposit_pending' && stage !== 'deposit_pending') {
-            setStage('deposit_pending');
-        } else if (currentStatus === 'pending_deposit_confirmation' && stage !== 'deposit_confirmation_pending') {
-            setStage('deposit_confirmation_pending');
-        } else if (currentStatus === 'confirmed' && stage !== 'confirmed') {
-            setStage('confirmed');
-        } else if (currentStatus === 'rejected' && stage !== 'rejected') {
-            setStage('rejected');
-        }
-    }, [bookings, bookingIds, stage]);
+        const bookingRef = doc(db, 'bookings', bookingIds[0]);
+        const unsubscribe = onSnapshot(bookingRef, (snap) => {
+            if (!snap.exists()) return;
+            const data = snap.data() as Booking;
+            const currentStatus = data.status;
+            
+            if (currentStatus === 'pending_performer_acceptance' && stage !== 'performer_acceptance_pending') {
+                setStage('performer_acceptance_pending');
+            } else if (currentStatus === 'pending_vetting' && stage !== 'vetting_pending') {
+                setStage('vetting_pending');
+            } else if (currentStatus === 'deposit_pending' && stage !== 'deposit_pending') {
+                setStage('deposit_pending');
+            } else if (currentStatus === 'pending_deposit_confirmation' && stage !== 'deposit_confirmation_pending') {
+                setStage('deposit_confirmation_pending');
+            } else if (currentStatus === 'confirmed' && stage !== 'confirmed') {
+                setStage('confirmed');
+            } else if (currentStatus === 'rejected' && stage !== 'rejected') {
+                setStage('rejected');
+            }
+        });
+        
+        return () => unsubscribe();
+    }, [bookingIds, stage]);
 
     const todayStr = useMemo(() => {
         const d = new Date();
@@ -295,7 +301,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         return { totalCost: calculatedTotal, depositAmount: calculatedTotal * DEPOSIT_PERCENTAGE };
     }, [form.selectedServices, form.duration, performers.length]);
     
-    const { formattedTotalDuration } = useMemo(() => getBookingDurationInfo(form.duration, form.selectedServices), [form.duration, form.selectedServices]);
+    const { formattedTotalDuration } = useMemo(() => getBookingDurationInfo(Number(form.duration), form.selectedServices), [form.duration, form.selectedServices]);
 
     const validateStep = (step: number): boolean => {
         const errors: Record<string, string> = {};
@@ -342,6 +348,14 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }
     };
 
+    const handleClearAll = () => {
+        setForm(prev => ({
+            ...prev,
+            selectedServices: initialSelectedServices,
+            duration: '2'
+        }));
+    };
+
     const handleBack = () => {
         if (currentStep > 1) {
             setCurrentStep(currentStep - 1);
@@ -358,6 +372,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
         const normalizedEmail = form.email.toLowerCase().trim();
         const normalizedPhone = form.mobile.replace(/\s+/g, '');
+        // Note: This client-side check is a UX convenience only. 
+        // The actual security gate is implemented server-side in Cloud Functions.
         const isBanned = doNotServeList.some(e => 
             e.client_email.toLowerCase().trim() === normalizedEmail || 
             e.client_phone.replace(/\s+/g, '') === normalizedPhone
@@ -511,7 +527,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                              ))}
                         </div>
                         <div className="mt-8"><label className="block text-sm font-medium text-zinc-400 mb-2">Special Notes (Optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-24 resize-none" /></div>
-                        <BookingCostCalculator selectedServices={form.selectedServices} durationHours={form.duration} performers={performers} className="mt-8" />
+                        <BookingCostCalculator 
+                            selectedServices={form.selectedServices} 
+                            durationHours={Number(form.duration)} 
+                            performers={performers} 
+                            className="mt-8" 
+                            onClearAll={handleClearAll}
+                        />
                     </div>
                 )}
 

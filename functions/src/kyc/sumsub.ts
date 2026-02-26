@@ -1,7 +1,11 @@
 import * as crypto from 'crypto';
 
-const SUMSUB_APP_TOKEN = process.env.SUMSUB_APP_TOKEN || 'YOUR_SUMSUB_APP_TOKEN';
-const SUMSUB_SECRET_KEY = process.env.SUMSUB_SECRET_KEY || 'YOUR_SUMSUB_SECRET_KEY';
+const SUMSUB_APP_TOKEN = process.env.SUMSUB_APP_TOKEN;
+const SUMSUB_SECRET_KEY = process.env.SUMSUB_SECRET_KEY;
+
+if (!SUMSUB_APP_TOKEN || !SUMSUB_SECRET_KEY) {
+  throw new Error('Missing required env vars: SUMSUB_APP_TOKEN and/or SUMSUB_SECRET_KEY');
+}
 const SUMSUB_BASE_URL = 'https://api.sumsub.com';
 
 function createSignature(config: { method: string; url: string; body?: string; ts: number }) {

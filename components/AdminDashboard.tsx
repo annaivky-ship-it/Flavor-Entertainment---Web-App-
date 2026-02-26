@@ -277,17 +277,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           <p className="text-xl text-zinc-400 mt-1">Manage bookings and monitor performers.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={() => {
-              if (confirm('This will overwrite existing data with mock data. Continue?')) {
-                resetDemoData();
-              }
-            }}
-            className="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 border border-zinc-700"
-          >
-            <Database className="h-5 w-5 text-orange-500" />
-            Seed Database
-          </button>
+          {import.meta.env.DEV && (
+            <button 
+              onClick={() => {
+                if (confirm('DEV ONLY: Overwrite data with mock data?')) {
+                  resetDemoData();
+                }
+              }}
+              className="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 border border-zinc-700"
+            >
+              <Database className="h-5 w-5 text-orange-500" />
+              Seed Database (DEV ONLY)
+            </button>
+          )}
           <button 
             onClick={onViewDoNotServe}
             className="bg-red-600/90 hover:bg-red-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 shadow-lg shadow-red-500/10 hover:shadow-red-500/20"
@@ -426,13 +428,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
               onClick={() => {
                 setPerformerForm({
                   name: '',
+                  tagline: '',
                   bio: '',
                   photo_url: 'https://picsum.photos/seed/performer/400/600',
                   status: 'available',
-                  rating: 5,
-                  services: [],
+                  service_ids: [],
                   service_areas: [],
-                  base_rate_per_hour: 100,
+                  created_at: new Date().toISOString(),
                 });
                 setIsAddingPerformer(true);
               }}
@@ -458,11 +460,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm text-zinc-400">Base Rate ($/hr)</label>
+                  <label className="text-sm text-zinc-400">Tagline</label>
                   <input 
-                    type="number" 
-                    value={performerForm.base_rate_per_hour} 
-                    onChange={e => setPerformerForm({...performerForm, base_rate_per_hour: Number(e.target.value)})}
+                    type="text" 
+                    value={performerForm.tagline} 
+                    onChange={e => setPerformerForm({...performerForm, tagline: e.target.value})}
                     className="input-base w-full"
                   />
                 </div>
@@ -527,7 +529,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {performers.map(p => (
               <div key={p.id} className="card-base !p-4 flex gap-4">
-                <img src={p.photo_url} alt={p.name} className="w-20 h-20 rounded-lg object-cover border border-zinc-800" />
+                <img src={p.photo_url} alt={p.name} loading="lazy" className="w-20 h-20 rounded-lg object-cover border border-zinc-800" />
                 <div className="flex-grow">
                   <div className="flex justify-between items-start">
                     <h4 className="font-bold text-white">{p.name}</h4>
@@ -537,13 +539,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                           setEditingPerformer(p);
                           setPerformerForm({
                             name: p.name,
+                            tagline: p.tagline,
                             bio: p.bio,
                             photo_url: p.photo_url,
                             status: p.status,
-                            rating: p.rating,
-                            services: p.services,
+                            service_ids: p.service_ids,
                             service_areas: p.service_areas,
-                            base_rate_per_hour: p.base_rate_per_hour,
+                            created_at: p.created_at,
                           });
                         }}
                         className="p-1 text-zinc-400 hover:text-orange-500 transition-colors"
@@ -567,7 +569,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${p.status === 'available' ? 'bg-green-500/20 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}>
                       {p.status}
                     </span>
-                    <span className="text-sm font-bold text-white">${p.base_rate_per_hour}/hr</span>
+                    <span className="text-sm font-bold text-white">{p.tagline}</span>
                   </div>
                 </div>
               </div>

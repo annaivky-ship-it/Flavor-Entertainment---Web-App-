@@ -11,13 +11,21 @@ import type { Functions } from 'firebase/functions';
 
 // Firebase configuration for Flavor Entertainers
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDJXlPBCyGfFkHwYLb_fw-lyJ1CJRpQLz8",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "studio-4495412314-3b1ce.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "studio-4495412314-3b1ce",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "studio-4495412314-3b1ce.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "387015361731",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:387015361731:web:6e0b25004191f54d3a4e76"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
+
+const missingVars = Object.entries(firebaseConfig)
+  .filter(([, v]) => !v)
+  .map(([k]) => `VITE_${k.replace(/([A-Z])/g, '_$1').toUpperCase()}`);
+
+if (missingVars.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+}
 
 /**
  * Initialize Firebase App

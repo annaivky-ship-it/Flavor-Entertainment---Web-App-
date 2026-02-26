@@ -4,7 +4,7 @@ import { DEPOSIT_PERCENTAGE } from '../constants';
 export const calculateBookingCost = (durationHours: number, serviceIds: string[], numPerformers: number) => {
     if (serviceIds.length === 0 || numPerformers === 0) return { totalCost: 0, depositAmount: 0 };
         
-    const durationNum = Number(durationHours) || 0;
+    const durationNum = durationHours || 0;
     let hourlyCost = 0;
     let flatCost = 0;
 
@@ -45,7 +45,7 @@ export const formatMinutesToHoursAndMinutes = (totalMinutes: number): string => 
 
 
 // New function to get detailed duration info
-export const getBookingDurationInfo = (durationHours: number | string, serviceIds: string[]) => {
+export const getBookingDurationInfo = (durationHours: number, serviceIds: string[]) => {
     const selectedServiceObjects = allServices.filter(s => serviceIds.includes(s.id));
     
     const hasHourlyService = selectedServiceObjects.some(s => s.rate_type === 'per_hour');
@@ -54,7 +54,7 @@ export const getBookingDurationInfo = (durationHours: number | string, serviceId
         .reduce((sum, s) => sum + s.duration_minutes!, 0);
 
     // Base duration only applies if an hourly service is selected.
-    const baseDurationMinutes = hasHourlyService ? (Number(durationHours) || 0) * 60 : 0;
+    const baseDurationMinutes = hasHourlyService ? (durationHours || 0) * 60 : 0;
     
     const totalDurationMinutes = baseDurationMinutes + showDurationMinutes;
     
