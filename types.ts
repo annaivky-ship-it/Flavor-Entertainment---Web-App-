@@ -14,6 +14,7 @@ export type BookingStatus =
 
 export type VettingStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 export type DoNotServeStatus = 'pending' | 'approved' | 'rejected';
+export type PaymentStatus = 'unpaid' | 'deposit_paid' | 'fully_paid' | 'refunded';
 
 export interface Service {
   id: string;
@@ -36,6 +37,8 @@ export interface Performer {
   service_ids: string[];
   service_areas: ServiceArea[];
   status: PerformerStatus;
+  rating: number;
+  review_count: number;
   created_at: string;
 }
 
@@ -74,6 +77,7 @@ export interface Booking {
     id_document_path: string | null;
     selfie_document_path: string | null;
     deposit_receipt_path: string | null;
+    payment_status?: PaymentStatus;
     created_at: string;
     duration_hours: number;
     number_of_guests: number;

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2 } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
 import { resetDemoData, api } from '../services/api';
 import ChatDialog from './ChatDialog';
@@ -19,6 +19,16 @@ interface AdminDashboardProps {
   onUpdatePerformer: (performerId: number, updates: Partial<Performer>) => Promise<void>;
   onCreatePerformer: (performerData: Omit<Performer, 'id'>) => Promise<void>;
 }
+
+const getPaymentStatusWeight = (status?: string) => {
+  switch(status) {
+    case 'unpaid': return 0;
+    case 'deposit_paid': return 1;
+    case 'fully_paid': return 2;
+    case 'refunded': return 3;
+    default: return -1;
+  }
+};
 
 const statusClasses: Record<BookingStatus, string> = {
     pending_performer_acceptance: 'border-purple-500/50 bg-purple-900/30 text-purple-300',
@@ -59,6 +69,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     bio: '',
     photo_url: 'https://picsum.photos/seed/performer/400/600',
     status: 'available',
+    rating: 5.0,
+    review_count: 0,
     service_ids: [],
     service_areas: [],
     created_at: new Date().toISOString(),
@@ -156,8 +168,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 valB = b.status;
                 break;
             case 'payment_status':
-                valA = getStatusWeight(a.status);
-                valB = getStatusWeight(b.status);
+                valA = getPaymentStatusWeight(a.payment_status);
+                valB = getPaymentStatusWeight(b.payment_status);
                 break;
         }
         
@@ -198,6 +210,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
               valB = b.client_name.toLowerCase();
               break;
           case 'payment_status':
+              valA = getPaymentStatusWeight(a.payment_status);
+              valB = getPaymentStatusWeight(b.payment_status);
+              break;
           case 'status':
               valA = getStatusWeight(a.status);
               valB = getStatusWeight(b.status);
@@ -432,6 +447,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   bio: '',
                   photo_url: 'https://picsum.photos/seed/performer/400/600',
                   status: 'available',
+                  rating: 5.0,
+                  review_count: 0,
                   service_ids: [],
                   service_areas: [],
                   created_at: new Date().toISOString(),
@@ -532,7 +549,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 <img src={p.photo_url} alt={p.name} loading="lazy" className="w-20 h-20 rounded-lg object-cover border border-zinc-800" />
                 <div className="flex-grow">
                   <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-white">{p.name}</h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-white">{p.name}</h4>
+                      <div className="flex items-center gap-1 text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded border border-white/5">
+                        <Star className="w-2.5 h-2.5 text-orange-400 fill-orange-400" />
+                        <span className="text-white font-bold">{p.rating.toFixed(1)}</span>
+                      </div>
+                    </div>
                     <div className="flex gap-1">
                       <button 
                         onClick={() => {
@@ -543,6 +566,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                             bio: p.bio,
                             photo_url: p.photo_url,
                             status: p.status,
+                            rating: p.rating,
+                            review_count: p.review_count,
                             service_ids: p.service_ids,
                             service_areas: p.service_areas,
                             created_at: p.created_at,
@@ -758,11 +783,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                             const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
                             const isLoading = loadingState?.id === booking.id;
                             
-                            let paymentStatusText = 'Unknown';
-                            if (booking.status === 'deposit_pending') paymentStatusText = 'Awaiting Payment';
-                            if (booking.status === 'pending_deposit_confirmation') paymentStatusText = 'Verification Needed';
-                            if (booking.status === 'confirmed') paymentStatusText = 'Verified';
-                            if (booking.status === 'rejected') paymentStatusText = 'Payment Rejected/Cancelled';
+                            let paymentStatusText = booking.payment_status ? booking.payment_status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Unknown';
+                            if (!booking.payment_status) {
+                                if (booking.status === 'deposit_pending') paymentStatusText = 'Awaiting Payment';
+                                if (booking.status === 'pending_deposit_confirmation') paymentStatusText = 'Verification Needed';
+                                if (booking.status === 'confirmed') paymentStatusText = 'Verified';
+                                if (booking.status === 'rejected') paymentStatusText = 'Payment Rejected/Cancelled';
+                            }
 
                             return (
                                 <tr key={booking.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">

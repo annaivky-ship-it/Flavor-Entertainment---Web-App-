@@ -25,6 +25,10 @@ export const resetDemoData = async () => {
     console.error('resetDemoData called in production — blocked.');
     return;
   }
+  if (!db) {
+    console.error('Database not initialized. Check environment variables.');
+    return;
+  }
   console.log("Starting database seed...");
   try {
     const batch = writeBatch(db);
@@ -63,6 +67,17 @@ export const resetDemoData = async () => {
 
 export const api = {
   async getInitialData() {
+    if (!db) {
+      console.warn('Firebase not initialized. Returning mock data.');
+      return {
+        performers: { data: mockPerformers, error: null },
+        bookings: { data: mockBookings, error: null },
+        doNotServeList: { data: mockDoNotServeList, error: null },
+        communications: { data: mockCommunications, error: null },
+        auditLogs: { data: [], error: null },
+      };
+    }
+
     const fetchCollection = async (name: string, q: any) => {
       try {
         const snap = await getDocs(q);
@@ -92,6 +107,7 @@ export const api = {
 
   // Fix: Added createAuditLog to allow manual logging of actions to the audit_logs collection.
   async createAuditLog(action: string, actorUid: string, details: any = {}, actorRole: 'client' | 'admin' | 'system' = 'system') {
+    if (!db) return { id: null, error: new Error('Firebase not initialized') };
     try {
       const docRef = await addDoc(collection(db, 'audit_logs'), {
         action,
@@ -108,6 +124,7 @@ export const api = {
   },
 
   async createVettingDraft(data: Partial<VettingApplication>) {
+    if (!db || !auth) throw new Error("Firebase not initialized");
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required");
 
@@ -127,6 +144,7 @@ export const api = {
   },
 
   async uploadVettingFiles(applicationId: string, idFile: File, selfieFile: File) {
+    if (!db || !auth || !storage) throw new Error("Firebase not initialized");
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required");
 
@@ -151,11 +169,16 @@ export const api = {
   },
 
   async submitVettingApplication(applicationId: string) {
+    if (!functions) throw new Error("Firebase not initialized");
     const submitFn = httpsCallable(functions, 'submitApplication');
     return await submitFn({ applicationId });
   },
 
   async createBookingRequest(formState: BookingFormState, performers: Performer[]) {
+    if (!db || !auth || !storage || !functions) {
+      console.warn('Firebase not initialized. Simulating booking request.');
+      return { data: [], error: null };
+    }
     try {
       const callCreateBooking = httpsCallable(functions, 'createBookingRequest');
       
@@ -198,7 +221,7 @@ export const api = {
       const { bookingIds } = result.data;
       
       const newBookings = await Promise.all(bookingIds.map(async (id) => {
-          const bDoc = await getDoc(doc(db, 'bookings', id));
+          const bDoc = await getDoc(doc(db!, 'bookings', id));
           return { ...bDoc.data(), id: bDoc.id } as Booking;
       }));
 
@@ -209,6 +232,7 @@ export const api = {
   },
 
   async updateBookingStatus(bookingId: string, status: BookingStatus, updates: any = {}) {
+    if (!db) return { error: new Error('Firebase not initialized') };
     try {
       const docRef = doc(db, 'bookings', bookingId);
       await updateDoc(docRef, { 
@@ -223,6 +247,7 @@ export const api = {
   },
 
   async getBookingMessages(bookingId: string) {
+    if (!db) return { data: [], error: null };
     try {
       const q = query(collection(db, 'communications'), where('booking_id', '==', bookingId), orderBy('created_at', 'asc'));
       const snap = await getDocs(q);
@@ -233,6 +258,7 @@ export const api = {
   },
 
   async addCommunication(commData: Omit<Communication, 'id' | 'created_at' | 'read'>) {
+    if (!db) return { data: null, error: new Error('Firebase not initialized') };
     try {
       const docRef = await addDoc(collection(db, 'communications'), {
         ...commData,
@@ -247,6 +273,7 @@ export const api = {
   },
 
   async updatePerformerStatus(performerId: number, status: PerformerStatus) {
+    if (!db) return { error: new Error('Firebase not initialized') };
     try {
       const docRef = doc(db, 'performers', String(performerId));
       await updateDoc(docRef, { status });
@@ -257,6 +284,7 @@ export const api = {
   },
 
   async createPerformer(performerData: Omit<Performer, 'id'>) {
+    if (!db) return { data: null, error: new Error('Firebase not initialized') };
     try {
       const performersSnap = await getDocs(query(collection(db, 'performers'), orderBy('id', 'desc'), limit(1)));
       const lastId = performersSnap.docs.length > 0 ? (performersSnap.docs[0].data() as Performer).id : 0;
@@ -272,6 +300,7 @@ export const api = {
   },
 
   async updatePerformer(performerId: number, updates: Partial<Performer>) {
+    if (!db) return { error: new Error('Firebase not initialized') };
     try {
       const docRef = doc(db, 'performers', String(performerId));
       await updateDoc(docRef, updates);
@@ -282,6 +311,7 @@ export const api = {
   },
 
   async deletePerformer(performerId: number) {
+    if (!db) return { error: new Error('Firebase not initialized') };
     try {
       const docRef = doc(db, 'performers', String(performerId));
       // In a real app, we might want to check for active bookings first
@@ -294,6 +324,7 @@ export const api = {
   },
 
   async updateDoNotServeStatus(entryId: string, status: DoNotServeStatus) {
+    if (!db) return { error: new Error('Firebase not initialized') };
     try {
       const docRef = doc(db, 'do_not_serve', entryId);
       await updateDoc(docRef, { status });
@@ -304,6 +335,7 @@ export const api = {
   },
 
   async createDoNotServeEntry(newEntryData: Omit<DoNotServeEntry, 'id' | 'created_at' | 'status'>) {
+    if (!db) return { data: null, error: new Error('Firebase not initialized') };
     try {
       const docRef = await addDoc(collection(db, 'do_not_serve'), {
         ...newEntryData,
