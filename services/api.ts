@@ -211,14 +211,47 @@ export const api = {
   async updateBookingStatus(bookingId: string, status: BookingStatus, updates: any = {}) {
     try {
       const docRef = doc(db, 'bookings', bookingId);
-      await updateDoc(docRef, { 
-          status, 
+      await updateDoc(docRef, {
+          status,
           ...updates,
           ...(status === 'confirmed' ? { verified_at: new Date().toISOString() } : {})
       });
       return { error: null };
     } catch (err: any) {
       return { error: err };
+    }
+  },
+
+  async submitPaymentReceipt(
+    bookingId: string,
+    receiptFile: File,
+    paymentMeta: { totalCost: number; depositAmount: number; paymentReference: string }
+  ) {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Authentication required');
+
+      const timestamp = Date.now();
+      const ext = receiptFile.name.split('.').pop() || 'jpg';
+      const receiptPath = `receipts/${bookingId}/deposit_receipt_${timestamp}.${ext}`;
+      const receiptRef = ref(storage, receiptPath);
+
+      const uploadResult = await uploadBytes(receiptRef, receiptFile);
+      const receiptUrl = await getDownloadURL(uploadResult.ref);
+
+      const docRef = doc(db, 'bookings', bookingId);
+      await updateDoc(docRef, {
+        status: 'pending_deposit_confirmation',
+        deposit_receipt_path: receiptUrl,
+        total_cost: paymentMeta.totalCost,
+        deposit_amount: paymentMeta.depositAmount,
+        payment_reference: paymentMeta.paymentReference,
+        payment_submitted_at: new Date().toISOString(),
+      });
+
+      return { receiptUrl, error: null };
+    } catch (err: any) {
+      return { receiptUrl: null, error: err };
     }
   },
 

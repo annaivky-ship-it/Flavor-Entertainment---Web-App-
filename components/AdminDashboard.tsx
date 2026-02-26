@@ -740,64 +740,114 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
 
       {activeTab === 'payments' && (
         <div className="card-base !p-0">
-            <h2 className="text-2xl font-semibold text-white mb-4 p-6">Payment Tracking</h2>
+            <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-white">Payment Tracking</h2>
+              {paymentRelatedBookings.filter(b => b.status === 'pending_deposit_confirmation').length > 0 && (
+                <span className="text-xs font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30 px-3 py-1 rounded-full">
+                  {paymentRelatedBookings.filter(b => b.status === 'pending_deposit_confirmation').length} awaiting verification
+                </span>
+              )}
+            </div>
              <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-zinc-400">
                     <thead className="text-xs text-zinc-400 uppercase bg-zinc-900/50">
                         <tr>
                             <th scope="col" className="px-3 py-3 sm:px-6">Client</th>
                             <th scope="col" className="px-3 py-3 sm:px-6">Performer</th>
-                            <th scope="col" className="px-3 py-3 sm:px-6">Total Cost</th>
                             <th scope="col" className="px-3 py-3 sm:px-6">Deposit Due</th>
+                            <th scope="col" className="px-3 py-3 sm:px-6">Reference</th>
                             <th scope="col" className="px-3 py-3 sm:px-6">Payment Status</th>
-                            <th scope="col" className="px-3 py-3 sm:px-6">Action / Verified By</th>
+                            <th scope="col" className="px-3 py-3 sm:px-6">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {paymentRelatedBookings.length > 0 ? paymentRelatedBookings.map(booking => {
-                            const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+                            const { depositAmount: calcDeposit } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+                            const displayDeposit = booking.deposit_amount ?? calcDeposit;
                             const isLoading = loadingState?.id === booking.id;
-                            
+
                             let paymentStatusText = 'Unknown';
                             if (booking.status === 'deposit_pending') paymentStatusText = 'Awaiting Payment';
-                            if (booking.status === 'pending_deposit_confirmation') paymentStatusText = 'Verification Needed';
+                            if (booking.status === 'pending_deposit_confirmation') paymentStatusText = 'Verify Receipt';
                             if (booking.status === 'confirmed') paymentStatusText = 'Verified';
-                            if (booking.status === 'rejected') paymentStatusText = 'Payment Rejected/Cancelled';
+                            if (booking.status === 'rejected') paymentStatusText = 'Rejected';
+
+                            const hasReceipt = !!booking.deposit_receipt_path;
+                            const isAwaitingVerification = booking.status === 'pending_deposit_confirmation';
 
                             return (
-                                <tr key={booking.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
+                                <tr key={booking.id} className={`border-b border-zinc-800 hover:bg-zinc-800/50 ${isAwaitingVerification ? 'bg-orange-900/10' : ''}`}>
                                     <td className="px-3 py-4 sm:px-6 font-medium text-white whitespace-nowrap">
                                       {booking.client_name}
-                                      <div className="text-[10px] text-zinc-500 mt-1">{new Date(booking.event_date).toLocaleDateString()}</div>
+                                      <div className="text-[10px] text-zinc-500 mt-0.5">{new Date(booking.event_date).toLocaleDateString()}</div>
+                                      {booking.payment_submitted_at && (
+                                        <div className="text-[10px] text-blue-400 mt-0.5">
+                                          Submitted: {new Date(booking.payment_submitted_at).toLocaleString()}
+                                        </div>
+                                      )}
                                     </td>
                                     <td className="px-3 py-4 sm:px-6">{booking.performer?.name}</td>
-                                    <td className="px-3 py-4 sm:px-6">${totalCost.toFixed(2)}</td>
-                                    <td className="px-3 py-4 sm:px-6 font-bold text-orange-400">${depositAmount.toFixed(2)}</td>
+                                    <td className="px-3 py-4 sm:px-6 font-bold text-orange-400">${displayDeposit.toFixed(2)}</td>
+                                    <td className="px-3 py-4 sm:px-6">
+                                      {booking.payment_reference ? (
+                                        <span className="font-mono text-xs text-orange-300 bg-orange-500/10 px-2 py-0.5 rounded">
+                                          {booking.payment_reference}
+                                        </span>
+                                      ) : (
+                                        <span className="text-zinc-600 text-xs">—</span>
+                                      )}
+                                    </td>
                                     <td className={`px-3 py-4 sm:px-6 font-semibold ${statusClasses[booking.status]}`}>{paymentStatusText}</td>
                                     <td className="px-3 py-4 sm:px-6">
                                         <div className="flex flex-col gap-2">
-                                          {booking.status === 'pending_deposit_confirmation' && (
+                                          {isAwaitingVerification && (
                                               <>
-                                                <button onClick={() => {
-                                                    if (booking.deposit_receipt_path?.startsWith('simulated/')) {
-                                                        alert(`This is a simulated receipt for a successful payment.\n\nFile: ${booking.deposit_receipt_path}\nBooking ID: ${booking.id}`);
-                                                    } else if (booking.deposit_receipt_path) {
-                                                        alert(`This would open the uploaded file: ${booking.deposit_receipt_path}`);
-                                                    } else {
-                                                        alert('No receipt was uploaded for this booking.');
-                                                    }
-                                                }} className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded flex items-center justify-center gap-1">
+                                                {hasReceipt ? (
+                                                  <a
+                                                    href={booking.deposit_receipt_path!}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded flex items-center justify-center gap-1"
+                                                  >
                                                     <FileText size={12}/> View Receipt
-                                                </button>
-                                                <button onClick={() => handleAction('confirm-deposit', booking.id, () => onUpdateBookingStatus(booking.id, 'confirmed'))} disabled={isLoading} className="text-[10px] bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded flex items-center justify-center gap-1">
+                                                  </a>
+                                                ) : (
+                                                  <span className="text-[10px] text-yellow-400 flex items-center gap-1">
+                                                    <FileText size={12}/> No receipt uploaded
+                                                  </span>
+                                                )}
+                                                <button
+                                                  onClick={() => handleAction('confirm-deposit', booking.id, () => onUpdateBookingStatus(booking.id, 'confirmed'))}
+                                                  disabled={isLoading || !hasReceipt}
+                                                  title={!hasReceipt ? 'Cannot confirm without a receipt' : undefined}
+                                                  className="text-[10px] bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-1 px-3 rounded flex items-center justify-center gap-1"
+                                                >
                                                    {isLoading && loadingState?.type === 'confirm-deposit' ? <LoaderCircle size={12} className="animate-spin"/> : <><Check size={12}/> Confirm Payment</>}
+                                                </button>
+                                                <button
+                                                  onClick={() => handleAction('reject-deposit', booking.id, () => onUpdateBookingStatus(booking.id, 'rejected'))}
+                                                  disabled={isLoading}
+                                                  className="text-[10px] bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded flex items-center justify-center gap-1"
+                                                >
+                                                   {isLoading && loadingState?.type === 'reject-deposit' ? <LoaderCircle size={12} className="animate-spin"/> : <><X size={12}/> Reject</>}
                                                 </button>
                                               </>
                                           )}
-                                          {booking.status === 'confirmed' && booking.verified_at && (
-                                              <div className="text-xs text-green-300/80">
-                                                  <p><strong>{booking.verified_by_admin_name}</strong></p>
+                                          {booking.status === 'confirmed' && (
+                                              <div className="text-xs text-green-300/80 space-y-0.5">
+                                                {booking.deposit_receipt_path && (
+                                                  <a
+                                                    href={booking.deposit_receipt_path}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[10px] text-blue-400 underline flex items-center gap-1"
+                                                  >
+                                                    <FileText size={10}/> Receipt
+                                                  </a>
+                                                )}
+                                                {booking.verified_at && (
                                                   <p className="text-zinc-500">{new Date(booking.verified_at).toLocaleString()}</p>
+                                                )}
                                               </div>
                                           )}
                                           {booking.status === 'rejected' && (

@@ -5,10 +5,11 @@ import type { Performer, Booking, BookingStatus, DoNotServeEntry, Communication,
 import { allServices } from '../data/mockData';
 import { DEPOSIT_PERCENTAGE } from '../constants';
 import { getBookingDurationInfo } from '../utils/bookingUtils';
+import { api } from '../services/api';
 import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
-import PayIDSimulationModal from './PayIDSimulationModal';
+import PayIDPaymentModal from './PayIDPaymentModal';
 import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, UploadCloud, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, FileText, LoaderCircle, Users as UsersIcon, Shield, Camera, Wallet, Briefcase } from 'lucide-react';
 
 export interface BookingFormState {
@@ -399,12 +400,21 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }
     };
 
-    const handlePaymentSuccess = async () => {
-       setIsPayIdModalOpen(false);
-       if(bookingIds.length > 0) {
-          await onUpdateBookingStatus?.(bookingIds[0], 'pending_deposit_confirmation');
-          setStage('deposit_confirmation_pending');
-       }
+    const paymentReference = useMemo(() => {
+        if (bookingIds.length === 0) return '';
+        return `FE-${bookingIds[0].slice(0, 8).toUpperCase()}`;
+    }, [bookingIds]);
+
+    const handlePaymentSuccess = async (receiptFile: File) => {
+        if (bookingIds.length === 0) return;
+        const { error } = await api.submitPaymentReceipt(bookingIds[0], receiptFile, {
+            totalCost,
+            depositAmount,
+            paymentReference,
+        });
+        if (error) throw error;
+        setIsPayIdModalOpen(false);
+        setStage('deposit_confirmation_pending');
     };
 
     if (stage === 'performer_acceptance_pending') {
@@ -418,22 +428,33 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)}>
                 Booking approved! Pay <strong>${depositAmount.toFixed(2)}</strong> to secure your date.
                 {isPayIdModalOpen && (
-                    <PayIDSimulationModal 
-                        amount={depositAmount} 
-                        totalAmount={totalCost} 
-                        performerNames={performers.map(p => p.name).join(', ')} 
-                        eventType={form.eventType} 
+                    <PayIDPaymentModal
+                        amount={depositAmount}
+                        totalAmount={totalCost}
+                        performerNames={performers.map(p => p.name).join(', ')}
+                        eventType={form.eventType}
                         eventDate={form.eventDate}
                         eventAddress={form.eventAddress}
-                        onPaymentSuccess={handlePaymentSuccess} 
-                        onClose={() => setIsPayIdModalOpen(false)} 
+                        paymentReference={paymentReference}
+                        onPaymentSuccess={handlePaymentSuccess}
+                        onClose={() => setIsPayIdModalOpen(false)}
                     />
                 )}
             </StatusScreen>
         );
     }
     if (stage === 'deposit_confirmation_pending') {
-        return <StatusScreen icon={LoaderCircle} title="Verifying Payment" bgColor="bg-blue-900/10" buttonText="Dashboard" onButtonClick={onBookingSubmitted}>Payment received. Admin is confirming.</StatusScreen>;
+        return (
+            <StatusScreen icon={LoaderCircle} title="Verifying Payment" bgColor="bg-blue-900/10" buttonText="Go to Dashboard" onButtonClick={onBookingSubmitted}>
+                <p>Your receipt has been uploaded and is being reviewed.</p>
+                <p className="mt-2 text-sm">Admin will confirm your deposit within 1–2 business hours.</p>
+                {paymentReference && (
+                    <p className="mt-3 text-xs font-mono bg-black/30 inline-block px-3 py-1 rounded-md">
+                        Ref: {paymentReference}
+                    </p>
+                )}
+            </StatusScreen>
+        );
     }
     if (stage === 'confirmed') {
         return <StatusScreen icon={CheckCircle} title="Confirmed!" bgColor="bg-green-900/10" buttonText="View Bookings" onButtonClick={onBookingSubmitted}>Booking is locked in!</StatusScreen>;

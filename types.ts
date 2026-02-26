@@ -83,6 +83,13 @@ export interface Booking {
     client_message?: string | null;
     performer_reassigned_from_id?: number | null;
     performer_eta_minutes?: number | null;
+    // Payment metadata
+    total_cost?: number | null;
+    deposit_amount?: number | null;
+    payment_reference?: string | null;
+    payment_submitted_at?: string | null;
+    payment_verified_by?: string | null;
+    payment_verified_at?: string | null;
     performer?: {
         id: number;
         name: string;
