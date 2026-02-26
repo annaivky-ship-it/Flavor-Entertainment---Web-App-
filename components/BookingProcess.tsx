@@ -204,7 +204,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     }, [stage]);
 
     useEffect(() => {
-        if (bookingIds.length === 0) return;
+        if (bookingIds.length === 0 || !db) return;
         
         const bookingRef = doc(db, 'bookings', bookingIds[0]);
         const unsubscribe = onSnapshot(bookingRef, (snap) => {

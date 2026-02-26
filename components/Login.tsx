@@ -46,6 +46,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) {
+      setError('Authentication is currently disabled. Please check configuration.');
+      return;
+    }
     setError('');
     setIsLoading(true);
 
@@ -61,6 +65,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers }) => {
   };
 
   const handleGoogleLogin = async () => {
+    if (!auth) {
+      setError('Authentication is currently disabled. Please check configuration.');
+      return;
+    }
     setIsLoading(true);
     setError('');
     try {
