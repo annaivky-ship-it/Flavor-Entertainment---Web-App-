@@ -36,6 +36,7 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
         <img
           src={performer.photo_url}
           alt={performer.name}
+          loading="lazy"
           className="w-full h-80 sm:h-96 object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className={`absolute top-3 right-3 flex items-center gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-semibold border ${statusClasses[performer.status]}`}>

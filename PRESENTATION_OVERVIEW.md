@@ -54,11 +54,11 @@ The platform is engineered for scalability and efficiency, resulting in a remark
 *   **Technology Stack:**
     *   **Frontend:** React & TypeScript for a robust, modern user interface.
     *   **Styling:** TailwindCSS for a responsive, clean design.
-    *   **Backend:** Supabase for database, authentication, and secure file storage (using Row Level Security).
+    *   **Backend:** Firebase for database (Firestore), authentication (Auth), and secure file storage (Storage), with serverless logic (Cloud Functions).
     *   **Hosting:** Designed for Vercel/Netlify for high-performance, global static hosting.
 
 *   **Estimated Running Costs:**
-    *   **Core Infrastructure (Supabase & Vercel):** The platform can run on highly efficient serverless architecture. Initial costs for a live, production-ready environment start at approximately **$25-30/month**.
+    *   **Core Infrastructure (Firebase & Vercel):** The platform can run on highly efficient serverless architecture. Initial costs for a live, production-ready environment start at approximately **$25-30/month**.
     *   **Third-Party APIs (e.g., Twilio for SMS):** Costs are usage-based and scale directly with booking volume, typically ranging from **$10-50+/month** for a small to medium-sized agency.
     *   **Conclusion:** The total core technology cost to run this enterprise-grade platform can be under **$100/month**, making it an incredibly cost-effective solution.
 
@@ -99,7 +99,7 @@ The platform is engineered for scalability and efficiency, resulting in a remark
 
 **(30-45 seconds) - The Technology & Cost**
 
-*   **Visuals:** A clean, animated graphic shows logos for Supabase and Vercel. A simple cost graphic appears: a slider shows "Low Startup Cost" and text animates in: "Starts under $100/month".
+*   **Visuals:** A clean, animated graphic shows logos for Firebase and Vercel. A simple cost graphic appears: a slider shows "Low Startup Cost" and text animates in: "Starts under $100/month".
 *   **VO:** *Built on a modern, scalable tech stack, our platform is engineered for growth. And the best part? The cost of ownership is incredibly low. With a serverless backend, your core technology costs can start at **less than a hundred dollars a month**. It's enterprise power on a startup budget.*
 
 ---

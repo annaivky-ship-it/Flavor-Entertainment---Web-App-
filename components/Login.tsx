@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, LogIn, Mail, Lock } from 'lucide-react';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../services/firebaseClient';
 import type { Performer, Role } from '../types';
 import InputField from './InputField';
@@ -17,24 +17,47 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleAuthSuccess = async (user: any) => {
+    try {
+      const token = await user.getIdTokenResult();
+      const role = token.claims.role as Role || 'user';
+      const performerId = token.claims.performerId as number | undefined;
+      
+      onLogin({ 
+        name: user.displayName || user.email?.split('@')[0] || 'User', 
+        role, 
+        id: performerId 
+      });
+    } catch (err) {
+      console.error('Error getting custom claims:', err);
+      // Fallback for development/testing if claims aren't set up yet
+      if (user.email === 'admin@flavorentertainers.com.au') {
+        onLogin({ name: 'Admin', role: 'admin' });
+      } else {
+        const performer = performers.find(p => `${p.name.toLowerCase().split(' ')[0]}@flavorentertainers.com.au` === user.email?.toLowerCase());
+        if (performer) {
+          onLogin({ name: performer.name, role: 'performer', id: performer.id });
+        } else {
+          onLogin({ name: user.displayName || 'User', role: 'user' });
+        }
+      }
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
-    // Admin check
-    if (email.toLowerCase() === 'admin@flavorentertainers.com.au' && password === 'password') {
-      onLogin({ name: 'Admin', role: 'admin' });
-      return;
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      await handleAuthSuccess(userCredential.user);
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err.message || 'Invalid email or password.');
+    } finally {
+      setIsLoading(false);
     }
-
-    // Performer check (uses first name for email)
-    const performer = performers.find(p => `${p.name.toLowerCase().split(' ')[0]}@flavorentertainers.com.au` === email.toLowerCase());
-    if (performer && password === 'password') {
-      onLogin({ name: performer.name, role: 'performer', id: performer.id });
-      return;
-    }
-    
-    setError('Invalid email or password.');
   };
 
   const handleGoogleLogin = async () => {
@@ -43,22 +66,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers }) => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      // Determine role based on email or other criteria
-      // For demo purposes, we'll treat specific emails as admin, others as user
-      if (user.email === 'admin@flavorentertainers.com.au') {
-        onLogin({ name: user.displayName || 'Admin', role: 'admin' });
-      } else {
-        // Check if email matches a performer
-        const performer = performers.find(p => `${p.name.toLowerCase().split(' ')[0]}@flavorentertainers.com.au` === user.email?.toLowerCase());
-        if (performer) {
-          onLogin({ name: performer.name, role: 'performer', id: performer.id });
-        } else {
-          // Default to client/user role
-          onLogin({ name: user.displayName || 'User', role: 'user' });
-        }
-      }
+      await handleAuthSuccess(result.user);
     } catch (err: any) {
       console.error('Google login error:', err);
       setError(err.message || 'Failed to sign in with Google');

@@ -21,6 +21,10 @@ import { BookingFormState } from '../components/BookingProcess';
 import { mockPerformers, mockBookings, mockDoNotServeList, mockCommunications } from '../data/mockData';
 
 export const resetDemoData = async () => {
+  if (import.meta.env.PROD) {
+    console.error('resetDemoData called in production — blocked.');
+    return;
+  }
   console.log("Starting database seed...");
   try {
     const batch = writeBatch(db);
@@ -161,14 +165,20 @@ export const api = {
       // Handle parallel file uploads for legacy/demo structure
       const timestamp = Date.now();
       const uploadPromises = [];
+      const user = auth.currentUser;
+      if (!user) throw new Error("Authentication required for booking submission");
+      const userUid = user.uid;
+      const submissionId = `booking_kyc_${timestamp}`;
 
       if (formState.idDocument) {
-        const idRef = ref(storage, `ids/${timestamp}_ID_${formState.idDocument.name}`);
+        const idPath = `vetting/${userUid}/${submissionId}/id_${formState.idDocument.name}`;
+        const idRef = ref(storage, idPath);
         uploadPromises.push(uploadBytes(idRef, formState.idDocument).then(async res => idUrl = await getDownloadURL(res.ref)));
       }
       
       if (formState.selfieDocument) {
-        const selfieRef = ref(storage, `ids/${timestamp}_SELFIE_${formState.selfieDocument.name}`);
+        const selfiePath = `vetting/${userUid}/${submissionId}/selfie_${formState.selfieDocument.name}`;
+        const selfieRef = ref(storage, selfiePath);
         uploadPromises.push(uploadBytes(selfieRef, formState.selfieDocument).then(async res => selfieUrl = await getDownloadURL(res.ref)));
       }
 

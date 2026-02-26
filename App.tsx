@@ -41,7 +41,7 @@ const BookingStickyFooter: React.FC<{
           <div className="flex items-center gap-4">
             <div className="flex -space-x-4">
               {performers.slice(0, 5).map(p => (
-                <img key={p.id} src={p.photo_url} alt={p.name} className="h-12 w-12 rounded-full object-cover border-2 border-zinc-800" />
+                <img key={p.id} src={p.photo_url} alt={p.name} loading="lazy" className="h-12 w-12 rounded-full object-cover border-2 border-zinc-800" />
               ))}
             </div>
             <div>
@@ -230,7 +230,6 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setAuthedUser(null);
     localStorage.removeItem('clientEmail');
-    resetDemoData();
     setView('available_now');
   };
 
@@ -635,15 +634,17 @@ const App: React.FC = () => {
                 <Sparkles className="h-16 w-16 text-orange-500 mx-auto mb-6" />
                 <h2 className="text-3xl font-bold text-white mb-4">Database Setup Required</h2>
                 <p className="text-zinc-400 mb-8 text-lg">
-                    It looks like your database is empty. Click the button below to seed it with demo entertainers, bookings, and communications.
+                    It looks like your database is empty.
                 </p>
-                <button 
-                    onClick={() => resetDemoData()}
-                    className="btn-primary !py-4 !px-8 !text-lg flex items-center gap-3 mx-auto shadow-xl shadow-orange-500/20"
-                >
-                    <Database className="h-6 w-6" />
-                    Seed Database
-                </button>
+                {import.meta.env.DEV && (
+                  <button 
+                      onClick={() => resetDemoData()}
+                      className="btn-primary !py-4 !px-8 !text-lg flex items-center gap-3 mx-auto shadow-xl shadow-orange-500/20"
+                  >
+                      <Database className="h-6 w-6" />
+                      Seed Database (DEV ONLY)
+                  </button>
+                )}
             </div>
         );
     }
@@ -872,7 +873,7 @@ const App: React.FC = () => {
             currentRole={authedUser?.role || 'user'}
             onRoleChange={handleRoleChange}
             performers={performers}
-            currentPerformerId={authedUser?.role === 'performer' ? authedUser.id : null}
+            currentPerformerId={(authedUser?.role === 'performer' && authedUser.id) ? authedUser.id : null}
             onPerformerChange={handlePerformerChange}
           />
           {authedUser ? (

@@ -4,6 +4,7 @@ import { sendWhatsApp, sendSms, verifyTwilioSignature } from './twilio';
 import { sendMessage } from './messaging/send';
 import { renderTemplate } from './messaging/templates';
 import { checkAndSetIdempotency } from './utils/idempotency';
+import { GoogleGenAI, Type } from "@google/genai";
 
 // Fix: Declaring Buffer to resolve 'Cannot find name Buffer' error in environments without node types.
 declare const Buffer: any;
@@ -11,6 +12,45 @@ declare const Buffer: any;
 admin.initializeApp();
 const db = admin.firestore();
 const fns = functions as any;
+
+export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: any) => {
+  if (!context.auth) {
+    throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
+  }
+  
+  const isAdminUser = await isAdmin(context.auth.uid);
+  if (!isAdminUser && context.auth.token.admin !== true) {
+    throw new fns.https.HttpsError('permission-denied', 'Only admins can perform risk analysis.');
+  }
+
+  const { bookingDetails } = data;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents: `Evaluate this booking request for risk assessment:\n${JSON.stringify(bookingDetails)}`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            riskLevel: { type: Type.STRING, description: "Low, Medium, or High risk level" },
+            reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
+            vettedStatusRecommendation: { type: Type.STRING },
+            notes: { type: Type.STRING }
+          },
+          required: ["riskLevel", "reasons", "vettedStatusRecommendation"],
+        },
+      },
+    });
+
+    return JSON.parse(response.text?.trim() || "{}");
+  } catch (error) {
+    console.error("Gemini Vetting Error:", error);
+    throw new fns.https.HttpsError('internal', 'Failed to analyze risk.');
+  }
+});
 
 /**
  * Helper: Write Audit Log
@@ -171,11 +211,34 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
   return db.runTransaction(async (transaction: any) => {
     const emailHash = Buffer.from(formState.email.toLowerCase()).toString('hex');
     const blacklistDoc = await transaction.get(db.collection('blacklist').doc(emailHash));
-    if (blacklistDoc.exists) throw new fns.https.HttpsError('permission-denied', 'Client is blacklisted.');
+    if (blacklistDoc.exists) throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
+
+    // DNS Check
+    const normalizedEmail = formState.email.toLowerCase().trim();
+    const normalizedPhone = formState.phone.replace(/\s+/g, '');
+    
+    const dnsEmailQuery = await transaction.get(db.collection('do_not_serve').where('email', '==', normalizedEmail));
+    const dnsPhoneQuery = await transaction.get(db.collection('do_not_serve').where('phone', '==', normalizedPhone));
+    
+    if (!dnsEmailQuery.empty || !dnsPhoneQuery.empty) {
+      throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
+    }
 
     const newBookings: any[] = [];
     for (const pId of performerIds) {
       const slotId = `${pId}_${formState.eventDate}_${formState.eventTime}`;
+      
+      // Slot locking
+      const slotRef = db.collection('booking_slots').doc(slotId);
+      const slotDoc = await transaction.get(slotRef);
+
+      if (slotDoc.exists) {
+        throw new fns.https.HttpsError(
+          'already-exists', 
+          `This time slot is already booked for performer ${pId}.`
+        );
+      }
+
       const bookingRef = db.collection('bookings').doc();
       const bookingData = {
         ...formState,
@@ -185,6 +248,15 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
         created_at: admin.firestore.FieldValue.serverTimestamp(),
       };
       
+      // Reserve the slot atomically
+      transaction.set(slotRef, {
+        bookingId: bookingRef.id,
+        performerId: pId,
+        date: formState.eventDate,
+        time: formState.eventTime,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
       transaction.set(bookingRef, bookingData);
       newBookings.push({ id: bookingRef.id, ...bookingData });
       
@@ -276,6 +348,13 @@ export const onBookingStatusChanged = fns.firestore
     const after = change.after.data();
 
     if (before.status === after.status) return;
+
+    // Cleanup slot lock if booking is rejected or cancelled
+    if (after.status === 'rejected' || after.status === 'DECLINED' || after.status === 'cancelled' || after.status === 'CANCELLED') {
+      if (after.slotLock) {
+        await db.collection('booking_slots').doc(after.slotLock).delete().catch(() => {});
+      }
+    }
 
     const idempotencyKey = `booking_status_${bookingId}_${after.status}`;
     if (!(await checkAndSetIdempotency(idempotencyKey))) return;
