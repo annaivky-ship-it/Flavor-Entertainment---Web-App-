@@ -49,8 +49,8 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
         {/* Rating Badge */}
         <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-white border border-white/10">
           <Star className="w-3.5 h-3.5 text-orange-400 fill-orange-400" />
-          <span>{performer.rating.toFixed(1)}</span>
-          <span className="text-zinc-400 font-normal">({performer.review_count})</span>
+          <span>{(performer.rating || 0).toFixed(1)}</span>
+          <span className="text-zinc-400 font-normal">({performer.review_count || 0})</span>
         </div>
         
         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent"></div>

@@ -55,8 +55,8 @@ const PerformerProfile: React.FC<PerformerProfileProps> = ({ performer, onBack, 
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-white tracking-tight">{performer.name}</h1>
             <div className="flex items-center gap-2 bg-zinc-800/50 px-4 py-2 rounded-xl border border-white/5 self-start sm:self-center">
               <Star className="w-5 h-5 text-orange-400 fill-orange-400" />
-              <span className="text-xl font-bold text-white">{performer.rating.toFixed(1)}</span>
-              <span className="text-zinc-400">({performer.review_count} reviews)</span>
+              <span className="text-xl font-bold text-white">{(performer.rating || 0).toFixed(1)}</span>
+              <span className="text-zinc-400">({performer.review_count || 0} reviews)</span>
             </div>
           </div>
           <p className="text-xl sm:text-2xl text-orange-400 font-medium mb-4">{performer.tagline}</p>

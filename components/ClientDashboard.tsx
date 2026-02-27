@@ -199,7 +199,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                          <div className="bg-zinc-900/50 p-6 flex flex-col justify-between items-center md:items-end md:border-l border-zinc-800 md:min-w-[220px]">
                             <div className="text-center md:text-right mb-4 w-full">
                                <p className="text-zinc-400 text-sm flex items-center md:justify-end gap-1"><Wallet size={14}/> Total Cost</p>
-                               <p className="text-3xl font-bold text-white">${totalCost.toFixed(2)}</p> 
+                               <p className="text-3xl font-bold text-white">${(totalCost || 0).toFixed(2)}</p> 
                             </div>
                             {booking.status !== 'rejected' && (
                                 <button onClick={() => handleOpenChat(booking)} className="btn-primary w-full flex items-center justify-center gap-2 text-sm px-4 py-2 mt-auto">
@@ -278,7 +278,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-sm font-bold text-white text-right">
-                                ${totalCost.toFixed(2)}
+                                ${(totalCost || 0).toFixed(2)}
                               </td>
                             </tr>
                           );

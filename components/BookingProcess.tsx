@@ -416,7 +416,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     if (stage === 'deposit_pending') {
         return (
             <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)}>
-                Booking approved! Pay <strong>${depositAmount.toFixed(2)}</strong> to secure your date.
+                Booking approved! Pay <strong>${(depositAmount || 0).toFixed(2)}</strong> to secure your date.
                 {isPayIdModalOpen && (
                     <PayIDSimulationModal 
                         amount={depositAmount} 

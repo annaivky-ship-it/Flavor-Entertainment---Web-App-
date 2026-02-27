@@ -298,11 +298,11 @@ const App: React.FC = () => {
       const clientMessage = clientMessageMap[status as keyof typeof clientMessageMap];
       if (clientMessage) addCommunication({ sender: 'System', recipient: 'user', message: clientMessage, booking_id: bookingId, type: 'booking_update' });
       
-      if (status === 'deposit_pending') showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />Your application for {booking.event_type} with <strong>{booking.performer?.name}</strong> is approved. Please pay the <strong>${depositAmount.toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
+      if (status === 'deposit_pending') showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />Your application for {booking.event_type} with <strong>{booking.performer?.name}</strong> is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
       
       if (status === 'confirmed') {
-        showPhoneMessage({ for: 'Client', content: <p>✅ <strong>Booking Confirmed!</strong><br/>Your event with <strong>{booking.performer?.name}</strong> is locked in. See you on {new Date(booking.event_date).toLocaleDateString()}!<br/><br/><span className="text-xs">Final balance of <strong>${finalBalance.toFixed(2)}</strong> due in cash on arrival.</span></p> });
-        addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Confirmed! Your event with ${booking.performer?.name} is locked in. Final balance of $${finalBalance.toFixed(2)} due in cash on arrival. See you on ${new Date(booking.event_date).toLocaleDateString()}!`, booking_id: bookingId, type: 'booking_confirmation' });
+        showPhoneMessage({ for: 'Client', content: <p>✅ <strong>Booking Confirmed!</strong><br/>Your event with <strong>{booking.performer?.name}</strong> is locked in. See you on {new Date(booking.event_date).toLocaleDateString()}!<br/><br/><span className="text-xs">Final balance of <strong>${(finalBalance || 0).toFixed(2)}</strong> due in cash on arrival.</span></p> });
+        addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Confirmed! Your event with ${booking.performer?.name} is locked in. Final balance of $${(finalBalance || 0).toFixed(2)} due in cash on arrival. See you on ${new Date(booking.event_date).toLocaleDateString()}!`, booking_id: bookingId, type: 'booking_confirmation' });
         
         setTimeout(() => showPhoneMessage({ for: 'Performer', content: <p>💰 <strong>DEPOSIT PAID!</strong><br />Your booking is confirmed:<br />👤 Client: <strong>{booking.client_name}</strong><br />📞 Phone: {booking.client_phone}<br />📍 Address: {booking.event_address}<br />📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br />👥 Guests: {booking.number_of_guests}<br />{booking.client_message && <><br/>📝 <strong>Note:</strong> "{booking.client_message}"</>}<br/><br/>She's coming in hot 🔥 Get ready!</p>}), 6000);
         setTimeout(() => showPhoneMessage({ for: 'Admin', content: <p>✅ <strong>DEPOSIT CONFIRMED</strong><br/>Booking locked in:<br/>👤 Client: <strong>{booking.client_name}</strong><br/>🍑 Performer: <strong>{booking.performer?.name}</strong><br/>📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br/><br/>Booking ID: #{booking.id.slice(0, 8)}...</p> }), 12000);
@@ -343,6 +343,15 @@ const App: React.FC = () => {
       try {
         const { error: apiError } = await api.updateDoNotServeStatus(entryId, status);
         if (apiError) throw apiError;
+        
+        // Log the admin's decision
+        await api.createAuditLog(
+          `DNS_ENTRY_${status.toUpperCase()}`,
+          String(authedUser?.id || 'admin'),
+          { entryId, clientName: entry.client_name, reason: entry.reason },
+          'admin'
+        );
+
         const message = `The 'Do Not Serve' submission for '${entry.client_name}' submitted by ${entry.performer?.name} has been ${status}.`;
         addCommunication({ sender: 'System', recipient: 'admin', message, type: 'admin_message' });
         if (entry.submitted_by_performer_id !== 0) {
@@ -406,7 +415,7 @@ const App: React.FC = () => {
           addCommunication({ sender: 'System', recipient: 'user', message: `${performerName} has accepted your request!${etaMessagePartUser} As a verified client, you can now proceed to payment.`, booking_id: booking.id, type: 'booking_update' });
           
           const { depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
-          showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />{performerName} has accepted your request!{eta && <><br/>{etaSmsIcon}</>}<br /><br />Your application for {booking.event_type} is approved. Please pay the <strong>${depositAmount.toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
+          showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />{performerName} has accepted your request!{eta && <><br/>{etaSmsIcon}</>}<br /><br />Your application for {booking.event_type} is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
           addCommunication({ sender: 'System', recipient: booking.performer_id, message: `✅ Booking Vetted! The application from ${booking.client_name} for ${new Date(booking.event_date).toLocaleDateString()} has been approved. Awaiting deposit.`, booking_id: booking.id, type: 'booking_update' });
 
         } else {
@@ -509,7 +518,7 @@ const App: React.FC = () => {
             const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested, newBookings!.length);
             showPhoneMessage({
                 for: 'Performer',
-                content: <p>🎭 <strong>New Booking Request!</strong><br />From: <strong>{firstBooking.client_name}</strong><br/>For: {new Date(firstBooking.event_date).toLocaleDateString()}<br/>Event: {firstBooking.event_type}<br/>Guests: {firstBooking.number_of_guests}<br/><br/><strong>Total Value:</strong> ${totalCost.toFixed(2)}<br/><strong>Deposit:</strong> ${depositAmount.toFixed(2)}</p>,
+                content: <p>🎭 <strong>New Booking Request!</strong><br />From: <strong>{firstBooking.client_name}</strong><br/>For: {new Date(firstBooking.event_date).toLocaleDateString()}<br/>Event: {firstBooking.event_type}<br/>Guests: {firstBooking.number_of_guests}<br/><br/><strong>Total Value:</strong> ${(totalCost || 0).toFixed(2)}<br/><strong>Deposit:</strong> ${(depositAmount || 0).toFixed(2)}</p>,
                 actions: [
                     { label: '✅ Accept Booking', onClick: () => handlePerformerBookingDecision(firstBooking.id, 'accepted'), style: 'primary' },
                     { label: '❌ Decline Booking', onClick: () => handlePerformerBookingDecision(firstBooking.id, 'declined'), style: 'secondary' },
