@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
 import { resetDemoData, api } from '../services/api';
 import ChatDialog from './ChatDialog';
@@ -48,7 +48,7 @@ const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
     { value: 'rejected', label: 'Rejected' },
 ];
 
-type AdminTab = 'management' | 'payments' | 'performers' | 'reporting';
+type AdminTab = 'management' | 'payments' | 'performers' | 'dns' | 'reporting';
 
 // Admin Dashboard Component for managing bookings, performers, and reporting
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, doNotServeList, communications, onUpdateBookingStatus, onUpdateDoNotServeStatus, onViewDoNotServe, onAdminDecisionForPerformer, onAdminChangePerformer, onUpdatePerformer, onCreatePerformer }) => {
@@ -321,32 +321,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         <div className="card-base !p-6 flex items-center gap-4"><ShieldAlert className="w-10 h-10 text-yellow-500" /><div><p className="text-zinc-400 text-sm">Pending Actions</p><p className="text-3xl font-bold text-white">{pendingDnsEntries.length + pendingBookings}</p></div></div>
       </div>
 
-
-      {pendingDnsEntries.length > 0 && (
-         <div className="card-base !p-6 !border-yellow-500/50 !bg-yellow-900/20">
-           <h2 className="text-2xl font-semibold text-white mb-4">Pending 'Do Not Serve' Submissions</h2>
-           <div className="space-y-4">
-              {pendingDnsEntries.map(entry => (
-                <div key={entry.id} className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700 flex flex-col md:flex-row justify-between md:items-center gap-4">
-                    <div>
-                        <p className="font-bold text-lg text-white">{entry.client_name}</p>
-                        <p className="text-sm text-zinc-400">Submitted by: <span className="font-semibold text-orange-400">{entry.performer?.name || 'N/A'}</span></p>
-                        <p className="text-sm text-zinc-300 mt-1 italic">Reason: "{entry.reason}"</p>
-                    </div>
-                    <div className="flex-shrink-0 flex items-center gap-2">
-                        <button onClick={() => handleAction('dns-approve', entry.id, () => onUpdateDoNotServeStatus(entry.id, 'approved'))} disabled={loadingState?.id === entry.id} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded flex items-center gap-1 text-xs w-24 justify-center">
-                          {loadingState?.type === 'dns-approve' && loadingState.id === entry.id ? <LoaderCircle size={14} className="animate-spin" /> : <><Check size={14}/> Approve</>}
-                        </button>
-                        <button onClick={() => handleAction('dns-reject', entry.id, () => onUpdateDoNotServeStatus(entry.id, 'rejected'))} disabled={loadingState?.id === entry.id} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded flex items-center gap-1 text-xs w-24 justify-center">
-                          {loadingState?.type === 'dns-reject' && loadingState.id === entry.id ? <LoaderCircle size={14} className="animate-spin" /> : <><X size={14}/> Reject</>}
-                        </button>
-                    </div>
-                </div>
-              ))}
-           </div>
-         </div>
-      )}
-
       {/* Tab Navigation */}
       <div className="border-b border-zinc-800">
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">
@@ -367,6 +341,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
             className={`${activeTab === 'performers' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
             <UserCog size={16}/> Performer Management
+          </button>
+          <button
+            onClick={() => setActiveTab('dns')}
+            className={`${activeTab === 'dns' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+          >
+            <ShieldAlert size={16}/> DNS Management
+            {pendingDnsEntries.length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
+                {pendingDnsEntries.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('reporting')}
@@ -553,7 +538,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                       <h4 className="font-bold text-white">{p.name}</h4>
                       <div className="flex items-center gap-1 text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded border border-white/5">
                         <Star className="w-2.5 h-2.5 text-orange-400 fill-orange-400" />
-                        <span className="text-white font-bold">{p.rating.toFixed(1)}</span>
+                        <span className="text-white font-bold">{(p.rating || 0).toFixed(1)}</span>
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -603,14 +588,118 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         </div>
       )}
 
+      {activeTab === 'dns' && (
+        <div className="space-y-8 animate-fade-in">
+          {pendingDnsEntries.length > 0 && (
+            <div className="card-base !p-6 !border-yellow-500/50 !bg-yellow-900/10">
+              <h2 className="text-2xl font-semibold text-white mb-4">Pending DNS Submissions</h2>
+              <div className="space-y-4">
+                {pendingDnsEntries.map(entry => (
+                  <div key={entry.id} className="bg-zinc-950/50 p-5 rounded-xl border border-zinc-800 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-3">
+                        <p className="font-bold text-xl text-white">{entry.client_name}</p>
+                        <span className="bg-yellow-500/20 text-yellow-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Pending Review</span>
+                      </div>
+                      <p className="text-sm text-zinc-400">
+                        Submitted by: <span className="font-semibold text-orange-400">{entry.performer?.name || 'N/A'}</span>
+                        <span className="mx-2 text-zinc-600">|</span>
+                        {new Date(entry.created_at).toLocaleDateString()}
+                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 mt-2">
+                        {entry.client_email && <span className="flex items-center gap-1"><Mail size={12}/> {entry.client_email}</span>}
+                        {entry.client_phone && <span className="flex items-center gap-1"><Phone size={12}/> {entry.client_phone}</span>}
+                      </div>
+                      <p className="text-sm text-zinc-300 mt-3 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800/50 italic">
+                        "{entry.reason}"
+                      </p>
+                    </div>
+                    <div className="flex flex-row md:flex-col gap-2 flex-shrink-0">
+                      <button 
+                        onClick={() => handleAction('dns-approve', entry.id, () => onUpdateDoNotServeStatus(entry.id, 'approved'))} 
+                        disabled={loadingState?.id === entry.id} 
+                        className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        {loadingState?.type === 'dns-approve' && loadingState.id === entry.id ? <LoaderCircle size={16} className="animate-spin" /> : <><Check size={16}/> Approve Entry</>}
+                      </button>
+                      <button 
+                        onClick={() => handleAction('dns-reject', entry.id, () => onUpdateDoNotServeStatus(entry.id, 'rejected'))} 
+                        disabled={loadingState?.id === entry.id} 
+                        className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        {loadingState?.type === 'dns-reject' && loadingState.id === entry.id ? <LoaderCircle size={16} className="animate-spin" /> : <><X size={16}/> Reject Entry</>}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="card-base !p-6">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+              <h2 className="text-2xl font-semibold text-white">Active 'Do Not Serve' List</h2>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search DNS entries..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="input-base !py-2 !pl-9 !pr-4 !text-sm !w-full sm:!w-64"
+                />
+              </div>
+            </div>
+            <div className="space-y-4">
+              {doNotServeList.filter(e => e.status === 'approved' && (
+                e.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (e.client_email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (e.client_phone || '').toLowerCase().includes(searchTerm.toLowerCase())
+              )).length > 0 ? (
+                doNotServeList.filter(e => e.status === 'approved' && (
+                  e.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  (e.client_email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  (e.client_phone || '').toLowerCase().includes(searchTerm.toLowerCase())
+                )).map(entry => (
+                  <div key={entry.id} className="bg-zinc-900/40 p-4 rounded-lg border border-zinc-800 flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-lg text-white">{entry.client_name}</p>
+                      <div className="flex flex-wrap gap-x-4 text-xs text-zinc-500 mt-1">
+                        {entry.client_email && <span>{entry.client_email}</span>}
+                        {entry.client_phone && <span>{entry.client_phone}</span>}
+                      </div>
+                      <p className="text-sm text-zinc-400 mt-2 italic">"{entry.reason}"</p>
+                      <p className="text-[10px] text-zinc-600 mt-2 uppercase tracking-widest font-bold">Approved on {new Date(entry.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        if (confirm(`Are you sure you want to remove ${entry.client_name} from the DNS list?`)) {
+                          onUpdateDoNotServeStatus(entry.id, 'rejected');
+                        }
+                      }}
+                      className="text-zinc-500 hover:text-red-500 p-2 transition-colors"
+                      title="Remove from DNS"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-zinc-500 text-center py-10">No active DNS entries found.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'reporting' && (
         <div className="card-base !p-6 animate-fade-in">
            <h2 className="text-2xl font-semibold text-white mb-6">Reporting & Analytics</h2>
            {reportingMetrics.confirmedCount > 0 ? (
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><DollarSign className="w-10 h-10 text-green-500" /><div><p className="text-zinc-400 text-sm">Total Revenue</p><p className="text-3xl font-bold text-white">${reportingMetrics.totalRevenue.toFixed(2)}</p></div></div>
-                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><CreditCard className="w-10 h-10 text-orange-500" /><div><p className="text-zinc-400 text-sm">Total Deposits Paid</p><p className="text-3xl font-bold text-white">${reportingMetrics.totalDeposits.toFixed(2)}</p></div></div>
+                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><DollarSign className="w-10 h-10 text-green-500" /><div><p className="text-zinc-400 text-sm">Total Revenue</p><p className="text-3xl font-bold text-white">${(reportingMetrics.totalRevenue || 0).toFixed(2)}</p></div></div>
+                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><CreditCard className="w-10 h-10 text-orange-500" /><div><p className="text-zinc-400 text-sm">Total Deposits Paid</p><p className="text-3xl font-bold text-white">${(reportingMetrics.totalDeposits || 0).toFixed(2)}</p></div></div>
                   <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><CheckCircle className="w-10 h-10 text-blue-500" /><div><p className="text-zinc-400 text-sm">Confirmed Bookings</p><p className="text-3xl font-bold text-white">{reportingMetrics.confirmedCount}</p></div></div>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -798,8 +887,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                                       <div className="text-[10px] text-zinc-500 mt-1">{new Date(booking.event_date).toLocaleDateString()}</div>
                                     </td>
                                     <td className="px-3 py-4 sm:px-6">{booking.performer?.name}</td>
-                                    <td className="px-3 py-4 sm:px-6">${totalCost.toFixed(2)}</td>
-                                    <td className="px-3 py-4 sm:px-6 font-bold text-orange-400">${depositAmount.toFixed(2)}</td>
+                                    <td className="px-3 py-4 sm:px-6">${(totalCost || 0).toFixed(2)}</td>
+                                    <td className="px-3 py-4 sm:px-6 font-bold text-orange-400">${(depositAmount || 0).toFixed(2)}</td>
                                     <td className={`px-3 py-4 sm:px-6 font-semibold ${statusClasses[booking.status]}`}>{paymentStatusText}</td>
                                     <td className="px-3 py-4 sm:px-6">
                                         <div className="flex flex-col gap-2">
