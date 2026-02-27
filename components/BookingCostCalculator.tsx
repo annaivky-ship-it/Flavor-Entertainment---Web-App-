@@ -62,11 +62,11 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
       <div className="space-y-2 text-zinc-300">
         <div className="flex justify-between items-center">
           <span>Total Booking Cost:</span>
-          <span className="font-bold text-2xl text-white">${totalCost.toFixed(2)}</span>
+          <span className="font-bold text-2xl text-white">${(totalCost || 0).toFixed(2)}</span>
         </div>
         <div className="flex justify-between items-center">
           <span>Deposit Due ({DEPOSIT_PERCENTAGE * 100}%):</span>
-          <span className="font-semibold text-xl text-orange-400">${depositAmount.toFixed(2)}</span>
+          <span className="font-semibold text-xl text-orange-400">${(depositAmount || 0).toFixed(2)}</span>
         </div>
       </div>
        {formattedTotalDuration !== 'N/A' && (

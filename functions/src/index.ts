@@ -4,53 +4,12 @@ import { sendWhatsApp, sendSms, verifyTwilioSignature } from './twilio';
 import { sendMessage } from './messaging/send';
 import { renderTemplate } from './messaging/templates';
 import { checkAndSetIdempotency } from './utils/idempotency';
-import { GoogleGenAI, Type } from "@google/genai";
-
 // Fix: Declaring Buffer to resolve 'Cannot find name Buffer' error in environments without node types.
 declare const Buffer: any;
 
 admin.initializeApp();
 const db = admin.firestore();
 const fns = functions as any;
-
-export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: any) => {
-  if (!context.auth) {
-    throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
-  }
-  
-  const isAdminUser = await isAdmin(context.auth.uid);
-  if (!isAdminUser && context.auth.token.admin !== true) {
-    throw new fns.https.HttpsError('permission-denied', 'Only admins can perform risk analysis.');
-  }
-
-  const { bookingDetails } = data;
-
-  try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
-      contents: `Evaluate this booking request for risk assessment:\n${JSON.stringify(bookingDetails)}`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            riskLevel: { type: Type.STRING, description: "Low, Medium, or High risk level" },
-            reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
-            vettedStatusRecommendation: { type: Type.STRING },
-            notes: { type: Type.STRING }
-          },
-          required: ["riskLevel", "reasons", "vettedStatusRecommendation"],
-        },
-      },
-    });
-
-    return JSON.parse(response.text?.trim() || "{}");
-  } catch (error) {
-    console.error("Gemini Vetting Error:", error);
-    throw new fns.https.HttpsError('internal', 'Failed to analyze risk.');
-  }
-});
 
 /**
  * Helper: Write Audit Log

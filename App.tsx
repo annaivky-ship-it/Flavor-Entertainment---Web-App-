@@ -60,9 +60,12 @@ const BookingStickyFooter: React.FC<{
 };
 
 
+const isDemoMode = !import.meta.env.VITE_FIREBASE_API_KEY ||
+                   import.meta.env.VITE_FIREBASE_API_KEY === 'your-api-key-here';
+
 const App: React.FC = () => {
   const [ageVerified, setAgeVerified] = useState(() => {
-    return localStorage.getItem('ageVerified') === 'true';
+    return sessionStorage.getItem('ageVerified') === 'true';
   });
   const [view, setView] = useState<GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq'>('available_now');
   const [bookingOrigin, setBookingOrigin] = useState<GalleryView>('available_now');
@@ -185,7 +188,7 @@ const App: React.FC = () => {
   }, [fetchData]);
 
   const handleAgeVerified = () => {
-    localStorage.setItem('ageVerified', 'true');
+    sessionStorage.setItem('ageVerified', 'true');
     setAgeVerified(true);
   };
   
@@ -911,6 +914,11 @@ const App: React.FC = () => {
           )}
         </div>
       </Header>
+      {isDemoMode && (
+        <div className="bg-orange-500/10 border-b border-orange-500/30 text-center py-2 px-4">
+          <p className="text-sm text-orange-300">⚡ Demo Mode — Connect Firebase to go live</p>
+        </div>
+      )}
       <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
         {renderContent()}
       </main>
