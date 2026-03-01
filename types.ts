@@ -1,6 +1,6 @@
 import type React from 'react';
 
-export type PerformerStatus = 'available' | 'busy' | 'offline';
+export type PerformerStatus = 'available' | 'busy' | 'offline' | 'pending_verification' | 'rejected';
 export type Role = 'user' | 'performer' | 'admin';
 export type ServiceArea = 'Perth North' | 'Perth South' | 'Southwest' | 'Northwest';
 
@@ -10,6 +10,11 @@ export type BookingStatus =
   | 'deposit_pending'
   | 'pending_deposit_confirmation'
   | 'confirmed'
+  | 'en_route'
+  | 'arrived'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
   | 'rejected';
 
 export type VettingStatus = 'draft' | 'pending' | 'approved' | 'rejected';
@@ -39,6 +44,7 @@ export interface Performer {
   status: PerformerStatus;
   rating: number;
   review_count: number;
+  min_booking_duration_hours?: number;
   created_at: string;
 }
 

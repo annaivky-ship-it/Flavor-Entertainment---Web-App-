@@ -36,6 +36,11 @@ const statusClasses: Record<BookingStatus, string> = {
     deposit_pending: 'border-orange-500/50 bg-orange-900/30 text-orange-300',
     pending_deposit_confirmation: 'border-blue-500/50 bg-blue-900/30 text-blue-300',
     confirmed: 'border-green-500/50 bg-green-900/30 text-green-300',
+    en_route: 'border-blue-500/50 bg-blue-900/30 text-blue-300',
+    arrived: 'border-emerald-500/50 bg-emerald-900/30 text-emerald-300',
+    in_progress: 'border-indigo-500/50 bg-indigo-900/30 text-indigo-300',
+    completed: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-300',
+    cancelled: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-400',
     rejected: 'border-red-500/50 bg-red-900/30 text-red-300',
 };
 
@@ -45,6 +50,11 @@ const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
     { value: 'deposit_pending', label: 'Deposit Pending' },
     { value: 'pending_deposit_confirmation', label: 'Pending Deposit Confirmation' },
     { value: 'confirmed', label: 'Confirmed' },
+    { value: 'en_route', label: 'En Route' },
+    { value: 'arrived', label: 'Arrived' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
     { value: 'rejected', label: 'Rejected' },
 ];
 
@@ -243,7 +253,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     performers.forEach(p => performerBookings[p.name] = 0);
 
     confirmedBookings.forEach(booking => {
-      const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+      const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
       totalRevenue += totalCost;
       totalDeposits += depositAmount;
       
@@ -251,7 +261,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         performerBookings[booking.performer.name]++;
       }
       
-      booking.services_requested.forEach(serviceId => {
+      (booking.services_requested || []).forEach(serviceId => {
         const service = allServices.find(s => s.id === serviceId);
         if (service) {
            serviceCategoryCounts[service.category]++;
@@ -322,31 +332,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-zinc-800">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+      <div className="border-b border-zinc-800 overflow-x-auto scrollbar-hide">
+        <nav className="-mb-px flex space-x-8 min-w-max px-2" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('management')}
             className={`${activeTab === 'management' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
-            <CreditCard size={16}/> Booking Management
+            <CreditCard size={16}/> Management
           </button>
           <button
             onClick={() => setActiveTab('payments')}
             className={`${activeTab === 'payments' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
-            <DollarSign size={16}/> Payment Tracking
+            <DollarSign size={16}/> Payments
           </button>
           <button
             onClick={() => setActiveTab('performers')}
             className={`${activeTab === 'performers' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
-            <UserCog size={16}/> Performer Management
+            <UserCog size={16}/> Performers
           </button>
           <button
             onClick={() => setActiveTab('dns')}
             className={`${activeTab === 'dns' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
-            <ShieldAlert size={16}/> DNS Management
+            <ShieldAlert size={16}/> DNS
             {pendingDnsEntries.length > 0 && (
               <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
                 {pendingDnsEntries.length}
@@ -499,6 +509,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     <option value="offline">Offline</option>
                   </select>
                 </div>
+                <div className="space-y-1">
+                  <label className="text-sm text-zinc-400">Min Booking Duration (Hours)</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    step="0.5"
+                    value={performerForm.min_booking_duration_hours || ''} 
+                    onChange={e => setPerformerForm({...performerForm, min_booking_duration_hours: e.target.value ? Number(e.target.value) : undefined})}
+                    className="input-base w-full"
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button 
@@ -529,7 +550,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {performers.map(p => (
+            {performers.filter(p => p.status === 'pending_verification').length > 0 && (
+              <div className="col-span-full mb-6">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <ShieldAlert className="text-yellow-500" />
+                  Pending Verification
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {performers.filter(p => p.status === 'pending_verification').map(p => (
+                    <div key={p.id} className="card-base !p-4 flex flex-col gap-4 border-yellow-500/30 bg-yellow-500/5">
+                      <div className="flex gap-4">
+                        <img src={p.photo_url} alt={p.name} loading="lazy" className="w-20 h-20 rounded-lg object-cover border border-zinc-800" />
+                        <div className="flex-grow">
+                          <h4 className="font-bold text-white">{p.name}</h4>
+                          <p className="text-xs text-zinc-400 line-clamp-2 mt-1">{p.bio}</p>
+                          <div className="mt-2 text-xs text-zinc-500">
+                            <p><strong>Areas:</strong> {p.service_areas.join(', ')}</p>
+                            <p><strong>Services:</strong> {p.service_ids.join(', ')}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <button 
+                          onClick={() => onUpdatePerformer(p.id, { status: 'available' })}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 rounded transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Check size={14} /> Approve
+                        </button>
+                        <button 
+                          onClick={() => onUpdatePerformer(p.id, { status: 'rejected' })}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 rounded transition-colors flex items-center justify-center gap-1"
+                        >
+                          <X size={14} /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="col-span-full">
+              <h3 className="text-xl font-bold text-white mb-4">Active Performers</h3>
+            </div>
+            {performers.filter(p => p.status !== 'pending_verification' && p.status !== 'rejected').map(p => (
               <div key={p.id} className="card-base !p-4 flex gap-4">
                 <img src={p.photo_url} alt={p.name} loading="lazy" className="w-20 h-20 rounded-lg object-cover border border-zinc-800" />
                 <div className="flex-grow">
@@ -806,15 +870,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                            {isLoading && loadingState?.type === 'reject' ? <LoaderCircle size={14} className="animate-spin"/> : <><X size={14}/> Reject</>}
                         </button>
                      )}
-                     {booking.status === 'pending_performer_acceptance' && (
+                     {booking.status !== 'confirmed' && (
                         <div className="flex items-center gap-2 pl-2 border-l border-zinc-600">
                            <p className="text-xs font-semibold text-zinc-300">Admin Override:</p>
-                           <button onClick={() => handleAction('override-accept', booking.id, () => onAdminDecisionForPerformer(booking.id, 'accepted'))} disabled={isLoading} className="text-xs bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
-                             {isLoading && loadingState?.type === 'override-accept' ? <LoaderCircle size={14} className="animate-spin"/> : <><Check size={14}/> Accept for Performer</>}
-                           </button>
-                           <button onClick={() => handleAction('override-decline', booking.id, () => onAdminDecisionForPerformer(booking.id, 'declined'))} disabled={isLoading} className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
-                             {isLoading && loadingState?.type === 'override-decline' ? <LoaderCircle size={14} className="animate-spin"/> : <><X size={14}/> Decline for Performer</>}
-                           </button>
+                           {booking.status !== 'pending_vetting' && booking.status !== 'deposit_pending' && booking.status !== 'pending_deposit_confirmation' && (
+                             <button onClick={() => handleAction('override-accept', booking.id, () => onAdminDecisionForPerformer(booking.id, 'accepted'))} disabled={isLoading} className="text-xs bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
+                               {isLoading && loadingState?.type === 'override-accept' ? <LoaderCircle size={14} className="animate-spin"/> : <><Check size={14}/> Accept for Performer</>}
+                             </button>
+                           )}
+                           {booking.status !== 'rejected' && (
+                             <button onClick={() => handleAction('override-decline', booking.id, () => onAdminDecisionForPerformer(booking.id, 'declined'))} disabled={isLoading} className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
+                               {isLoading && loadingState?.type === 'override-decline' ? <LoaderCircle size={14} className="animate-spin"/> : <><X size={14}/> Decline for Performer</>}
+                             </button>
+                           )}
                         </div>
                      )}
                      <button onClick={() => handleOpenChat(booking)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5">
@@ -822,7 +890,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                      </button>
                 </div>
                  <div className="flex flex-wrap gap-2 items-center">
-                    {booking.status !== 'confirmed' && booking.status !== 'rejected' && (
                        <div className="relative group">
                           <RefreshCcw className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                           <select 
@@ -838,7 +905,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                           </select>
                           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                        </div>
-                    )}
                     {booking.status === 'confirmed' && booking.verified_at && (
                         <div className="text-xs text-green-300/80">
                             Verified by <strong>{booking.verified_by_admin_name}</strong> on {new Date(booking.verified_at).toLocaleDateString()}
@@ -869,7 +935,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     </thead>
                     <tbody>
                         {paymentRelatedBookings.length > 0 ? paymentRelatedBookings.map(booking => {
-                            const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+                            const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
                             const isLoading = loadingState?.id === booking.id;
                             
                             let paymentStatusText = booking.payment_status ? booking.payment_status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Unknown';

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Booking, Communication } from '../types';
-import { Calendar, Clock, User, MessageCircle, MapPin, Wallet, Search, LogOut, Briefcase, LoaderCircle, AlertTriangle, CheckCircle, Archive, History, Info, Settings, Timer } from 'lucide-react';
+import { Calendar, Clock, User, MessageCircle, MapPin, Wallet, Search, LogOut, Briefcase, LoaderCircle, AlertTriangle, CheckCircle, Archive, History, Info, Settings, Timer, Radio, X } from 'lucide-react';
 import ChatDialog from './ChatDialog';
 import { api } from '../services/api';
 import { calculateBookingCost } from '../utils/bookingUtils';
@@ -24,6 +24,11 @@ const statusConfig: Record<Booking['status'], {
   deposit_pending: { color: 'text-orange-400', borderColor: 'border-orange-500', Icon: Wallet, title: "Action Required: Pay Deposit", description: "Your booking is approved! Please pay the deposit to confirm your spot." },
   pending_deposit_confirmation: { color: 'text-blue-400', borderColor: 'border-blue-500', Icon: LoaderCircle, title: "Confirming Deposit", description: "We've received your payment confirmation and our team is verifying it." },
   confirmed: { color: 'text-green-400', borderColor: 'border-green-500', Icon: CheckCircle, title: "Booking Confirmed!", description: "You're all set! The performer is booked for your event." },
+  en_route: { color: 'text-blue-400', borderColor: 'border-blue-500', Icon: Timer, title: "Performer En Route", description: "The performer is on their way to your location!" },
+  arrived: { color: 'text-emerald-400', borderColor: 'border-emerald-500', Icon: MapPin, title: "Performer Arrived", description: "The performer has arrived at the venue." },
+  in_progress: { color: 'text-indigo-400', borderColor: 'border-indigo-500', Icon: Radio, title: "In Progress", description: "The performance is currently taking place." },
+  completed: { color: 'text-zinc-400', borderColor: 'border-zinc-500', Icon: Archive, title: "Completed", description: "This booking has been successfully completed." },
+  cancelled: { color: 'text-zinc-500', borderColor: 'border-zinc-600', Icon: X, title: "Cancelled", description: "This booking has been cancelled." },
   rejected: { color: 'text-red-400', borderColor: 'border-red-500', Icon: AlertTriangle, title: "Booking Rejected", description: "Unfortunately, this booking could not be completed at this time." },
 };
 
@@ -169,7 +174,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3"><Icon className="text-orange-400" /> {title}</h2>
             <div className="grid gap-6">
                 {bookings.map(booking => {
-                    const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+                    const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
                     const config = statusConfig[booking.status];
                     return (
                       <div key={booking.id} className={`card-base !p-0 overflow-hidden flex flex-col md:flex-row border-l-4 ${config.borderColor}`}>
@@ -219,17 +224,17 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
     <div className="animate-fade-in space-y-12">
        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-white">My Bookings</h1>
-          <p className="text-zinc-400">Viewing bookings for: <strong className="text-white">{clientEmail}</strong></p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white">My Bookings</h1>
+          <p className="text-sm sm:text-base text-zinc-400">Viewing bookings for: <strong className="text-white">{clientEmail}</strong></p>
         </div>
-        <div className="flex items-center gap-2">
-            <button onClick={onShowSettings} className="bg-zinc-800 hover:bg-zinc-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg transition-colors">
+        <div className="flex flex-wrap items-center gap-2">
+            <button onClick={onShowSettings} className="flex-1 sm:flex-none bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center gap-2 text-xs sm:text-sm px-4 py-2 rounded-lg transition-colors">
                 <Settings className="h-4 w-4" />
                 Settings
             </button>
-            <button onClick={handleLogout} className="bg-zinc-800 hover:bg-zinc-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg transition-colors">
+            <button onClick={handleLogout} className="flex-1 sm:flex-none bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center gap-2 text-xs sm:text-sm px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
                 <LogOut className="h-4 w-4" />
-                Not you? Change email
+                Change email
             </button>
         </div>
       </div>
@@ -258,7 +263,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                       </thead>
                       <tbody className="divide-y divide-zinc-800/50">
                         {bookingGroups.past.map(booking => {
-                          const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+                          const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
                           const config = statusConfig[booking.status];
                           return (
                             <tr key={booking.id} className="hover:bg-zinc-800/30 transition-colors">

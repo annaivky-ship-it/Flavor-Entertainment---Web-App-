@@ -4,17 +4,19 @@ import { db } from '../services/firebaseClient';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
 import { DEPOSIT_PERCENTAGE } from '../constants';
-import { getBookingDurationInfo } from '../utils/bookingUtils';
+import { getBookingDurationInfo, calculateBookingCost } from '../utils/bookingUtils';
 import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
+import FrankieOneVerification from './FrankieOneVerification';
 import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, UploadCloud, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, FileText, LoaderCircle, Users as UsersIcon, Shield, Camera, Wallet, Briefcase } from 'lucide-react';
 
 export interface BookingFormState {
   fullName: string;
   email: string;
   mobile: string;
+  dob: string;
   eventDate: string;
   eventTime: string;
   eventAddress: string;
@@ -171,13 +173,15 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const [form, setForm] = useState<BookingFormState>({
-        fullName: '', email: '', mobile: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, idDocument: null, selfieDocument: null, client_message: ''
+        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, idDocument: null, selfieDocument: null, client_message: ''
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [agreedTerms, setAgreedTerms] = useState(false);
     const [isVerifiedBooker, setIsVerifiedBooker] = useState(false);
+    const [isFrankieOneVerified, setIsFrankieOneVerified] = useState(false);
+    const [showFrankieOneModal, setShowFrankieOneModal] = useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
     const [isPayIdModalOpen, setIsPayIdModalOpen] = useState(false);
 
@@ -279,26 +283,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     }, [availableServices]);
 
     const { totalCost, depositAmount } = useMemo(() => {
-        if (form.selectedServices.length === 0 || performers.length === 0) return { totalCost: 0, depositAmount: 0 };
-        
-        const durationNum = Number(form.duration) || 0;
-        let hourlyCost = 0;
-        let flatCost = 0;
-
-        form.selectedServices.forEach(serviceId => {
-            const service = allServices.find(s => s.id === serviceId);
-            if (!service) return;
-
-            if (service.rate_type === 'flat') {
-                flatCost += service.rate;
-            } else if (service.rate_type === 'per_hour') {
-                const hours = Math.max(durationNum, service.min_duration_hours || 0);
-                hourlyCost += service.rate * hours;
-            }
-        });
-        
-        const calculatedTotal = (hourlyCost * performers.length) + flatCost;
-        return { totalCost: calculatedTotal, depositAmount: calculatedTotal * DEPOSIT_PERCENTAGE };
+        return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length);
     }, [form.selectedServices, form.duration, performers.length]);
     
     const { formattedTotalDuration } = useMemo(() => getBookingDurationInfo(Number(form.duration), form.selectedServices), [form.duration, form.selectedServices]);
@@ -313,6 +298,20 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email format.";
                 if (!form.mobile.trim()) errors.mobile = "Mobile number is required.";
                 else if (!/^(\+614|04)\d{8}$/.test(form.mobile.replace(/\s+/g, ''))) errors.mobile = "Invalid AU mobile number.";
+                if (!form.dob) {
+                    errors.dob = "Date of birth is required.";
+                } else {
+                    const birthDate = new Date(form.dob);
+                    const today = new Date();
+                    let age = today.getFullYear() - birthDate.getFullYear();
+                    const m = today.getMonth() - birthDate.getMonth();
+                    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                        age--;
+                    }
+                    if (age < 18) {
+                        errors.dob = "You must be at least 18 years old.";
+                    }
+                }
                 break;
             case 2:
                 if (!form.eventDate) errors.eventDate = "Date required.";
@@ -326,8 +325,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 break;
             case 4:
                 if (!isVerifiedBooker) {
-                    if (!form.idDocument) errors.idDocument = "Government ID required.";
-                    if (!form.selfieDocument) errors.selfieDocument = "Selfie with ID required.";
+                    if (!isFrankieOneVerified) errors.frankieOne = "Identity verification is required.";
                     if (!agreedTerms) errors.agreedTerms = "Agreement required.";
                 }
                 break;
@@ -456,127 +454,234 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
             <ProgressIndicator currentStep={currentStep} />
 
-            <div className="card-base !p-6 sm:!p-10 shadow-2xl border-zinc-800/50">
-                <ErrorDisplay message={error} />
-                
-                {currentStep === 1 && (
-                    <div className="space-y-6 animate-fade-in">
-                        <div><h2 className="text-2xl font-bold text-white mb-2">Client Details</h2><p className="text-zinc-400">Match these to your identification documents.</p></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <InputField icon={<User />} label="Legal Full Name" name="fullName" value={form.fullName} onChange={handleChange} required error={fieldErrors.fullName} />
-                            <InputField icon={<Mail />} label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} required error={fieldErrors.email} />
-                            <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} />
-                        </div>
-                        {isVerifiedBooker && <div className="p-4 bg-green-900/20 border border-green-500/50 rounded-lg flex items-center gap-3"><CheckCircle className="text-green-400" /> <p className="text-sm text-green-200">Verified Trusted Client detected. Verification skipped.</p></div>}
-                    </div>
-                )}
-
-                {currentStep === 2 && (
-                    <div className="space-y-6 animate-fade-in">
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <InputField icon={<Calendar />} label="Event Date" type="date" name="eventDate" min={todayStr} value={form.eventDate} onChange={handleChange} required error={fieldErrors.eventDate} />
-                            <InputField icon={<Clock />} label="Start Time" type="time" name="eventTime" value={form.eventTime} onChange={handleChange} required error={fieldErrors.eventTime} />
-                            <div className="relative">
-                                <label className="block text-sm font-medium text-zinc-400 mb-1">Duration (Hours)</label>
-                                <select name="duration" value={form.duration} onChange={handleChange} className="input-base !pl-12 appearance-none">
-                                    {[1, 1.5, 2, 2.5, 3, 4, 5, 6].map(h => <option key={h} value={h}>{h} Hour{h !== 1 ? 's' : ''}</option>)}
-                                </select>
-                                <Clock className="absolute left-4 top-9 h-5 w-5 text-zinc-500" />
-                                <ChevronDown className="absolute right-4 top-9 h-5 w-5 text-zinc-500 pointer-events-none" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                    <div className="card-base !p-6 sm:!p-10 shadow-2xl border-zinc-800/50">
+                        <ErrorDisplay message={error} />
+                        
+                        {currentStep === 1 && (
+                            <div className="space-y-6 animate-fade-in">
+                                <div><h2 className="text-2xl font-bold text-white mb-2">Client Details</h2><p className="text-zinc-400">Match these to your identification documents.</p></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField icon={<User />} label="Legal Full Name" name="fullName" value={form.fullName} onChange={handleChange} required error={fieldErrors.fullName} />
+                                    <InputField icon={<Mail />} label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} required error={fieldErrors.email} />
+                                    <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} />
+                                    <InputField icon={<Calendar />} label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} required error={fieldErrors.dob} />
+                                </div>
+                                {isVerifiedBooker && <div className="p-4 bg-green-900/20 border border-green-500/50 rounded-lg flex items-center gap-3"><CheckCircle className="text-green-400" /> <p className="text-sm text-green-200">Verified Trusted Client detected. Verification skipped.</p></div>}
                             </div>
-                            <InputField icon={<UsersIcon />} label="Guest Count" type="number" name="numberOfGuests" value={form.numberOfGuests} onChange={handleChange} required error={fieldErrors.numberOfGuests} />
-                            <InputField icon={<MapPin />} label="Event Address" name="eventAddress" value={form.eventAddress} onChange={handleChange} required error={fieldErrors.eventAddress} />
-                            <div className="relative">
-                                <label className="block text-sm font-medium text-zinc-400 mb-1">Event Type</label>
-                                <select name="eventType" value={form.eventType} onChange={handleChange} className="input-base !pl-12 appearance-none">
-                                    <option value="" disabled>Select event type</option>
-                                    {eventTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                                </select>
-                                <PartyPopper className="absolute left-4 top-9 h-5 w-5 text-zinc-500" />
-                                <ChevronDown className="absolute right-4 top-9 h-5 w-5 text-zinc-500 pointer-events-none" />
-                            </div>
-                        </div>
-                    </div>
-                )}
+                        )}
 
-                {currentStep === 3 && (
-                    <div className="space-y-6 animate-fade-in">
-                        <div className="space-y-8">
-                             {/* Fix: Explicitly cast Object.entries to entries of Service arrays to avoid 'unknown' type mapping errors. */}
-                             {(Object.entries(servicesByCategory) as [string, Service[]][]).map(([category, services]) => (
-                                <div key={category}>
-                                    <h3 className="text-lg font-semibold text-orange-400 mb-4 flex items-center gap-2"><Briefcase size={18}/> {category}</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {services.map(service => {
-                                            const isSelected = form.selectedServices.includes(service.id);
-                                            return (
-                                                <div key={service.id} onClick={() => handleServiceChange(service.id)} className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center group ${isSelected ? 'bg-orange-500/10 border-orange-500' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'}`}>
-                                                    <div className="flex-1">
-                                                        <p className={`font-bold ${isSelected ? 'text-orange-400' : 'text-zinc-200'}`}>{service.name}</p>
-                                                        <p className="text-xs text-zinc-500">{service.description}</p>
-                                                    </div>
-                                                    <div className="ml-4 text-right">
-                                                         <span className="text-sm font-bold block text-zinc-300">${service.rate}{service.rate_type === 'per_hour' ? '/hr' : ''}</span>
-                                                         {isSelected && <CheckCircle size={18} className="text-orange-400 inline mt-1" />}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                        {currentStep === 2 && (
+                            <div className="space-y-6 animate-fade-in">
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField icon={<Calendar />} label="Event Date" type="date" name="eventDate" min={todayStr} value={form.eventDate} onChange={handleChange} required error={fieldErrors.eventDate} />
+                                    <InputField icon={<Clock />} label="Start Time" type="time" name="eventTime" value={form.eventTime} onChange={handleChange} required error={fieldErrors.eventTime} />
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-400 mb-1">Duration (Hours)</label>
+                                        <div className="relative">
+                                            <select name="duration" value={form.duration} onChange={handleChange} className="input-base !pl-12 appearance-none">
+                                                {[1, 1.5, 2, 2.5, 3, 4, 5, 6].map(h => <option key={h} value={h}>{h} Hour{h !== 1 ? 's' : ''}</option>)}
+                                            </select>
+                                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                    <InputField icon={<UsersIcon />} label="Guest Count" type="number" name="numberOfGuests" value={form.numberOfGuests} onChange={handleChange} required error={fieldErrors.numberOfGuests} />
+                                    <InputField icon={<MapPin />} label="Event Address" name="eventAddress" value={form.eventAddress} onChange={handleChange} required error={fieldErrors.eventAddress} />
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-400 mb-1">Event Type</label>
+                                        <div className="relative">
+                                            <select name="eventType" value={form.eventType} onChange={handleChange} className="input-base !pl-12 appearance-none">
+                                                <option value="" disabled>Select event type</option>
+                                                {eventTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                                            </select>
+                                            <PartyPopper className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                        </div>
                                     </div>
                                 </div>
-                             ))}
+                            </div>
+                        )}
+
+                        {currentStep === 3 && (
+                            <div className="space-y-6 animate-fade-in">
+                                <div className="space-y-8">
+                                     {(Object.entries(servicesByCategory) as [string, Service[]][]).map(([category, services]) => (
+                                        <div key={category}>
+                                            <h3 className="text-lg font-semibold text-orange-400 mb-4 flex items-center gap-2"><Briefcase size={18}/> {category}</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {services.map(service => {
+                                                    const isSelected = form.selectedServices.includes(service.id);
+                                                    return (
+                                                        <div key={service.id} onClick={() => handleServiceChange(service.id)} className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center group ${isSelected ? 'bg-orange-500/10 border-orange-500' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'}`}>
+                                                            <div className="flex-1">
+                                                                <p className={`font-bold ${isSelected ? 'text-orange-400' : 'text-zinc-200'}`}>{service.name}</p>
+                                                                <p className="text-xs text-zinc-500">{service.description}</p>
+                                                            </div>
+                                                            <div className="ml-4 text-right flex flex-col items-end gap-1">
+                                                                 <span className="text-sm font-bold block text-zinc-300">${service.rate}{service.rate_type === 'per_hour' ? '/hr' : ''}</span>
+                                                                 {(service.duration_minutes || service.min_duration_hours) && (
+                                                                   <span className="text-xs text-zinc-500 font-medium">
+                                                                     {service.duration_minutes ? `${service.duration_minutes} mins` : `Min ${service.min_duration_hours} hr${service.min_duration_hours! > 1 ? 's' : ''}`}
+                                                                   </span>
+                                                                 )}
+                                                                 {isSelected && <CheckCircle size={18} className="text-orange-400 inline mt-1" />}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                     ))}
+                                </div>
+                                <div className="mt-8"><label className="block text-sm font-medium text-zinc-400 mb-2">Special Notes (Optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-24 resize-none" /></div>
+                            </div>
+                        )}
+
+                        {currentStep === 4 && (
+                            <div className="space-y-8 animate-fade-in">
+                                <div className="mb-6"><h2 className="text-2xl font-bold text-white mb-2">Safety Verification</h2><p className="text-zinc-400">To protect our performers, we require all new clients to verify their identity.</p></div>
+                                {isVerifiedBooker ? (
+                                   <div className="p-8 bg-green-900/20 border border-green-500/50 rounded-2xl text-center space-y-4"><CheckCircle className="h-16 w-16 text-green-500 mx-auto" /><h3 className="text-2xl font-bold text-white">Verified Trust Status</h3><p className="text-green-200">You are pre-cleared for this booking. Proceed to confirmation.</p></div>
+                                ) : (
+                                   <div className="space-y-6">
+                                        <div className="p-4 bg-blue-950/40 border border-blue-500/50 rounded-xl flex items-start gap-4">
+                                            <Shield className="h-6 w-6 text-blue-400 mt-1 flex-shrink-0" />
+                                            <div>
+                                                <h4 className="font-bold text-blue-300">Identity Verification Required</h4>
+                                                <p className="text-sm text-blue-200/80 leading-relaxed mt-1">
+                                                    We use FrankieOne to securely verify your identity. This process is quick and ensures the safety of our performers.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-zinc-700 rounded-2xl bg-zinc-900/50">
+                                            {isFrankieOneVerified ? (
+                                                <div className="text-center animate-fade-in">
+                                                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                                                    <h3 className="text-xl font-bold text-white mb-2">Identity Verified</h3>
+                                                    <p className="text-zinc-400">Your identity has been successfully verified via FrankieOne.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center">
+                                                    <ShieldCheck className="h-16 w-16 text-zinc-600 mx-auto mb-4" />
+                                                    <h3 className="text-xl font-bold text-white mb-4">Verify Your Identity</h3>
+                                                    <button
+                                                        onClick={() => setShowFrankieOneModal(true)}
+                                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2 mx-auto"
+                                                    >
+                                                        <Shield size={20} />
+                                                        Verify with FrankieOne
+                                                    </button>
+                                                    {fieldErrors.frankieOne && (
+                                                        <p className="text-red-400 text-sm mt-4 font-medium animate-slide-in-up">
+                                                            {fieldErrors.frankieOne}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-4 pt-6 border-t border-zinc-800">
+                                             <label className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-700 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors">
+                                                <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-6 w-6 rounded border-zinc-700 bg-zinc-900 text-orange-500 focus:ring-orange-500" />
+                                                <span className="text-sm text-zinc-300">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-orange-400 underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-orange-400 underline">Privacy Policy</a>. I am 18+.</span>
+                                            </label>
+                                            {fieldErrors.agreedTerms && <p className="text-xs text-red-400 font-medium pl-1">Agreement required.</p>}
+                                        </div>
+                                   </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                            <div className="text-sm text-zinc-500">Step {currentStep} of 4</div>
+                            <div className="flex gap-4 w-full sm:w-auto">
+                                <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-lg transition-colors">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
+                                <button onClick={handleNext} disabled={isSubmitting} className="flex-1 sm:flex-none btn-primary px-8 py-3 flex items-center justify-center gap-2">
+                                    {isSubmitting ? <LoaderCircle className="animate-spin" /> : currentStep === 4 ? <Send size={18} /> : null}
+                                    {isSubmitting ? 'Processing...' : currentStep === 4 ? 'Review Request' : 'Continue'}
+                                </button>
+                            </div>
                         </div>
-                        <div className="mt-8"><label className="block text-sm font-medium text-zinc-400 mb-2">Special Notes (Optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-24 resize-none" /></div>
+                    </div>
+                </div>
+
+                <div className="lg:col-span-1 space-y-6">
+                    <div className="sticky top-8">
                         <BookingCostCalculator 
                             selectedServices={form.selectedServices} 
                             durationHours={Number(form.duration)} 
                             performers={performers} 
-                            className="mt-8" 
-                            onClearAll={handleClearAll}
+                            onClearAll={currentStep === 3 ? handleClearAll : undefined}
                         />
-                    </div>
-                )}
-
-                {currentStep === 4 && (
-                    <div className="space-y-8 animate-fade-in">
-                        <div className="mb-6"><h2 className="text-2xl font-bold text-white mb-2">Safety Verification</h2><p className="text-zinc-400">To protect our performers, we require all new clients to verify their identity.</p></div>
-                        {isVerifiedBooker ? (
-                           <div className="p-8 bg-green-900/20 border border-green-500/50 rounded-2xl text-center space-y-4"><CheckCircle className="h-16 w-16 text-green-500 mx-auto" /><h3 className="text-2xl font-bold text-white">Verified Trust Status</h3><p className="text-green-200">You are pre-cleared for this booking. Proceed to confirmation.</p></div>
-                        ) : (
-                           <div className="space-y-6">
-                                <div className="p-4 bg-orange-950/40 border border-orange-500/50 rounded-xl flex items-start gap-4">
-                                    <AlertTriangle className="h-6 w-6 text-orange-400 mt-1 flex-shrink-0" />
-                                    <div><h4 className="font-bold text-orange-300">Important: Submission Requirements</h4><p className="text-sm text-orange-200/80 leading-relaxed mt-1">Please provide <strong>two photos</strong>. One clear photo of your ID, and one "Verification Selfie" of you holding the same ID. <strong>Failure to provide both clearly will result in automatic rejection.</strong></p></div>
+                        
+                        {currentStep > 1 && (
+                            <div className="card-base mt-6 !p-6 !bg-zinc-900/50 border-zinc-800/50 animate-fade-in">
+                                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                    <Info size={18} className="text-orange-400" /> Booking Summary
+                                </h3>
+                                <div className="space-y-3 text-sm">
+                                    {form.eventDate && (
+                                        <div className="flex justify-between">
+                                            <span className="text-zinc-500">Date:</span>
+                                            <span className="text-zinc-200">{new Date(form.eventDate).toLocaleDateString()}</span>
+                                        </div>
+                                    )}
+                                    {form.eventTime && (
+                                        <div className="flex justify-between">
+                                            <span className="text-zinc-500">Time:</span>
+                                            <span className="text-zinc-200">{form.eventTime}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between">
+                                        <span className="text-zinc-500">Duration:</span>
+                                        <span className="text-zinc-200">{form.duration} Hours</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-zinc-500">Performers:</span>
+                                        <span className="text-zinc-200">{performers.length}</span>
+                                    </div>
+                                    {form.selectedServices.length > 0 && (
+                                        <div className="pt-2 border-t border-zinc-800">
+                                            <span className="text-zinc-500 block mb-1">Services:</span>
+                                            <div className="flex flex-wrap gap-1">
+                                                {form.selectedServices.map(id => {
+                                                    const s = allServices.find(srv => srv.id === id);
+                                                    return s ? (
+                                                        <span key={id} className="px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded text-[10px] border border-zinc-700">
+                                                            {s.name}
+                                                        </span>
+                                                    ) : null;
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex flex-wrap gap-6">
-                                    <FileUploadField id="id-doc" label="1. Government Issued ID" accept="image/*" file={form.idDocument} setFile={(f) => setForm(prev => ({...prev, idDocument: f}))} error={fieldErrors.idDocument} icon={<FileText size={40} className="text-zinc-500" />} />
-                                    <FileUploadField id="selfie-doc" label="2. Selfie Holding ID" accept="image/*" file={form.selfieDocument} setFile={(f) => setForm(prev => ({...prev, selfieDocument: f}))} error={fieldErrors.selfieDocument} icon={<Camera size={40} className="text-zinc-500" />} />
-                                </div>
-                                <div className="space-y-4 pt-6 border-t border-zinc-800">
-                                     <label className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-700 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors">
-                                        <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-6 w-6 rounded border-zinc-700 bg-zinc-900 text-orange-500 focus:ring-orange-500" />
-                                        <span className="text-sm text-zinc-300">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-orange-400 underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-orange-400 underline">Privacy Policy</a>. I am 18+.</span>
-                                    </label>
-                                    {fieldErrors.agreedTerms && <p className="text-xs text-red-400 font-medium pl-1">Agreement required.</p>}
-                                </div>
-                           </div>
+                            </div>
                         )}
-                    </div>
-                )}
-
-                <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                    <div className="text-sm text-zinc-500">Step {currentStep} of 4</div>
-                    <div className="flex gap-4 w-full sm:w-auto">
-                        <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-lg transition-colors">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
-                        <button onClick={handleNext} disabled={isSubmitting} className="flex-1 sm:flex-none btn-primary px-8 py-3 flex items-center justify-center gap-2">
-                            {isSubmitting ? <LoaderCircle className="animate-spin" /> : currentStep === 4 ? <Send size={18} /> : null}
-                            {isSubmitting ? 'Processing...' : currentStep === 4 ? 'Review Request' : 'Continue'}
-                        </button>
                     </div>
                 </div>
             </div>
 
             <BookingConfirmationDialog isOpen={isConfirmDialogOpen} onClose={() => setIsConfirmDialogOpen(false)} onConfirm={handleFinalSubmission} isLoading={isSubmitting} bookingDetails={{ performers, eventDate: form.eventDate, eventTime: form.eventTime, eventAddress: form.eventAddress, selectedServices: form.selectedServices.map(id => allServices.find(s => s.id === id)?.name || id), eventDuration: formattedTotalDuration, totalCost, depositAmount }} />
+            
+            {showFrankieOneModal && (
+                <FrankieOneVerification 
+                    clientName={form.fullName || 'Guest'}
+                    onSuccess={() => {
+                        setIsFrankieOneVerified(true);
+                        setShowFrankieOneModal(false);
+                        setFieldErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors.frankieOne;
+                            return newErrors;
+                        });
+                    }}
+                    onCancel={() => setShowFrankieOneModal(false)}
+                />
+            )}
         </div>
     );
 };

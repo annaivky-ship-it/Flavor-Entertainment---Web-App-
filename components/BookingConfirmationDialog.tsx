@@ -59,11 +59,11 @@ const BookingConfirmationDialog: React.FC<BookingConfirmationDialogProps> = ({
                  <div className="space-y-2 text-zinc-300">
                     <div className="flex justify-between items-center">
                         <span>Total Booking Cost:</span>
-                        <span className="font-bold text-2xl text-white">${bookingDetails.totalCost.toFixed(2)}</span>
+                        <span className="font-bold text-2xl text-white">${(bookingDetails.totalCost || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                         <span>Deposit Due ({DEPOSIT_PERCENTAGE * 100}%):</span>
-                        <span className="font-semibold text-xl text-orange-400">${bookingDetails.depositAmount.toFixed(2)}</span>
+                        <span className="font-semibold text-xl text-orange-400">${(bookingDetails.depositAmount || 0).toFixed(2)}</span>
                     </div>
                  </div>
             </div>
