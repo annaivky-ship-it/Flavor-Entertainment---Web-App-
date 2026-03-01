@@ -19,6 +19,7 @@ import UserSettings from './components/UserSettings';
 import PresentationVideo from './components/PresentationVideo';
 import RoleSwitcher from './components/RoleSwitcher';
 import FAQ from './components/FAQ';
+import PerformerOnboarding from './components/PerformerOnboarding';
 import { api, resetDemoData } from './services/api';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
@@ -35,23 +36,29 @@ const BookingStickyFooter: React.FC<{
   if (performers.length === 0) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-black/50 backdrop-blur-lg z-40 animate-slide-in-up">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="flex -space-x-4">
-              {performers.slice(0, 5).map(p => (
-                <img key={p.id} src={p.photo_url} alt={p.name} loading="lazy" className="h-12 w-12 rounded-full object-cover border-2 border-zinc-800" />
+    <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl z-40 animate-slide-in-up border-t border-white/10">
+      <div className="container mx-auto px-4 py-3 sm:py-4">
+        <div className="flex justify-between items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+            <div className="flex -space-x-3 sm:-space-x-4 flex-shrink-0">
+              {performers.slice(0, 3).map(p => (
+                <img key={p.id} src={p.photo_url} alt={p.name} loading="lazy" className="h-10 w-10 sm:h-12 sm:h-12 rounded-full object-cover border-2 border-zinc-900 shadow-lg" />
               ))}
+              {performers.length > 3 && (
+                <div className="h-10 w-10 sm:h-12 sm:h-12 rounded-full bg-zinc-800 border-2 border-zinc-900 flex items-center justify-center text-[10px] sm:text-xs font-bold text-white">
+                  +{performers.length - 3}
+                </div>
+              )}
             </div>
-            <div>
-              <p className="font-semibold text-white">{performers.length} Performer{performers.length > 1 ? 's' : ''} Selected</p>
-              <p className="text-sm text-zinc-400">Ready to proceed to booking?</p>
+            <div className="min-w-0">
+              <p className="font-bold text-white text-sm sm:text-base truncate">{performers.length} Selected</p>
+              <p className="text-[10px] sm:text-sm text-zinc-400 truncate hidden xs:block">Ready to book?</p>
             </div>
           </div>
-          <button onClick={onProceed} className="btn-primary flex items-center gap-2 !py-3 !px-6 !text-base">
-            <ShoppingCart className="h-5 w-5" />
-            Proceed to Book
+          <button onClick={onProceed} className="btn-primary flex items-center gap-2 !py-2.5 sm:!py-3 !px-4 sm:!px-6 !text-sm sm:!text-base whitespace-nowrap flex-shrink-0">
+            <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="hidden xs:inline">Proceed to Book</span>
+            <span className="xs:hidden">Book</span>
           </button>
         </div>
       </div>
@@ -64,7 +71,7 @@ const App: React.FC = () => {
   const [ageVerified, setAgeVerified] = useState(() => {
     return localStorage.getItem('ageVerified') === 'true';
   });
-  const [view, setView] = useState<GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq'>('available_now');
+  const [view, setView] = useState<GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq' | 'performer_onboarding'>('available_now');
   const [bookingOrigin, setBookingOrigin] = useState<GalleryView>('available_now');
   const [viewedPerformer, setViewedPerformer] = useState<Performer | null>(null);
   const [selectedForBooking, setSelectedForBooking] = useState<Performer[]>([]);
@@ -90,6 +97,18 @@ const App: React.FC = () => {
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState<PerformerStatus | ''>('');
+  const [showDemoBanner, setShowDemoBanner] = useState(true);
+  const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' }[]>([]);
+
+  const prevBookingsRef = React.useRef<Booking[]>([]);
+
+  const addNotification = useCallback((message: string, type: 'info' | 'success' | 'warning' = 'info') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setNotifications(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
+  }, []);
 
   const uniqueCategories = useMemo(() => {
     return Array.from(new Set(allServices.map(s => s.category)));
@@ -179,6 +198,73 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const unsubscribeBookings = api.subscribeToBookings((newBookings) => {
+      // Check for status changes to notify
+      if (prevBookingsRef.current.length > 0) {
+        newBookings.forEach(newB => {
+          const oldB = prevBookingsRef.current.find(b => b.id === newB.id);
+          if (oldB && oldB.status !== newB.status) {
+            // Status changed!
+            const statusLabels: Record<BookingStatus, string> = {
+              pending_performer_acceptance: 'Pending Acceptance',
+              pending_vetting: 'Pending Vetting',
+              deposit_pending: 'Deposit Pending',
+              pending_deposit_confirmation: 'Confirming Deposit',
+              confirmed: 'Confirmed',
+              en_route: 'Performer En Route',
+              arrived: 'Performer Arrived',
+              in_progress: 'In Progress',
+              completed: 'Completed',
+              cancelled: 'Cancelled',
+              rejected: 'Rejected'
+            };
+            
+            const message = `Booking #${newB.id.slice(0, 8)} status updated to ${statusLabels[newB.status] || newB.status}`;
+            addNotification(message, newB.status === 'confirmed' ? 'success' : 'info');
+            
+            // Also show phone message for demo feel
+            showPhoneMessage({
+              for: authedUser?.role === 'performer' ? 'Performer' : authedUser?.role === 'admin' ? 'Admin' : 'Client',
+              content: (
+                <div className="space-y-1">
+                  <p className="font-bold text-zinc-900">Booking Update</p>
+                  <p className="text-sm text-zinc-600">{message}</p>
+                </div>
+              )
+            });
+          }
+        });
+      }
+      prevBookingsRef.current = newBookings;
+      setBookings(newBookings);
+    });
+
+    const unsubscribeComms = api.subscribeToCommunications((newComms) => {
+      setCommunications(newComms);
+    });
+
+    const unsubscribePerformers = api.subscribeToPerformers((newPerformers) => {
+      setPerformers(newPerformers);
+    });
+
+    const unsubscribeDNS = api.subscribeToDoNotServe((newEntries) => {
+      setDoNotServeList(newEntries);
+    });
+
+    const unsubscribeAudit = api.subscribeToAuditLogs((newLogs) => {
+      setAuditLogs(newLogs);
+    });
+
+    return () => {
+      unsubscribeBookings();
+      unsubscribeComms();
+      unsubscribePerformers();
+      unsubscribeDNS();
+      unsubscribeAudit();
+    };
+  }, [addNotification, showPhoneMessage]);
 
   useEffect(() => {
     fetchData();
@@ -286,7 +372,7 @@ const App: React.FC = () => {
       const { error: apiError } = await api.updateBookingStatus(bookingId, status, updatedBookingData);
       if (apiError) throw apiError;
 
-      const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+      const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
       const finalBalance = totalCost - depositAmount;
       
       const clientMessageMap = {
@@ -414,7 +500,7 @@ const App: React.FC = () => {
           addCommunication({ sender: performerName, recipient: 'admin', message: `${performerName} has ACCEPTED the booking from verified client ${booking.client_name}${etaMessagePartAdmin}. It has automatically skipped vetting and is awaiting deposit.`, type: 'admin_message' });
           addCommunication({ sender: 'System', recipient: 'user', message: `${performerName} has accepted your request!${etaMessagePartUser} As a verified client, you can now proceed to payment.`, booking_id: booking.id, type: 'booking_update' });
           
-          const { depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+          const { depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
           showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />{performerName} has accepted your request!{eta && <><br/>{etaSmsIcon}</>}<br /><br />Your application for {booking.event_type} is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
           addCommunication({ sender: 'System', recipient: booking.performer_id, message: `✅ Booking Vetted! The application from ${booking.client_name} for ${new Date(booking.event_date).toLocaleDateString()} has been approved. Awaiting deposit.`, booking_id: booking.id, type: 'booking_update' });
 
@@ -430,6 +516,32 @@ const App: React.FC = () => {
       }
   };
   
+  const handleUpdateEta = async (bookingId: string, eta: number) => {
+      const booking = bookings.find(b => b.id === bookingId);
+      if (!booking) return;
+
+      const updateData: Partial<Booking> = { performer_eta_minutes: eta };
+      const originalBookings = bookings;
+      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, ...updateData } : b));
+
+      try {
+          const { error: apiError } = await api.updateBookingStatus(bookingId, booking.status, updateData);
+          if (apiError) throw apiError;
+          
+          const performerName = booking.performer?.name || 'Performer';
+          addCommunication({ sender: performerName, recipient: 'user', message: `ETA has been updated to ${eta} minutes.`, booking_id: booking.id, type: 'booking_update' });
+          
+          showPhoneMessage({ 
+            for: 'Client', 
+            content: <p>⏱ <strong>ETA Updated!</strong><br /><strong>{performerName}</strong> has updated their ETA to <strong>{eta} minutes</strong> for your {booking.event_type} booking.</p> 
+          });
+      } catch (err) {
+          console.error("Failed to update ETA:", err);
+          setBookings(originalBookings);
+          setError("Failed to update ETA.");
+      }
+  };
+
   const handleAdminBookingDecisionForPerformer = async (bookingId: string, decision: 'accepted' | 'declined') => {
       const booking = bookings.find(b => b.id === bookingId);
       if(!booking) return;
@@ -515,7 +627,7 @@ const App: React.FC = () => {
         showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Request Sent!</strong><br />We've sent your request to <strong>{newBookings!.map(b => b.performer?.name).join(' & ')}</strong>. We'll notify you as soon as they respond!</p> });
 
         setTimeout(() => {
-            const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested, newBookings!.length);
+            const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested || [], newBookings!.length);
             showPhoneMessage({
                 for: 'Performer',
                 content: <p>🎭 <strong>New Booking Request!</strong><br />From: <strong>{firstBooking.client_name}</strong><br/>For: {new Date(firstBooking.event_date).toLocaleDateString()}<br/>Event: {firstBooking.event_type}<br/>Guests: {firstBooking.number_of_guests}<br/><br/><strong>Total Value:</strong> ${(totalCost || 0).toFixed(2)}<br/><strong>Deposit:</strong> ${(depositAmount || 0).toFixed(2)}</p>,
@@ -587,7 +699,7 @@ const App: React.FC = () => {
   const filteredPerformers = useMemo(() => {
     const basePerformers = view === 'available_now'
         ? performers.filter(p => p.status === 'available')
-        : performers;
+        : performers.filter(p => p.status !== 'pending_verification' && p.status !== 'rejected');
 
     const lowerCaseQuery = searchQuery.toLowerCase().trim();
 
@@ -641,19 +753,17 @@ const App: React.FC = () => {
         return (
             <div className="text-center py-20 card-base !bg-orange-500/5 border-orange-500/20 max-w-2xl mx-auto animate-fade-in">
                 <Sparkles className="h-16 w-16 text-orange-500 mx-auto mb-6" />
-                <h2 className="text-3xl font-bold text-white mb-4">Database Setup Required</h2>
+                <h2 className="text-3xl font-bold text-white mb-4">Demo Environment Ready</h2>
                 <p className="text-zinc-400 mb-8 text-lg">
-                    It looks like your database is empty.
+                    This is a fresh demonstration environment. To begin exploring the booking flow, dashboards, and admin features, please seed the database with sample data.
                 </p>
-                {import.meta.env.DEV && (
-                  <button 
-                      onClick={() => resetDemoData()}
-                      className="btn-primary !py-4 !px-8 !text-lg flex items-center gap-3 mx-auto shadow-xl shadow-orange-500/20"
-                  >
-                      <Database className="h-6 w-6" />
-                      Seed Database (DEV ONLY)
-                  </button>
-                )}
+                <button 
+                    onClick={() => resetDemoData()}
+                    className="btn-primary !py-4 !px-8 !text-lg flex items-center gap-3 mx-auto shadow-xl shadow-orange-500/20"
+                >
+                    <Database className="h-6 w-6" />
+                    Seed Demonstration Data
+                </button>
             </div>
         );
     }
@@ -752,6 +862,8 @@ const App: React.FC = () => {
             onToggleStatus={(status) => handlePerformerStatusChange(currentPerformer.id, status)} 
             onViewDoNotServe={handleViewDoNotServe} 
             onBookingDecision={handlePerformerBookingDecision} 
+            onUpdateEta={handleUpdateEta}
+            onUpdateBookingStatus={handleUpdateBookingStatus}
           />
         ) : (
           <p className="text-center text-gray-400">Select a performer to view their dashboard.</p>
@@ -773,6 +885,8 @@ const App: React.FC = () => {
                   onCreateEntry={handleCreateDoNotServeEntry}
                   addCommunication={addCommunication}
                />
+      case 'performer_onboarding':
+        return <PerformerOnboarding onSubmit={handleCreatePerformer} onCancel={() => setView('available_now')} />;
       case 'services':
         return (
             <div className="animate-fade-in">
@@ -871,7 +985,23 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div className="min-h-screen text-white flex flex-col">
+      {showDemoBanner && performers.length > 0 && (
+        <div className="bg-orange-600 text-white py-2 px-4 text-center text-xs sm:text-sm font-medium relative z-50">
+          <div className="container mx-auto flex items-center justify-center gap-4">
+            <span className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              <strong>Demo Mode Active:</strong> Use the role switcher in the header to explore Client, Performer, and Admin views.
+            </span>
+            <button 
+              onClick={() => setShowDemoBanner(false)}
+              className="hover:bg-white/20 rounded p-0.5 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
        <Header
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
@@ -885,7 +1015,7 @@ const App: React.FC = () => {
             currentPerformerId={(authedUser?.role === 'performer' && authedUser.id) ? authedUser.id : null}
             onPerformerChange={handlePerformerChange}
           />
-          {authedUser ? (
+           {authedUser ? (
             <>
               <span className="text-sm text-zinc-300 hidden sm:block">Welcome, <strong className="font-semibold text-white">{authedUser.name}</strong></span>
               <button onClick={handleLogout} className="bg-zinc-800 hover:bg-zinc-700 text-white flex items-center gap-2 text-sm p-2 sm:px-4 sm:py-2 rounded-lg transition-colors" title="Logout">
@@ -903,7 +1033,7 @@ const App: React.FC = () => {
                   <BookOpen className="h-4 w-4" />
                   <span className="hidden sm:inline">My Bookings</span>
                </button>
-                <button onClick={() => setShowLogin(true)} className="btn-primary flex items-center gap-2 text-sm p-2 sm:px-4 sm:py-2">
+                <button onClick={() => setShowLogin(true)} className="btn-primary flex items-center gap-2 text-sm p-2 sm:px-4 sm:py-2" title="Login">
                    <LogIn className="h-4 w-4" />
                    <span className="hidden sm:inline">Login</span>
                 </button>
@@ -916,9 +1046,36 @@ const App: React.FC = () => {
       </main>
       <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} onShowPresentation={() => setShowPresentation(true)} />
       {phoneMessage && <DemoPhone message={phoneMessage} onClose={() => setPhoneMessage(null)} />}
+      
+      {/* Real-time Notifications Toast Container */}
+      <div className="fixed top-24 right-4 z-[100] flex flex-col gap-3 pointer-events-none max-w-sm w-full">
+        {notifications.map(notification => (
+          <div 
+            key={notification.id}
+            className={`p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-slide-in-right pointer-events-auto flex items-start gap-3 ${
+              notification.type === 'success' 
+                ? 'bg-green-500/10 border-green-500/20 text-green-400' 
+                : notification.type === 'warning'
+                ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+                : 'bg-zinc-900/90 border-white/10 text-white'
+            }`}
+          >
+            <div className="flex-1 text-sm font-medium leading-relaxed">
+              {notification.message}
+            </div>
+            <button 
+              onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
+              className="text-zinc-500 hover:text-white transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
       {showPrivacyPolicy && <PrivacyPolicy onClose={() => setShowPrivacyPolicy(false)} />}
       {showTermsOfService && <TermsOfService onClose={() => setShowTermsOfService(false)} />}
-      {showLogin && <Login onLogin={handleLogin} onClose={() => setShowLogin(false)} performers={performers} />}
+      {showLogin && <Login onLogin={handleLogin} onClose={() => setShowLogin(false)} performers={performers} onNavigateToOnboarding={() => { setShowLogin(false); setView('performer_onboarding'); }} />}
       {showPresentation && <PresentationVideo onClose={() => setShowPresentation(false)} />}
       <BookingStickyFooter performers={selectedForBooking} onProceed={handleProceedToBooking} />
       {!ageVerified && <AgeGate onVerified={handleAgeVerified} onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} />}

@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Eye, PlusCircle, CheckCircle, MapPin, Star } from 'lucide-react';
-import type { Performer } from '../types';
+import { Eye, PlusCircle, CheckCircle, MapPin, Star, Clock } from 'lucide-react';
+import type { Performer, PerformerStatus } from '../types';
 
 interface PerformerCardProps {
   performer: Performer;
@@ -10,10 +10,12 @@ interface PerformerCardProps {
   isSelected: boolean;
 }
 
-const statusClasses = {
+const statusClasses: Record<PerformerStatus, string> = {
   available: 'bg-green-500/80 border-green-400 text-green-50',
   busy: 'bg-yellow-500/80 border-yellow-400 text-yellow-50',
   offline: 'bg-zinc-500/80 border-zinc-400 text-zinc-50',
+  pending_verification: 'bg-yellow-500/80 border-yellow-400 text-yellow-50',
+  rejected: 'bg-red-500/80 border-red-400 text-red-50',
 };
 
 const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile, onToggleSelection, isSelected }) => {
@@ -32,7 +34,7 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
         className={`absolute -inset-1 rounded-2xl bg-[var(--glow-color)] blur-xl transition-opacity duration-500 opacity-[var(--glow-opacity-base)] group-hover:opacity-[var(--glow-opacity-hover)] -z-10`}
       ></div>
 
-      <div className="relative aspect-[3/4] overflow-hidden">
+      <div className="relative aspect-square md:aspect-[3/4] overflow-hidden">
         <img
           src={performer.photo_url}
           alt={performer.name}
@@ -53,9 +55,9 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
           <span className="text-zinc-400 font-normal">({performer.review_count || 0})</span>
         </div>
         
-        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent md:block hidden"></div>
         
-        <div className="absolute bottom-0 left-0 p-6 w-full">
+        <div className="absolute bottom-0 left-0 p-6 w-full md:block hidden">
           <h3 className="text-3xl font-bold text-white tracking-tight mb-1">{performer.name}</h3>
           <p className="text-orange-400 text-sm font-semibold uppercase tracking-wide mb-3">{performer.tagline}</p>
           
@@ -67,25 +69,65 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
               <MapPin size={14} className="text-orange-500" />
               <span className="truncate">{performer.service_areas.join(', ')}</span>
             </div>
+            {performer.min_booking_duration_hours && (
+              <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                <Clock size={14} className="text-orange-500" />
+                <span>Min {performer.min_booking_duration_hours} hr{performer.min_booking_duration_hours > 1 ? 's' : ''} booking</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop Action Overlay */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden md:flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col gap-3 w-full max-w-[200px] pointer-events-auto transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+            <button
+              onClick={() => onViewProfile(performer)}
+              className="w-full bg-white text-zinc-950 font-bold px-6 py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 hover:bg-orange-500 hover:text-white"
+            >
+              <Eye className="h-5 w-5" />
+              View Profile
+            </button>
+            <button
+              onClick={() => onToggleSelection(performer)}
+              className={`w-full font-bold px-6 py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 border-2 ${isSelected ? 'bg-green-600 border-green-600 text-white hover:bg-green-700' : 'bg-transparent border-white text-white hover:bg-white hover:text-zinc-950'}`}
+            >
+              {isSelected ? <CheckCircle className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+              {isSelected ? 'Selected' : 'Select'}
+            </button>
           </div>
         </div>
       </div>
-      
-      {/* Action Overlay */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
-        <div className="flex flex-col gap-3 w-full max-w-[200px] pointer-events-auto transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+
+      {/* Mobile Content & Actions */}
+      <div className="p-4 md:hidden flex flex-col flex-grow">
+        <div className="mb-4">
+          <div className="flex justify-between items-start mb-1">
+            <h3 className="text-xl font-bold text-white tracking-tight">{performer.name}</h3>
+            <div className="flex items-center gap-1 text-xs text-zinc-400">
+              <MapPin size={12} className="text-orange-500" />
+              <span className="truncate max-w-[100px]">{performer.service_areas[0]}</span>
+            </div>
+          </div>
+          <p className="text-orange-400 text-xs font-semibold uppercase tracking-wide mb-2">{performer.tagline}</p>
+          <p className="text-zinc-400 text-xs line-clamp-2 leading-relaxed">
+            {performer.bio}
+          </p>
+        </div>
+        
+        <div className="mt-auto grid grid-cols-2 gap-2">
           <button
             onClick={() => onViewProfile(performer)}
-            className="w-full bg-white text-zinc-950 font-bold px-6 py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 hover:bg-orange-500 hover:text-white"
+            className="w-full bg-zinc-800 text-white font-bold py-2.5 rounded-lg text-xs flex items-center justify-center gap-2 active:bg-zinc-700 transition-colors"
           >
-            <Eye className="h-5 w-5" />
-            View Profile
+            <Eye className="h-4 w-4" />
+            Profile
           </button>
           <button
             onClick={() => onToggleSelection(performer)}
-            className={`w-full font-bold px-6 py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 border-2 ${isSelected ? 'bg-green-600 border-green-600 text-white hover:bg-green-700' : 'bg-transparent border-white text-white hover:bg-white hover:text-zinc-950'}`}
+            className={`w-full font-bold py-2.5 rounded-lg text-xs flex items-center justify-center gap-2 border transition-colors ${isSelected ? 'bg-green-600 border-green-600 text-white' : 'bg-transparent border-zinc-700 text-white active:bg-zinc-800'}`}
           >
-            {isSelected ? <CheckCircle className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+            {isSelected ? <CheckCircle className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
             {isSelected ? 'Selected' : 'Select'}
           </button>
         </div>

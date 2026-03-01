@@ -12,7 +12,8 @@ import {
   serverTimestamp,
   limit,
   setDoc,
-  writeBatch
+  writeBatch,
+  onSnapshot
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -84,6 +85,14 @@ export const api = {
         return { data: snap.docs.map(d => ({ ...(d.data() as any), id: name === 'performers' ? Number(d.id) : d.id })), error: null };
       } catch (err: any) {
         console.error(`Error fetching ${name}:`, err);
+        if (err.code === 'unavailable') {
+          console.warn(`Firestore is currently offline or unreachable. Returning mock data for ${name} if available.`);
+          // Fallback to mock data if connection is unavailable
+          if (name === 'performers') return { data: mockPerformers, error: null };
+          if (name === 'bookings') return { data: mockBookings, error: null };
+          if (name === 'do_not_serve') return { data: mockDoNotServeList, error: null };
+          if (name === 'communications') return { data: mockCommunications, error: null };
+        }
         return { data: [], error: err };
       }
     };
@@ -103,6 +112,61 @@ export const api = {
       communications: cRes,
       auditLogs: aRes,
     };
+  },
+
+  subscribeToBookings(callback: (bookings: Booking[]) => void) {
+    if (!db) return () => {};
+    const q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+    return onSnapshot(q, (snap) => {
+      const bookings = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Booking[];
+      callback(bookings);
+    }, (err) => {
+      console.error("Error subscribing to bookings:", err);
+    });
+  },
+
+  subscribeToCommunications(callback: (comms: Communication[]) => void) {
+    if (!db) return () => {};
+    const q = query(collection(db, 'communications'), orderBy('created_at', 'desc'));
+    return onSnapshot(q, (snap) => {
+      const comms = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Communication[];
+      callback(comms);
+    }, (err) => {
+      console.error("Error subscribing to communications:", err);
+    });
+  },
+
+  subscribeToPerformers(callback: (performers: Performer[]) => void) {
+    if (!db) return () => {};
+    const q = query(collection(db, 'performers'));
+    return onSnapshot(q, (snap) => {
+      const performers = snap.docs.map(d => ({ ...d.data(), id: Number(d.id) })) as Performer[];
+      callback(performers);
+    }, (err) => {
+      console.error("Error subscribing to performers:", err);
+    });
+  },
+
+  subscribeToDoNotServe(callback: (entries: DoNotServeEntry[]) => void) {
+    if (!db) return () => {};
+    const q = query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc'));
+    return onSnapshot(q, (snap) => {
+      const entries = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DoNotServeEntry[];
+      callback(entries);
+    }, (err) => {
+      console.error("Error subscribing to do_not_serve:", err);
+    });
+  },
+
+  subscribeToAuditLogs(callback: (logs: AuditLog[]) => void) {
+    if (!db) return () => {};
+    const q = query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50));
+    return onSnapshot(q, (snap) => {
+      const logs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as AuditLog[];
+      callback(logs);
+    }, (err) => {
+      console.error("Error subscribing to audit_logs:", err);
+    });
   },
 
   // Fix: Added createAuditLog to allow manual logging of actions to the audit_logs collection.

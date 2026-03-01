@@ -35,6 +35,7 @@ export const mockPerformers: Performer[] = [
     status: 'available',
     rating: 4.9,
     review_count: 124,
+    min_booking_duration_hours: 2,
     created_at: new Date().toISOString(),
   },
   {
@@ -48,6 +49,7 @@ export const mockPerformers: Performer[] = [
     status: 'available',
     rating: 5.0,
     review_count: 89,
+    min_booking_duration_hours: 3,
     created_at: new Date().toISOString(),
   },
   {
@@ -61,6 +63,7 @@ export const mockPerformers: Performer[] = [
     status: 'available',
     rating: 4.8,
     review_count: 215,
+    min_booking_duration_hours: 2,
     created_at: new Date().toISOString(),
   },
   {
@@ -74,6 +77,7 @@ export const mockPerformers: Performer[] = [
     status: 'busy',
     rating: 4.7,
     review_count: 56,
+    min_booking_duration_hours: 2,
     created_at: new Date().toISOString(),
   },
   {
@@ -87,6 +91,7 @@ export const mockPerformers: Performer[] = [
     status: 'available',
     rating: 4.9,
     review_count: 142,
+    min_booking_duration_hours: 1,
     created_at: new Date().toISOString(),
   },
   {
@@ -100,6 +105,7 @@ export const mockPerformers: Performer[] = [
     status: 'offline',
     rating: 4.6,
     review_count: 38,
+    min_booking_duration_hours: 2,
     created_at: new Date().toISOString(),
   },
 ];
