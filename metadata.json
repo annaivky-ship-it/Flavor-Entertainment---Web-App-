@@ -1,0 +1,8 @@
+{
+  "name": "Flavor 2026- Booking",
+  "description": "A premium, end-to-end platform for booking professional entertainers in Western Australia. Features include automated safety vetting, a robust admin dashboard, and a seamless client-to-performer workflow with real-time status updates.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "prompt": ""
+}

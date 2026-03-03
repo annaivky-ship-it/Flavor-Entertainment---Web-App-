@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #0A0A0A;
+  --color-bg-light: #18181B;
+  --color-border: #27272A;
+  --color-primary: #F97316;
+  --color-primary-hover: #EA580C;
+  --color-primary-light: #FB923C;
+}
+body {
+  background-color: var(--color-bg);
+  color: #A1A1AA;
+  font-family: 'Inter', sans-serif;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+.font-logo-main { font-family: 'Anton', sans-serif; }
+.font-logo-sub { font-family: 'Special Elite', monospace; }
+h1, h2, h3, h4 { font-family: 'Poppins', sans-serif; font-weight: 700; color: #F4F4F5; }
+.card-base {
+  background-color: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 2rem;
+  transition: all 0.3s ease-in-out;
+}
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+}
+.input-base {
+  width: 100%;
+  background-color: #09090b;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: #f4f4f5;
+}
+.input-with-icon {
+  padding-left: 2.75rem;
+}
+
+/* Custom animations for a high-end feel */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
