@@ -1,121 +1,192 @@
 rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Flavor Entertainers — Production Firestore Security Rules
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Role model:
+//   admin     — Full access to all collections
+//   performer — Read own assigned bookings; write availability + DNS reports
+//   user      — Read own bookings; write booking requests + vetting docs
+//
+// Roles are stored in Firebase Auth custom claims under request.auth.token.role
+// Fallback: /users/{uid}.role Firestore document (checked via get())
+//
+// ═══════════════════════════════════════════════════════════════════════════
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper functions
-    function isSignedIn() {
+
+    // ── Helper functions ──────────────────────────────────────────────────
+    function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function isAdmin() {
-      return isSignedIn() && 
-        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
-         request.auth.token.admin == true);
+
+    function uid() {
+      return request.auth.uid;
     }
-    
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+
+    function hasRole(role) {
+      return isAuthenticated() && (
+        request.auth.token.role == role ||
+        get(/databases/$(database)/documents/users/$(uid())).data.role == role
+      );
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
     }
 
     function isPerformer() {
-      return isSignedIn() && request.auth.token.role == 'performer';
+      return hasRole('performer');
     }
 
-    // Vetting Applications
-    match /vetting_applications/{appId} {
-      // Users can read/create their own applications
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      
-      // Only admins can update status and review fields
-      // Users can only update draft applications they own
-      allow update: if isAdmin() || (
-        isSignedIn() && 
-        resource.data.userId == request.auth.uid && 
-        resource.data.status == 'draft' &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'reviewedAt', 'reviewedBy', 'riskFlags', 'decisionReason'])
+    function performerIdFromToken() {
+      return request.auth.token.performerId;
+    }
+
+    function isOwnerOfBooking(booking) {
+      return isAuthenticated() && (
+        ('clientUid' in booking && booking.clientUid == uid()) ||
+        booking.client_email == request.auth.token.email
       );
-      
-      allow delete: if isAdmin();
     }
 
-    // Audit Logs
-    match /audit_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false; // Admin SDK bypasses rules — Cloud Functions only
+    function isAssignedPerformer(booking) {
+      return isPerformer() && booking.performer_id == performerIdFromToken();
     }
 
-    // KYC Records
-    match /kyc_records/{userId} {
-      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
-      allow write: if false; // Only updated via Cloud Functions / Webhooks
-      
-      match /dvs_checks/{checkId} {
-        allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
-        allow write: if false; // Only updated via Cloud Functions
-      }
-    }
-
-    // Message Logs
-    match /message_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false; // Only updated via Cloud Functions
-    }
-
-    // Settings
-    match /settings/{docId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    // Users
+    // ── /users ────────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read: if isAdmin() || isOwner(userId);
-      allow write: if isAdmin();
-    }
-
-    // Performers
-    match /performers/{performerId} {
-      allow read: if true; // Public gallery
-      allow write: if isAdmin();
-    }
-
-    // Bookings
-    match /bookings/{bookingId} {
-      allow create: if isSignedIn();
-      allow read: if isAdmin() || 
-                  (isSignedIn() && resource.data.client_email == request.auth.token.email) ||
-                  (isPerformer() && resource.data.performer_id == request.auth.token.performerId);
-      allow update: if isAdmin() || 
-                    (isPerformer() && resource.data.performer_id == request.auth.token.performerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
-                    (isSignedIn() && resource.data.client_email == request.auth.token.email && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deposit_receipt_path', 'status']));
+      allow read:   if isAdmin() || (isAuthenticated() && userId == uid());
+      allow create: if isAuthenticated() && userId == uid()
+                    && request.resource.data.role == 'user';
+      allow update: if isAuthenticated() && userId == uid()
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
       allow delete: if isAdmin();
     }
 
-    // Do Not Serve
-    match /do_not_serve/{id} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+    // ── /performers ───────────────────────────────────────────────────────
+    match /performers/{performerId} {
+      allow read:   if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin()
+                    || (isPerformer()
+                        && performerId == string(performerIdFromToken())
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['status', 'updated_at']));
+      allow delete: if isAdmin();
     }
 
-    // Communications
-    match /communications/{id} {
-      allow create: if isSignedIn();
-      allow read: if isAdmin() || 
-                  (isSignedIn() && (resource.data.sender == request.auth.token.email || resource.data.recipient == request.auth.token.email || resource.data.sender == request.auth.token.name || resource.data.recipient == request.auth.token.name || resource.data.recipient == request.auth.token.performerId || resource.data.sender == request.auth.token.performerId));
+    // ── /availability ─────────────────────────────────────────────────────
+    match /availability/{performerId} {
+      allow read:   if true;
+      allow write:  if isAdmin()
+                    || (isPerformer() && performerId == string(performerIdFromToken()));
+    }
+
+    // ── /bookings ─────────────────────────────────────────────────────────
+    match /bookings/{bookingId} {
+      allow read:   if isAdmin()
+                    || isOwnerOfBooking(resource.data)
+                    || isAssignedPerformer(resource.data);
+
+      allow create: if isAdmin()
+                    || (isAuthenticated()
+                        && request.resource.data.clientUid == uid());
+
+      allow update: if isAdmin()
+                    || (isOwnerOfBooking(resource.data)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['deposit_receipt_path', 'status', 'updated_at'])
+                        && request.resource.data.status == 'pending_deposit_confirmation')
+                    || (isAssignedPerformer(resource.data)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['status', 'performer_eta_minutes', 'updated_at']));
+
+      allow delete: if isAdmin();
+    }
+
+    // ── /do_not_serve ─────────────────────────────────────────────────────
+    match /do_not_serve/{entryId} {
+      allow read:   if isAdmin() || isPerformer();
+      allow create: if isPerformer()
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.submitted_by_performer_id == performerIdFromToken();
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['status', 'reviewed_at', 'reviewed_by']);
+      allow delete: if isAdmin();
+    }
+
+    // ── /communications ───────────────────────────────────────────────────
+    match /communications/{commId} {
+      allow read:   if isAdmin()
+                    || (isAuthenticated() && (
+                          resource.data.recipient == uid()
+                          || resource.data.recipient == 'user'
+                          || (isPerformer() && resource.data.recipient == performerIdFromToken())
+                       ));
+      allow create: if isAuthenticated();
+      allow update: if isAdmin()
+                    || (isAuthenticated()
+                        && resource.data.recipient == uid()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
+      allow delete: if isAdmin();
+    }
+
+    // ── /vetting_applications ─────────────────────────────────────────────
+    match /vetting_applications/{appId} {
+      allow read:   if isAdmin()
+                    || (isAuthenticated() && resource.data.userId == uid());
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == uid()
+                    && request.resource.data.status == 'draft';
+      allow update: if isAdmin()
+                    || (isAuthenticated()
+                        && resource.data.userId == uid()
+                        && resource.data.status == 'draft'
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                           .hasAny(['status', 'userId', 'submittedAt', 'reviewedAt',
+                                    'reviewedBy', 'riskFlags']));
+      allow delete: if isAdmin();
+    }
+
+    // ── /audit_logs ───────────────────────────────────────────────────────
+    match /audit_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // ── /blacklist ────────────────────────────────────────────────────────
+    match /blacklist/{hashId} {
+      allow read:   if isAdmin();
+      allow write:  if isAdmin();
+    }
+
+    // ── /slot_locks ───────────────────────────────────────────────────────
+    match /slot_locks/{lockId} {
+      allow read:   if isAdmin();
+      allow write:  if false;
+    }
+
+    // ── /notifications_queue ─────────────────────────────────────────────
+    match /notifications_queue/{notifId} {
+      allow read:   if isAdmin();
+      allow write:  if false;
+    }
+
+    // ── /users/{uid}/kyc ──────────────────────────────────────────────────
+    match /users/{userId}/kyc/{kycId} {
+      allow read:   if isAdmin() || (isAuthenticated() && userId == uid());
+      allow create: if isAuthenticated() && userId == uid();
       allow update, delete: if isAdmin();
     }
 
-    // Blacklist
-    match /blacklist/{id} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    // Notifications Queue
-    match /notificationsQueue/{id} {
-      allow read: if isAdmin();
-      allow write: if false; // Cloud Functions only
+    // ── Default: deny all ────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

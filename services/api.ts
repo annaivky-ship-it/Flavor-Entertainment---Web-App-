@@ -19,15 +19,19 @@ import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PerformerStatus, AuditLog, VettingApplication } from '../types';
 import { BookingFormState } from '../components/BookingProcess';
-import { mockPerformers, mockBookings, mockDoNotServeList, mockCommunications } from '../data/mockData';
+import { mockPerformers, mockBookings, mockDoNotServeList, mockCommunications, mockAuditLogs as mockAuditLogsImport } from '../data/mockData';
+
+// mockAuditLogs may not exist in the production mockData.ts — default to empty array
+const mockAuditLogsData: any[] = (typeof mockAuditLogsImport !== 'undefined' ? mockAuditLogsImport : []);
 
 export const resetDemoData = async () => {
   if (import.meta.env.PROD) {
     console.error('resetDemoData called in production — blocked.');
     return;
   }
+  // In pure demo mode (no Firebase), a page reload restores in-memory state from demoData
   if (!db) {
-    console.error('Database not initialized. Check environment variables.');
+    window.location.reload();
     return;
   }
   console.log("Starting database seed...");
@@ -69,13 +73,13 @@ export const resetDemoData = async () => {
 export const api = {
   async getInitialData() {
     if (!db) {
-      console.warn('Firebase not initialized. Returning mock data.');
+      console.warn('Firebase not initialized. Returning mock/demo data.');
       return {
         performers: { data: mockPerformers, error: null },
         bookings: { data: mockBookings, error: null },
         doNotServeList: { data: mockDoNotServeList, error: null },
         communications: { data: mockCommunications, error: null },
-        auditLogs: { data: [], error: null },
+        auditLogs: { data: mockAuditLogsData, error: null },
       };
     }
 

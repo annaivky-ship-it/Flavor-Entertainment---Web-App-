@@ -1,5 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { Briefcase, ChevronDown, ShoppingCart, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
+
+// ── Demo mode ─────────────────────────────────────────────────────────────────
+// VITE_APP_MODE is injected at build time from vite.config.demo.ts (or "live" by default).
+// All demo-specific UI is tree-shaken out of the live production bundle.
+const IS_DEMO = import.meta.env.VITE_APP_MODE === 'demo';
+
+// Lazily import demo components so they're excluded from the live bundle
+const DemoTour = IS_DEMO ? lazy(() => import('./demo/DemoTour')) : null;
+const DemoControls = IS_DEMO ? lazy(() => import('./demo/DemoControls')) : null;
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PerformerCard from './components/EntertainerCard';
@@ -99,6 +108,10 @@ const App: React.FC = () => {
   const [availabilityFilter, setAvailabilityFilter] = useState<PerformerStatus | ''>('');
   const [showDemoBanner, setShowDemoBanner] = useState(true);
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' }[]>([]);
+
+  // ── Demo-mode tour state ────────────────────────────────────────────────────
+  const [isTourActive, setIsTourActive] = useState(IS_DEMO);  // auto-start on demo load
+  const [tourStep, setTourStep] = useState(0);
 
   const prevBookingsRef = React.useRef<Booking[]>([]);
 
@@ -318,6 +331,21 @@ const App: React.FC = () => {
     localStorage.removeItem('clientEmail');
     setView('available_now');
   };
+
+  // ── Demo reset: restore data + restart tour ────────────────────────────────
+  const handleDemoReset = useCallback(async () => {
+    await resetDemoData();
+    setAuthedUser(null);
+    setView('available_now');
+    setSelectedForBooking([]);
+    setSearchQuery('');
+    setServiceIdFilter(null);
+    setServiceAreaFilter('');
+    setCategoryFilter('');
+    setAvailabilityFilter('');
+    setTourStep(0);
+    setIsTourActive(true);
+  }, []);
 
   const handlePerformerStatusChange = async (performerId: number, status: PerformerStatus) => {
     const performer = performers.find(p => p.id === performerId);
@@ -1079,6 +1107,29 @@ const App: React.FC = () => {
       {showPresentation && <PresentationVideo onClose={() => setShowPresentation(false)} />}
       <BookingStickyFooter performers={selectedForBooking} onProceed={handleProceedToBooking} />
       {!ageVerified && <AgeGate onVerified={handleAgeVerified} onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} />}
+
+      {/* ── Demo-only overlays (tree-shaken from live build) ───────────────── */}
+      {IS_DEMO && DemoControls && (
+        <Suspense fallback={null}>
+          <DemoControls
+            onStartTour={() => { setIsTourActive(true); setTourStep(0); }}
+            onReset={handleDemoReset}
+            isTourActive={isTourActive}
+          />
+        </Suspense>
+      )}
+      {IS_DEMO && DemoTour && isTourActive && (
+        <Suspense fallback={null}>
+          <DemoTour
+            currentStep={tourStep}
+            onNext={() => setTourStep(s => s + 1)}
+            onBack={() => setTourStep(s => Math.max(0, s - 1))}
+            onSkip={() => setIsTourActive(false)}
+            onComplete={() => setIsTourActive(false)}
+            onNavigate={(v) => setView(v as any)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

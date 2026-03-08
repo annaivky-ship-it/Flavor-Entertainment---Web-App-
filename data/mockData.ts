@@ -1,5 +1,5 @@
 
-import type { Performer, Booking, DoNotServeEntry, Service, Communication } from '../types';
+import type { Performer, Booking, DoNotServeEntry, Service, Communication, AuditLog } from '../types';
 
 export const allServices: Service[] = [
     // Waitressing
@@ -277,3 +277,6 @@ export const mockCommunications: Communication[] = [
         read: false,
     }
 ];
+
+// Audit logs — empty in base mock data; overridden by demoData.ts in demo mode
+export const mockAuditLogs: AuditLog[] = [];
