@@ -266,7 +266,7 @@ npm run deploy:live
 | Firestore security rules | — | ✅ | |
 | Storage security rules | — | ✅ | |
 | Performer onboarding | ✅ (form only) | ⚠️ Backend submission pending | |
-| FrankieOne KYC | — | ⚠️ Requires FrankieOne credentials | |
+| Didit KYC | — | ⚠️ Requires Didit credentials | |
 | Stripe/payment processor | — | ⚠️ Not wired (PayID used instead) | |
 
 ---
@@ -279,7 +279,7 @@ npm run deploy:live
 | Twilio Account SID + Auth Token | SMS/WhatsApp notifications | twilio.com |
 | Twilio WhatsApp number | Outbound WhatsApp | Twilio Console → Messaging |
 | Google Gemini API key | AI vetting risk analysis | aistudio.google.com |
-| FrankieOne API key | ID verification (KYC) | frankieone.com |
+| Didit API key | ID verification (KYC) | didit.me |
 | Custom domain (optional) | Production URL | Domain registrar |
 | Firebase Blaze plan | Cloud Functions + Storage | Firebase Console |
 
