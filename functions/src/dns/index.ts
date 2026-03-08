@@ -5,7 +5,10 @@ import * as crypto from 'crypto';
 const db = admin.firestore();
 const fns = functions as any;
 
-const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
+const PEPPER = process.env.DNS_HASH_PEPPER;
+if (!PEPPER) {
+  throw new Error('DNS_HASH_PEPPER environment variable is required but not set.');
+}
 
 // --- Helpers ---
 

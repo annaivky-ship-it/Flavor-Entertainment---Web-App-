@@ -82,7 +82,7 @@ service cloud.firestore {
 
     // Bookings
     match /bookings/{bookingId} {
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.client_email == request.auth.token.email;
       allow read: if isAdmin() || 
                   (isSignedIn() && resource.data.client_email == request.auth.token.email) ||
                   (isPerformer() && resource.data.performer_id == request.auth.token.performerId);

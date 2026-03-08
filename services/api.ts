@@ -212,8 +212,9 @@ export const api = {
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required");
 
-    const idPath = `vetting/${user.uid}/${applicationId}/id_${idFile.name}`;
-    const selfiePath = `vetting/${user.uid}/${applicationId}/selfie_${selfieFile.name}`;
+    const sanitizeFilename = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const idPath = `vetting/${user.uid}/${applicationId}/id_${sanitizeFilename(idFile.name)}`;
+    const selfiePath = `vetting/${user.uid}/${applicationId}/selfie_${sanitizeFilename(selfieFile.name)}`;
 
     const idRef = ref(storage, idPath);
     const selfieRef = ref(storage, selfiePath);
@@ -257,14 +258,16 @@ export const api = {
       const userUid = user.uid;
       const submissionId = `booking_kyc_${timestamp}`;
 
+      const sanitizeFilename = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
       if (formState.idDocument) {
-        const idPath = `vetting/${userUid}/${submissionId}/id_${formState.idDocument.name}`;
+        const idPath = `vetting/${userUid}/${submissionId}/id_${sanitizeFilename(formState.idDocument.name)}`;
         const idRef = ref(storage, idPath);
         uploadPromises.push(uploadBytes(idRef, formState.idDocument).then(async res => idUrl = await getDownloadURL(res.ref)));
       }
-      
+
       if (formState.selfieDocument) {
-        const selfiePath = `vetting/${userUid}/${submissionId}/selfie_${formState.selfieDocument.name}`;
+        const selfiePath = `vetting/${userUid}/${submissionId}/selfie_${sanitizeFilename(formState.selfieDocument.name)}`;
         const selfieRef = ref(storage, selfiePath);
         uploadPromises.push(uploadBytes(selfieRef, formState.selfieDocument).then(async res => selfieUrl = await getDownloadURL(res.ref)));
       }
