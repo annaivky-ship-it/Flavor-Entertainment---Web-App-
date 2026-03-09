@@ -802,7 +802,7 @@ const App: React.FC = () => {
       const isFutureBookings = view === 'future_bookings';
       const isServices = view === 'services';
       return (
-        <div className="mb-8 flex justify-center border-b border-zinc-800">
+        <div id="tour-tabs" className="mb-8 flex justify-center border-b border-zinc-800">
           <button
             onClick={() => { setView('available_now'); setServiceIdFilter(null); setSelectedForBooking([]); setCategoryFilter(''); setAvailabilityFilter(''); }}
             className={`flex items-center gap-2 py-4 px-6 text-sm font-semibold transition-colors ${isAvailableNow ? 'border-b-2 border-orange-500 text-orange-400' : 'border-b-2 border-transparent text-zinc-400 hover:text-white'}`}
@@ -949,15 +949,17 @@ const App: React.FC = () => {
                 }
               </p>
             </div>
-            <SearchFilters
-              filters={searchFilters}
-              onFiltersChange={setSearchFilters}
-              onReset={resetSearchFilters}
-              activeFilterCount={activeFilterCount}
-              totalCount={basePerformers.length}
-              filteredCount={filteredPerformers.length}
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+            <div id="tour-search">
+              <SearchFilters
+                filters={searchFilters}
+                onFiltersChange={setSearchFilters}
+                onReset={resetSearchFilters}
+                activeFilterCount={activeFilterCount}
+                totalCount={basePerformers.length}
+                filteredCount={filteredPerformers.length}
+              />
+            </div>
+            <div id="tour-gallery" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
               {filteredPerformers.map((performer) => (
                 <PerformerCard
                   key={performer.id}
@@ -1121,7 +1123,9 @@ const App: React.FC = () => {
           setShowWalkthrough(false);
           try { localStorage.setItem('walkthroughShown', 'true'); } catch { }
         }}
-        onRoleChange={(role) => handleRoleChange(role === 'Client' ? 'user' : role.toLowerCase() as Role)}
+        onRoleChange={(role: Role) => handleRoleChange(role)}
+        onNavigate={handleNavigate}
+        performers={performers}
       />
     </div>
   );
