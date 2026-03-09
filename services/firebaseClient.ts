@@ -38,17 +38,17 @@ if (missingVars.length > 0) {
  * Initialize Firebase App
  * Checks if an app is already initialized to avoid "Duplicate App" errors.
  */
-const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const app: FirebaseApp | null = missingVars.length === 0
+  ? (getApps().length > 0 ? getApp() : initializeApp(firebaseConfig))
+  : null;
 
 /**
  * Initialize and export service instances.
- * Using initializeFirestore with experimentalForceLongPolling can help with "unavailable" errors in some environments.
  */
-export const db: Firestore = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-});
-export const auth: Auth = getAuth(app);
-export const storage: FirebaseStorage = getStorage(app);
-export const functions: Functions = getFunctions(app);
+export const db: Firestore | null = app ? getFirestore(app) : null;
+
+export const auth: Auth | null = app ? getAuth(app) : null;
+export const storage: FirebaseStorage | null = app ? getStorage(app) : null;
+export const functions: Functions | null = app ? getFunctions(app) : null;
 
 export { app };

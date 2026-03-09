@@ -2,7 +2,7 @@ import { allServices } from '../data/mockData';
 import { DEPOSIT_PERCENTAGE } from '../constants';
 
 export const calculateBookingCost = (durationHours: number, serviceIds: string[], numPerformers: number) => {
-    if (serviceIds.length === 0 || numPerformers === 0) return { totalCost: 0, depositAmount: 0 };
+    if (!serviceIds || serviceIds.length === 0 || numPerformers === 0) return { totalCost: 0, depositAmount: 0 };
         
     const durationNum = durationHours || 0;
     let hourlyCost = 0;
@@ -46,7 +46,7 @@ export const formatMinutesToHoursAndMinutes = (totalMinutes: number): string => 
 
 // New function to get detailed duration info
 export const getBookingDurationInfo = (durationHours: number, serviceIds: string[]) => {
-    const selectedServiceObjects = allServices.filter(s => serviceIds.includes(s.id));
+    const selectedServiceObjects = allServices.filter(s => (serviceIds || []).includes(s.id));
     
     const hasHourlyService = selectedServiceObjects.some(s => s.rate_type === 'per_hour');
     const showDurationMinutes = selectedServiceObjects

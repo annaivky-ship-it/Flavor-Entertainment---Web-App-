@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Performer, PerformerStatus, Booking, Communication, AuditLog } from '../types';
-import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History } from 'lucide-react';
+import { Performer, PerformerStatus, Booking, Communication, AuditLog, BookingStatus } from '../types';
+import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History, MapPin, Sparkles } from 'lucide-react';
 import ChatDialog from './ChatDialog';
 import { api } from '../services/api';
 
@@ -12,6 +12,8 @@ interface PerformerDashboardProps {
   onToggleStatus: (status: PerformerStatus) => Promise<void>;
   onViewDoNotServe: () => void;
   onBookingDecision: (bookingId: string, decision: 'accepted' | 'declined', eta?: number) => Promise<void>;
+  onUpdateEta: (bookingId: string, eta: number) => Promise<void>;
+  onUpdateBookingStatus: (bookingId: string, status: BookingStatus) => Promise<void>;
 }
 
 const statusConfig: Record<PerformerStatus, { color: string; label: string; icon: React.ElementType; bgColor: string; activeColor: string; description: string; }> = {
@@ -39,6 +41,22 @@ const statusConfig: Record<PerformerStatus, { color: string; label: string; icon
       activeColor: 'bg-zinc-500 text-white',
       description: 'You are hidden from the "Available Now" gallery and won\'t receive instant alerts.'
     },
+    pending_verification: {
+      color: 'text-yellow-400',
+      label: 'Pending Verification',
+      icon: ShieldAlert,
+      bgColor: 'bg-yellow-500/10',
+      activeColor: 'bg-yellow-500 text-zinc-900',
+      description: 'Your account is pending verification by an administrator.'
+    },
+    rejected: {
+      color: 'text-red-400',
+      label: 'Rejected',
+      icon: X,
+      bgColor: 'bg-red-500/10',
+      activeColor: 'bg-red-500 text-white',
+      description: 'Your account has been rejected.'
+    }
 };
 
 const bookingStatusClasses: Record<Booking['status'], string> = {
@@ -47,6 +65,11 @@ const bookingStatusClasses: Record<Booking['status'], string> = {
   deposit_pending: 'text-orange-400',
   pending_vetting: 'text-yellow-400',
   pending_performer_acceptance: 'text-purple-400',
+  en_route: 'text-blue-400',
+  arrived: 'text-emerald-400',
+  in_progress: 'text-indigo-400',
+  completed: 'text-zinc-400',
+  cancelled: 'text-zinc-500',
   rejected: 'text-red-400'
 }
 
@@ -56,10 +79,12 @@ interface BookingCardProps {
   etaValue: string;
   onEtaChange: (bookingId: string, value: string) => void;
   onOpenChat: (booking: Booking) => void;
+  onUpdateEta?: (bookingId: string, eta: number) => Promise<void>;
+  onUpdateStatus?: (bookingId: string, status: BookingStatus) => Promise<void>;
 }
 
-const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue, onEtaChange, onOpenChat }) => {
-  const [isLoading, setIsLoading] = useState<'accept' | 'decline' | null>(null);
+const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue, onEtaChange, onOpenChat, onUpdateEta, onUpdateStatus }) => {
+  const [isLoading, setIsLoading] = useState<'accept' | 'decline' | 'update_eta' | 'update_status' | null>(null);
 
   const handleDecision = async (decision: 'accepted' | 'declined') => {
     setIsLoading(decision === 'accepted' ? 'accept' : 'decline');
@@ -71,6 +96,32 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
       setIsLoading(null);
     }
   };
+
+  const handleUpdateEta = async () => {
+    if (!onUpdateEta || !etaValue) return;
+    setIsLoading('update_eta');
+    try {
+      await onUpdateEta(booking.id, Number(etaValue));
+    } catch (error) {
+      console.error("Failed to update ETA", error);
+    } finally {
+      setIsLoading(null);
+    }
+  };
+
+  const handleStatusUpdate = async (status: BookingStatus) => {
+    if (!onUpdateStatus) return;
+    setIsLoading('update_status');
+    try {
+      await onUpdateStatus(booking.id, status);
+    } catch (error) {
+      console.error("Failed to update status", error);
+    } finally {
+      setIsLoading(null);
+    }
+  };
+
+  const isPending = booking.status !== 'confirmed' && booking.status !== 'rejected' && !['en_route', 'arrived', 'in_progress', 'completed', 'cancelled'].includes(booking.status);
 
   return (
     <div className="bg-zinc-900/70 p-4 rounded-lg border border-zinc-700/50 hover:border-zinc-600 transition-colors">
@@ -89,7 +140,7 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
            <span className="flex items-center gap-2"><Users className="h-4 w-4 text-orange-400" /> Guests: {booking.number_of_guests}</span>
         </div>
         
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
              <button 
                 onClick={() => onOpenChat(booking)}
                 className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-600 hover:border-zinc-500 font-semibold py-1.5 px-3 rounded flex items-center gap-2 transition-colors"
@@ -97,11 +148,36 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
                 <MessageCircle size={14} />
                 Message Client
              </button>
+
+             <div className="flex items-center gap-2">
+                {booking.status === 'confirmed' && (
+                  <button onClick={() => handleStatusUpdate('en_route')} disabled={!!isLoading} className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center gap-1.5 transition-colors">
+                    {isLoading === 'update_status' ? <LoaderCircle size={14} className="animate-spin" /> : <><Radio size={14}/> On My Way</>}
+                  </button>
+                )}
+                {booking.status === 'en_route' && (
+                  <button onClick={() => handleStatusUpdate('arrived')} disabled={!!isLoading} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center gap-1.5 transition-colors">
+                    {isLoading === 'update_status' ? <LoaderCircle size={14} className="animate-spin" /> : <><MapPin size={14}/> I've Arrived</>}
+                  </button>
+                )}
+                {booking.status === 'arrived' && (
+                  <button onClick={() => handleStatusUpdate('in_progress')} disabled={!!isLoading} className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center gap-1.5 transition-colors">
+                    {isLoading === 'update_status' ? <LoaderCircle size={14} className="animate-spin" /> : <><Sparkles size={14}/> Start Performance</>}
+                  </button>
+                )}
+                {booking.status === 'in_progress' && (
+                  <button onClick={() => handleStatusUpdate('completed')} disabled={!!isLoading} className="text-xs bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center gap-1.5 transition-colors">
+                    {isLoading === 'update_status' ? <LoaderCircle size={14} className="animate-spin" /> : <><CheckCircle size={14}/> Complete Job</>}
+                  </button>
+                )}
+             </div>
         </div>
 
-         {booking.status === 'pending_performer_acceptance' && (
+         {isPending && (
             <div className="mt-4 pt-4 border-t border-zinc-700/50 flex flex-col sm:flex-row items-center gap-3">
-                <p className="text-xs font-semibold text-zinc-300 mr-2 flex-shrink-0">Action Required:</p>
+                <p className="text-xs font-semibold text-zinc-300 mr-2 flex-shrink-0">
+                    {booking.status === 'pending_performer_acceptance' ? 'Action Required:' : 'Update ETA:'}
+                </p>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                    <div className="relative flex-grow group">
                       <Timer className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none group-focus-within:text-orange-400 transition-colors" />
@@ -115,12 +191,20 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
                         disabled={!!isLoading}
                       />
                    </div>
-                   <button onClick={() => handleDecision('accepted')} disabled={!!isLoading} className="text-xs bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-md flex-shrink-0 w-24">
-                      {isLoading === 'accept' ? <LoaderCircle size={14} className="animate-spin" /> : <><Check size={14}/> Accept</>}
-                   </button>
-                   <button onClick={() => handleDecision('declined')} disabled={!!isLoading} className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-md flex-shrink-0 w-24">
-                      {isLoading === 'decline' ? <LoaderCircle size={14} className="animate-spin" /> : <><X size={14}/> Decline</>}
-                   </button>
+                   {booking.status === 'pending_performer_acceptance' ? (
+                       <>
+                           <button onClick={() => handleDecision('accepted')} disabled={!!isLoading} className="text-xs bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-md flex-shrink-0 w-24">
+                              {isLoading === 'accept' ? <LoaderCircle size={14} className="animate-spin" /> : <><Check size={14}/> Accept</>}
+                           </button>
+                           <button onClick={() => handleDecision('declined')} disabled={!!isLoading} className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-md flex-shrink-0 w-24">
+                              {isLoading === 'decline' ? <LoaderCircle size={14} className="animate-spin" /> : <><X size={14}/> Decline</>}
+                           </button>
+                       </>
+                   ) : (
+                       <button onClick={handleUpdateEta} disabled={!!isLoading || !etaValue} className="text-xs bg-orange-600 hover:bg-orange-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-md flex-shrink-0 w-24 disabled:opacity-50 disabled:cursor-not-allowed">
+                          {isLoading === 'update_eta' ? <LoaderCircle size={14} className="animate-spin" /> : <><Timer size={14}/> Update</>}
+                       </button>
+                   )}
                 </div>
             </div>
         )}
@@ -129,7 +213,7 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
 };
 
 
-const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onViewDoNotServe, onBookingDecision }) => {
+const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onViewDoNotServe, onBookingDecision, onUpdateEta, onUpdateBookingStatus }) => {
   const [etas, setEtas] = useState<Record<string, string>>({});
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<PerformerStatus | null>(null);
   
@@ -298,7 +382,18 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                   </h3>
                   {pendingBookings.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {pendingBookings.map(booking => <BookingCard key={booking.id} booking={booking} onDecision={onBookingDecision} etaValue={etas[booking.id] || ''} onEtaChange={handleEtaChange} onOpenChat={handleOpenChat} />)}
+                          {pendingBookings.map(booking => (
+                            <BookingCard 
+                              key={booking.id} 
+                              booking={booking} 
+                              onDecision={onBookingDecision} 
+                              etaValue={etas[booking.id] !== undefined ? etas[booking.id] : (booking.performer_eta_minutes?.toString() || '')} 
+                              onEtaChange={handleEtaChange} 
+                              onOpenChat={handleOpenChat} 
+                              onUpdateEta={onUpdateEta}
+                              onUpdateStatus={onUpdateBookingStatus}
+                            />
+                          ))}
                       </div>
                   ) : (
                       <div className="bg-zinc-950/30 border border-dashed border-zinc-800 rounded-lg py-8 text-center">
@@ -313,7 +408,18 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                   </h3>
                   {confirmedBookings.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         {confirmedBookings.map(booking => <BookingCard key={booking.id} booking={booking} onDecision={onBookingDecision} etaValue={''} onEtaChange={() => {}} onOpenChat={handleOpenChat} />)}
+                         {confirmedBookings.map(booking => (
+                           <BookingCard 
+                            key={booking.id} 
+                            booking={booking} 
+                            onDecision={onBookingDecision} 
+                            etaValue={''} 
+                            onEtaChange={() => {}} 
+                            onOpenChat={handleOpenChat} 
+                            onUpdateEta={onUpdateEta}
+                            onUpdateStatus={onUpdateBookingStatus}
+                           />
+                         ))}
                       </div>
                   ) : (
                       <div className="bg-zinc-950/30 border border-dashed border-zinc-800 rounded-lg py-8 text-center">

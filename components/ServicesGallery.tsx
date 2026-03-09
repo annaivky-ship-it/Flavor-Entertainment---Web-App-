@@ -42,12 +42,19 @@ const ServicesGallery: React.FC<ServicesGalleryProps> = ({ onBookService }) => {
               {services.map(service => (
                 <div key={service.id} className="card-base !p-6 flex flex-col justify-between h-full hover:!border-orange-500/60">
                   <div>
-                    <div className="flex justify-between items-start gap-4 mb-2">
+                     <div className="flex justify-between items-start gap-4 mb-2">
                        <h3 className="text-xl font-semibold text-white flex-1">{service.name}</h3>
-                       <span className="bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap">
-                           ${service.rate}
-                           {service.rate_type === 'per_hour' ? '/hr' : ''}
-                       </span>
+                       <div className="flex flex-col items-end gap-1">
+                         <span className="bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap">
+                             ${service.rate}
+                             {service.rate_type === 'per_hour' ? '/hr' : ''}
+                         </span>
+                         {(service.duration_minutes || service.min_duration_hours) && (
+                           <span className="text-xs text-zinc-400 font-medium">
+                             {service.duration_minutes ? `${service.duration_minutes} mins` : `Min ${service.min_duration_hours} hr${service.min_duration_hours! > 1 ? 's' : ''}`}
+                           </span>
+                         )}
+                       </div>
                     </div>
                     <p className="text-zinc-400 text-sm mb-4">
                       {service.description}
