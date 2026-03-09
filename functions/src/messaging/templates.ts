@@ -1,4 +1,4 @@
-export type TemplateKey = 
+export type TemplateKey =
   | 'NEW_BOOKING_ADMIN'
   | 'NEW_BOOKING_PERFORMER'
   | 'RECEIVED_CLIENT'
@@ -6,12 +6,16 @@ export type TemplateKey =
   | 'CONFIRMED_CLIENT'
   | 'CONFIRMED_PERFORMER'
   | 'DECLINED_CLIENT'
-  | 'CANCELLED_ALL';
+  | 'CANCELLED_ALL'
+  | 'KYC_LINK_CLIENT'
+  | 'KYC_PASS_CLIENT'
+  | 'KYC_FAIL_CLIENT'
+  | 'KYC_FLAGGED_ADMIN';
 
 export function renderTemplate(key: TemplateKey, data: any): string {
   const optOut = " Reply STOP to opt out.";
   const business = "Flavor Entertainers";
-  
+
   const clientName = data.clientName || data.fullName || 'Client';
   const performerName = data.performerName || 'Performer';
   const eventDate = data.eventDate || 'the requested date';
@@ -37,6 +41,14 @@ export function renderTemplate(key: TemplateKey, data: any): string {
       return `[${business}] Unfortunately, your booking request for ${performerName} could not be fulfilled at this time.${optOut}`;
     case 'CANCELLED_ALL':
       return `[${business}] The booking on ${eventDate} has been cancelled.`;
+    case 'KYC_LINK_CLIENT':
+      return `[${business}] To complete your booking, please verify your identity. Click here to start: ${data.verificationUrl || 'Check your email for the link.'} This step helps keep everyone safe.${optOut}`;
+    case 'KYC_PASS_CLIENT':
+      return `[${business}] Your identity has been verified successfully! Your booking for ${performerName} on ${eventDate} is now CONFIRMED. Thank you!${optOut}`;
+    case 'KYC_FAIL_CLIENT':
+      return `[${business}] Unfortunately, we were unable to verify your identity. Your deposit will be refunded. If you believe this is an error, please contact us.${optOut}`;
+    case 'KYC_FLAGGED_ADMIN':
+      return `[${business}] ⚠️ KYC flagged for booking ${data.id || data.booking_id || 'unknown'}. Client ${clientName} has AML flags. Manual review required.`;
     default:
       return `[${business}] Notification regarding your booking.`;
   }

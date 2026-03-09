@@ -5,6 +5,10 @@ import { sendMessage } from './messaging/send';
 import { renderTemplate } from './messaging/templates';
 import { checkAndSetIdempotency } from './utils/idempotency';
 import { GoogleGenAI, Type } from "@google/genai";
+import { createKycSession, processKycResult, verifyWebhookSignature } from './didit';
+import { calculateRiskScore, shouldSkipKyc } from './risk/scoring';
+import { createIncidentReport, approveIncidentReport, rejectIncidentReport } from './incidents/reporting';
+import { recordConsent, CONSENT_TEXT } from './consent';
 
 // Fix: Declaring Buffer to resolve 'Cannot find name Buffer' error in environments without node types.
 declare const Buffer: any;
@@ -17,7 +21,7 @@ export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: an
   if (!context.auth) {
     throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
   }
-  
+
   const isAdminUser = await isAdmin(context.auth.uid);
   if (!isAdminUser && context.auth.token.admin !== true) {
     throw new fns.https.HttpsError('permission-denied', 'Only admins can perform risk analysis.');
@@ -82,7 +86,7 @@ export const createDraftApplication = fns.https.onCall(async (data: any, context
 
   const appData = data.application;
   const appRef = db.collection('vetting_applications').doc();
-  
+
   await appRef.set({
     ...appData,
     userId: context.auth.uid,
@@ -102,7 +106,7 @@ export const createDraftApplication = fns.https.onCall(async (data: any, context
  */
 export const submitApplication = fns.https.onCall(async (data: any, context: any) => {
   if (!context.auth) throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
-  
+
   const { applicationId } = data;
   const appRef = db.collection('vetting_applications').doc(applicationId);
   const appSnap = await appRef.get();
@@ -111,7 +115,7 @@ export const submitApplication = fns.https.onCall(async (data: any, context: any
   const appData = appSnap.data()!;
 
   if (appData.userId !== context.auth.uid) throw new fns.https.HttpsError('permission-denied', 'Not owner.');
-  
+
   // Validation
   if (!appData.idFilePath || !appData.selfieFilePath) {
     throw new fns.https.HttpsError('failed-precondition', 'Missing required documents.');
@@ -167,7 +171,7 @@ export const reviewApplicationApprove = fns.https.onCall(async (data: any, conte
  */
 export const scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').onRun(async (context: any) => {
   const now = admin.firestore.Timestamp.now();
-  
+
   // 1. Find rejected apps older than 30 days
   const thirtyDaysAgo = new Date(now.toDate().getTime() - 30 * 24 * 60 * 60 * 1000);
   const rejectedSnap = await db.collection('vetting_applications')
@@ -187,9 +191,9 @@ export const scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').o
 
   for (const doc of toCleanup) {
     const data = doc.data();
-    if (data.idFilePath) await bucket.file(data.idFilePath).delete().catch(() => {});
-    if (data.selfieFilePath) await bucket.file(data.selfieFilePath).delete().catch(() => {});
-    
+    if (data.idFilePath) await bucket.file(data.idFilePath).delete().catch(() => { });
+    if (data.selfieFilePath) await bucket.file(data.selfieFilePath).delete().catch(() => { });
+
     await doc.ref.update({
       idFilePath: null,
       selfieFilePath: null,
@@ -216,10 +220,10 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
     // DNS Check
     const normalizedEmail = formState.email.toLowerCase().trim();
     const normalizedPhone = formState.phone.replace(/\s+/g, '');
-    
+
     const dnsEmailQuery = await transaction.get(db.collection('do_not_serve').where('email', '==', normalizedEmail));
     const dnsPhoneQuery = await transaction.get(db.collection('do_not_serve').where('phone', '==', normalizedPhone));
-    
+
     if (!dnsEmailQuery.empty || !dnsPhoneQuery.empty) {
       throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
     }
@@ -227,14 +231,14 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
     const newBookings: any[] = [];
     for (const pId of performerIds) {
       const slotId = `${pId}_${formState.eventDate}_${formState.eventTime}`;
-      
+
       // Slot locking
       const slotRef = db.collection('booking_slots').doc(slotId);
       const slotDoc = await transaction.get(slotRef);
 
       if (slotDoc.exists) {
         throw new fns.https.HttpsError(
-          'already-exists', 
+          'already-exists',
           `This time slot is already booked for performer ${pId}.`
         );
       }
@@ -247,7 +251,7 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
         slotLock: slotId,
         created_at: admin.firestore.FieldValue.serverTimestamp(),
       };
-      
+
       // Reserve the slot atomically
       transaction.set(slotRef, {
         bookingId: bookingRef.id,
@@ -259,7 +263,7 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
 
       transaction.set(bookingRef, bookingData);
       newBookings.push({ id: bookingRef.id, ...bookingData });
-      
+
       transaction.set(db.collection('notificationsQueue').doc(), {
         type: 'WHATSAPP',
         to: pId,
@@ -300,7 +304,7 @@ export const onBookingCreated = fns.firestore
   .onCreate(async (snap: any, context: any) => {
     const bookingId = context.params.bookingId;
     const data = snap.data();
-    
+
     if (data.status !== 'pending_performer_acceptance' && data.status !== 'PENDING') return;
 
     const idempotencyKey = `booking_created_${bookingId}`;
@@ -352,7 +356,7 @@ export const onBookingStatusChanged = fns.firestore
     // Cleanup slot lock if booking is rejected or cancelled
     if (after.status === 'rejected' || after.status === 'DECLINED' || after.status === 'cancelled' || after.status === 'CANCELLED') {
       if (after.slotLock) {
-        await db.collection('booking_slots').doc(after.slotLock).delete().catch(() => {});
+        await db.collection('booking_slots').doc(after.slotLock).delete().catch(() => { });
       }
     }
 
@@ -419,3 +423,278 @@ export const onBookingStatusChanged = fns.firestore
 
 // Export DNS functions
 export * from './dns';
+
+// --- Didit KYC Endpoints ---
+
+/**
+ * Webhook endpoint for Didit KYC verification results.
+ * Didit sends POST requests here when verification status changes.
+ */
+export const diditKycWebhook = fns.https.onRequest(async (req: any, res: any) => {
+  if (req.method !== 'POST') {
+    res.status(405).send('Method not allowed');
+    return;
+  }
+
+  // Verify webhook signature
+  const signature = req.headers['x-signature'] || '';
+  const timestamp = req.headers['x-timestamp'] || '';
+  const rawBody = JSON.stringify(req.body);
+
+  if (!verifyWebhookSignature(rawBody, signature, timestamp)) {
+    console.error('Invalid Didit webhook signature');
+    res.status(403).send('Invalid signature');
+    return;
+  }
+
+  try {
+    const webhookData = req.body;
+    const eventType = webhookData.event || 'status.updated';
+
+    if (eventType === 'status.updated' &&
+      (webhookData.status === 'Approved' || webhookData.status === 'Declined')) {
+
+      const result = await processKycResult(webhookData);
+      console.log(`KYC ${result.kycResult} for booking ${result.bookingId} → ${result.newStatus}`);
+
+      // Send notification to client
+      const bookingDoc = await db.collection('bookings').doc(result.bookingId).get();
+      const booking = bookingDoc.data();
+      const clientPhone = booking?.clientPhone || booking?.phone || booking?.client_phone;
+
+      if (clientPhone) {
+        if (result.kycResult === 'PASS' && result.newStatus === 'CONFIRMED') {
+          await sendMessage({
+            bookingId: result.bookingId,
+            templateKey: 'CONFIRMED_CLIENT',
+            to: clientPhone,
+            body: renderTemplate('CONFIRMED_CLIENT', booking)
+          });
+        } else if (result.kycResult === 'FAIL') {
+          await sendMessage({
+            bookingId: result.bookingId,
+            templateKey: 'DECLINED_CLIENT',
+            to: clientPhone,
+            body: renderTemplate('DECLINED_CLIENT', booking)
+          });
+        }
+      }
+    }
+
+    res.status(200).json({ received: true });
+  } catch (error: any) {
+    console.error('Error processing Didit webhook:', error);
+    res.status(500).json({ error: 'Internal error processing webhook' });
+  }
+});
+
+/**
+ * Admin-triggered KYC session creation.
+ * Use when auto-creation fails or admin wants to manually trigger KYC.
+ */
+export const adminTriggerKyc = fns.https.onCall(async (data: any, context: any) => {
+  if (!context.auth) {
+    throw new fns.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const adminDoc = await db.collection('admins').doc(context.auth.uid).get();
+  if (!adminDoc.exists && context.auth.token.admin !== true) {
+    throw new fns.https.HttpsError('permission-denied', 'Admin access required');
+  }
+
+  const { bookingId } = data;
+  if (!bookingId) {
+    throw new fns.https.HttpsError('invalid-argument', 'bookingId is required');
+  }
+
+  try {
+    const session = await createKycSession(bookingId);
+    return {
+      success: true,
+      verification_url: session?.verification_url || null,
+      session_id: session?.session_id || null
+    };
+  } catch (error: any) {
+    throw new fns.https.HttpsError('internal', `Failed to create KYC session: ${error.message}`);
+  }
+});
+
+// --- Safety Verification System ---
+
+/**
+ * Step 2: Record client consent before identity verification.
+ */
+export const recordBookingConsent = fns.https.onCall(async (data: any, context: any) => {
+  const { bookingId, ipAddress, userAgent, deviceFingerprint } = data;
+
+  if (!bookingId) {
+    throw new fns.https.HttpsError('invalid-argument', 'bookingId is required');
+  }
+
+  const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+  if (!bookingDoc.exists) {
+    throw new fns.https.HttpsError('not-found', 'Booking not found');
+  }
+
+  const booking = bookingDoc.data()!;
+
+  const consentId = await recordConsent({
+    bookingId,
+    clientEmail: booking.client_email || booking.email,
+    clientPhone: booking.client_phone || booking.phone,
+    ipAddress: ipAddress || context.rawRequest?.ip || 'unknown',
+    userAgent: userAgent || 'unknown',
+    deviceFingerprint,
+    consentText: CONSENT_TEXT,
+  });
+
+  return { success: true, consentId, consentText: CONSENT_TEXT };
+});
+
+/**
+ * Performer: Submit an incident report about a dangerous client.
+ */
+export const submitIncidentReport = fns.https.onCall(async (data: any, context: any) => {
+  if (!context.auth) {
+    throw new fns.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const {
+    client_name, client_email, client_phone,
+    incident_description, risk_level,
+    evidence_urls, booking_id
+  } = data;
+
+  if (!client_name || !incident_description || !risk_level) {
+    throw new fns.https.HttpsError('invalid-argument', 'Missing required fields');
+  }
+
+  if (!['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(risk_level)) {
+    throw new fns.https.HttpsError('invalid-argument', 'Invalid risk level');
+  }
+
+  const reportId = await createIncidentReport({
+    client_name,
+    client_email: client_email || '',
+    client_phone: client_phone || '',
+    incident_description,
+    risk_level,
+    reported_by_performer_id: context.auth.uid,
+    reported_by_name: context.auth.token.name || context.auth.token.email || 'Unknown',
+    evidence_urls: evidence_urls || [],
+    booking_id: booking_id || null,
+  });
+
+  // Notify admins
+  const settingsDoc = await db.collection('settings').doc('messaging').get();
+  const adminNumbers = settingsDoc.data()?.adminNotifyNumbers || [];
+  for (const num of adminNumbers) {
+    await sendMessage({
+      bookingId: booking_id || 'incident',
+      templateKey: 'KYC_FLAGGED_ADMIN' as any,
+      to: num,
+      body: `[Flavor Entertainers] ⚠️ New incident report: ${client_name} (${risk_level}). "${incident_description.substring(0, 80)}..." Review in admin dashboard.`,
+    });
+  }
+
+  return { success: true, reportId };
+});
+
+/**
+ * Admin: Review and act on an incident report.
+ */
+export const adminReviewIncident = fns.https.onCall(async (data: any, context: any) => {
+  if (!context.auth) {
+    throw new fns.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const adminDoc = await db.collection('admins').doc(context.auth.uid).get();
+  if (!adminDoc.exists && context.auth.token.admin !== true) {
+    throw new fns.https.HttpsError('permission-denied', 'Admin access required');
+  }
+
+  const { reportId, action, notes } = data;
+
+  if (!reportId || !action) {
+    throw new fns.https.HttpsError('invalid-argument', 'reportId and action required');
+  }
+
+  if (action === 'approve') {
+    await approveIncidentReport(reportId, context.auth.uid, notes);
+    return { success: true, message: 'Report approved. Client added to DNS register.' };
+  } else if (action === 'reject') {
+    await rejectIncidentReport(reportId, context.auth.uid, notes || 'Insufficient evidence');
+    return { success: true, message: 'Report rejected.' };
+  } else {
+    throw new fns.https.HttpsError('invalid-argument', 'Action must be "approve" or "reject"');
+  }
+});
+
+/**
+ * Run full risk assessment for a booking.
+ * Called after KYC result or manually by admin.
+ */
+export const assessBookingRisk = fns.https.onCall(async (data: any, context: any) => {
+  if (!context.auth) {
+    throw new fns.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { bookingId } = data;
+  if (!bookingId) {
+    throw new fns.https.HttpsError('invalid-argument', 'bookingId required');
+  }
+
+  const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+  if (!bookingDoc.exists) {
+    throw new fns.https.HttpsError('not-found', 'Booking not found');
+  }
+
+  const booking = bookingDoc.data()!;
+
+  const assessment = await calculateRiskScore({
+    bookingId,
+    clientEmail: booking.client_email || booking.email,
+    clientPhone: booking.client_phone || booking.phone,
+    clientEmailHash: booking.client_email_hash || '',
+    clientPhoneHash: booking.client_phone_hash || '',
+    ipAddress: booking.client_ip,
+    deviceFingerprint: booking.device_fingerprint,
+    kycStatus: booking.kyc_status,
+    kycConfidence: booking.kyc_confidence,
+  });
+
+  // Apply decision to booking
+  if (assessment.decision === 'APPROVE') {
+    await db.collection('bookings').doc(bookingId).update({
+      risk_score: assessment.score,
+      risk_level: assessment.level,
+      risk_decision: assessment.decision,
+      status: booking.kyc_status === 'PASS' || booking.kyc_status === 'BYPASSED'
+        ? 'CONFIRMED' : booking.status,
+    });
+  } else if (assessment.decision === 'MANUAL_REVIEW') {
+    await db.collection('bookings').doc(bookingId).update({
+      risk_score: assessment.score,
+      risk_level: assessment.level,
+      risk_decision: assessment.decision,
+      status: 'PENDING_ADMIN_REVIEW',
+    });
+  } else {
+    await db.collection('bookings').doc(bookingId).update({
+      risk_score: assessment.score,
+      risk_level: assessment.level,
+      risk_decision: assessment.decision,
+      status: 'DENIED',
+    });
+  }
+
+  return {
+    success: true,
+    assessment: {
+      score: assessment.score,
+      level: assessment.level,
+      decision: assessment.decision,
+      reasons: assessment.reasons,
+    },
+  };
+});

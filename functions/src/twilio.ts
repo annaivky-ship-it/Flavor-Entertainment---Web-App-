@@ -1,13 +1,10 @@
 
-import * as functions from 'firebase-functions';
 import { Twilio, validateRequest } from 'twilio';
 
-// Use any cast to satisfy the compiler in environments where v2 types make config() look uncallable.
-const config = (functions as any).config();
-const accountSid = config.twilio?.sid;
-const authToken = config.twilio?.token;
-const whatsappFrom = config.twilio?.whatsapp_from;
-const smsFrom = config.twilio?.sms_from;
+const accountSid = process.env.TWILIO_SID;
+const authToken = process.env.TWILIO_TOKEN;
+const whatsappFrom = process.env.TWILIO_WHATSAPP_FROM;
+const smsFrom = process.env.TWILIO_SMS_FROM;
 
 const client = new Twilio(accountSid, authToken);
 
@@ -31,5 +28,5 @@ export const verifyTwilioSignature = (req: any) => {
   const twilioSignature = req.headers['x-twilio-signature'];
   const url = `https://${req.get('host')}${req.originalUrl}`;
   const params = req.body;
-  return validateRequest(authToken, twilioSignature, url, params);
+  return validateRequest(authToken!, twilioSignature, url, params);
 };

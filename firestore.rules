@@ -1,121 +1,159 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper functions
+
+    // --- Helper Functions ---
+
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isAdmin() {
-      return isSignedIn() && 
-        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
-         request.auth.token.admin == true);
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
-    
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     function isPerformer() {
-      return isSignedIn() && request.auth.token.role == 'performer';
-    }
-
-    // Vetting Applications
-    match /vetting_applications/{appId} {
-      // Users can read/create their own applications
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      
-      // Only admins can update status and review fields
-      // Users can only update draft applications they own
-      allow update: if isAdmin() || (
-        isSignedIn() && 
-        resource.data.userId == request.auth.uid && 
-        resource.data.status == 'draft' &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'reviewedAt', 'reviewedBy', 'riskFlags', 'decisionReason'])
+      return isSignedIn() && (
+        request.auth.token.role == 'performer' ||
+        exists(/databases/$(database)/documents/performers_auth/$(request.auth.uid))
       );
-      
-      allow delete: if isAdmin();
     }
 
-    // Audit Logs
-    match /audit_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false; // Admin SDK bypasses rules — Cloud Functions only
-    }
-
-    // KYC Records
-    match /kyc_records/{userId} {
-      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
-      allow write: if false; // Only updated via Cloud Functions / Webhooks
-      
-      match /dvs_checks/{checkId} {
-        allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
-        allow write: if false; // Only updated via Cloud Functions
-      }
-    }
-
-    // Message Logs
-    match /message_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false; // Only updated via Cloud Functions
-    }
-
-    // Settings
-    match /settings/{docId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    // Users
-    match /users/{userId} {
-      allow read: if isAdmin() || isOwner(userId);
-      allow write: if isAdmin();
-    }
-
-    // Performers
+    // --- Performers (public read, admin write) ---
     match /performers/{performerId} {
-      allow read: if true; // Public gallery
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Services (public read, admin write) ---
+    match /services/{serviceId} {
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Bookings
+    // --- Bookings ---
     match /bookings/{bookingId} {
-      allow create: if isSignedIn();
-      allow read: if isAdmin() || 
-                  (isSignedIn() && resource.data.client_email == request.auth.token.email) ||
-                  (isPerformer() && resource.data.performer_id == request.auth.token.performerId);
-      allow update: if isAdmin() || 
-                    (isPerformer() && resource.data.performer_id == request.auth.token.performerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
-                    (isSignedIn() && resource.data.client_email == request.auth.token.email && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deposit_receipt_path', 'status']));
-      allow delete: if isAdmin();
+      // Clients can create bookings (even unauthenticated for public form)
+      allow create: if true;
+
+      // Only the booking owner or admin can read
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.client_uid == request.auth.uid)
+        || (isPerformer() && resource.data.performer_uid == request.auth.uid);
+
+      // Only admins can update booking status
+      allow update: if isAdmin();
+
+      // No one can delete bookings
+      allow delete: if false;
     }
 
-    // Do Not Serve
-    match /do_not_serve/{id} {
+    // --- DNS Register (admin only) ---
+    match /dns_entries/{entryId} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- Legacy Do Not Serve (admin only) ---
+    match /do_not_serve/{entryId} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- Blacklist (admin only, legacy) ---
+    match /blacklist/{entryId} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- KYC Sessions (admin only — sensitive data) ---
+    match /kyc_sessions/{sessionId} {
       allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions write
+    }
+
+    // --- Risk Scores (admin only) ---
+    match /risk_scores/{scoreId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions write
+    }
+
+    // --- Consents (the booking client can create, admin can read) ---
+    match /consents/{consentId} {
+      allow create: if true; // Public booking form
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // --- Incident Reports ---
+    match /incident_reports/{reportId} {
+      // Performers can create reports
+      allow create: if isPerformer();
+
+      // Admin can read and update (approve/reject)
+      allow read: if isAdmin()
+        || (isPerformer() && resource.data.reported_by_performer_id == request.auth.uid);
+
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // --- Audit Logs (admin read-only, system write) ---
+    match /audit_log/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions write
+    }
+
+    // --- Vetting Applications ---
+    match /vetting_applications/{appId} {
+      allow create: if isSignedIn();
+      allow read: if isAdmin() || isOwner(resource.data.userId);
+      allow update: if isAdmin() || (isOwner(resource.data.userId) && resource.data.status == 'draft');
+      allow delete: if false;
+    }
+
+    // --- Communications ---
+    match /communications/{msgId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
+      allow delete: if false;
+    }
+
+    // --- Admin Users ---
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Communications
-    match /communications/{id} {
-      allow create: if isSignedIn();
-      allow read: if isAdmin() || 
-                  (isSignedIn() && (resource.data.sender == request.auth.token.email || resource.data.recipient == request.auth.token.email || resource.data.sender == request.auth.token.name || resource.data.recipient == request.auth.token.name || resource.data.recipient == request.auth.token.performerId || resource.data.sender == request.auth.token.performerId));
-      allow update, delete: if isAdmin();
-    }
-
-    // Blacklist
-    match /blacklist/{id} {
-      allow read: if isAdmin();
+    // --- Settings ---
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Notifications Queue
-    match /notificationsQueue/{id} {
-      allow read: if isAdmin();
-      allow write: if false; // Cloud Functions only
+    // --- Notifications ---
+    match /notifications/{notifId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.recipient_uid == request.auth.uid);
+      allow create: if false; // Only Cloud Functions
+      allow update: if isSignedIn() && resource.data.recipient_uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // --- Performer Auth Mapping ---
+    match /performers_auth/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- Default: deny everything else ---
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
