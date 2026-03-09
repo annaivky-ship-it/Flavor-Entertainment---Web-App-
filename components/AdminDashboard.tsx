@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2 } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
 import { resetDemoData, api } from '../services/api';
 import ChatDialog from './ChatDialog';
@@ -20,12 +20,27 @@ interface AdminDashboardProps {
   onCreatePerformer: (performerData: Omit<Performer, 'id'>) => Promise<void>;
 }
 
+const getPaymentStatusWeight = (status?: string) => {
+  switch(status) {
+    case 'unpaid': return 0;
+    case 'deposit_paid': return 1;
+    case 'fully_paid': return 2;
+    case 'refunded': return 3;
+    default: return -1;
+  }
+};
+
 const statusClasses: Record<BookingStatus, string> = {
     pending_performer_acceptance: 'border-purple-500/50 bg-purple-900/30 text-purple-300',
     pending_vetting: 'border-yellow-500/50 bg-yellow-900/30 text-yellow-300',
     deposit_pending: 'border-orange-500/50 bg-orange-900/30 text-orange-300',
     pending_deposit_confirmation: 'border-blue-500/50 bg-blue-900/30 text-blue-300',
     confirmed: 'border-green-500/50 bg-green-900/30 text-green-300',
+    en_route: 'border-blue-500/50 bg-blue-900/30 text-blue-300',
+    arrived: 'border-emerald-500/50 bg-emerald-900/30 text-emerald-300',
+    in_progress: 'border-indigo-500/50 bg-indigo-900/30 text-indigo-300',
+    completed: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-300',
+    cancelled: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-400',
     rejected: 'border-red-500/50 bg-red-900/30 text-red-300',
 };
 
@@ -35,10 +50,15 @@ const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
     { value: 'deposit_pending', label: 'Deposit Pending' },
     { value: 'pending_deposit_confirmation', label: 'Pending Deposit Confirmation' },
     { value: 'confirmed', label: 'Confirmed' },
+    { value: 'en_route', label: 'En Route' },
+    { value: 'arrived', label: 'Arrived' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
     { value: 'rejected', label: 'Rejected' },
 ];
 
-type AdminTab = 'management' | 'payments' | 'performers' | 'reporting';
+type AdminTab = 'management' | 'payments' | 'performers' | 'dns' | 'reporting';
 
 // Admin Dashboard Component for managing bookings, performers, and reporting
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, doNotServeList, communications, onUpdateBookingStatus, onUpdateDoNotServeStatus, onViewDoNotServe, onAdminDecisionForPerformer, onAdminChangePerformer, onUpdatePerformer, onCreatePerformer }) => {
@@ -59,6 +79,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     bio: '',
     photo_url: 'https://picsum.photos/seed/performer/400/600',
     status: 'available',
+    rating: 5.0,
+    review_count: 0,
     service_ids: [],
     service_areas: [],
     created_at: new Date().toISOString(),
@@ -156,8 +178,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 valB = b.status;
                 break;
             case 'payment_status':
-                valA = getStatusWeight(a.status);
-                valB = getStatusWeight(b.status);
+                valA = getPaymentStatusWeight(a.payment_status);
+                valB = getPaymentStatusWeight(b.payment_status);
                 break;
         }
         
@@ -198,6 +220,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
               valB = b.client_name.toLowerCase();
               break;
           case 'payment_status':
+              valA = getPaymentStatusWeight(a.payment_status);
+              valB = getPaymentStatusWeight(b.payment_status);
+              break;
           case 'status':
               valA = getStatusWeight(a.status);
               valB = getStatusWeight(b.status);
@@ -228,7 +253,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     performers.forEach(p => performerBookings[p.name] = 0);
 
     confirmedBookings.forEach(booking => {
-      const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+      const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
       totalRevenue += totalCost;
       totalDeposits += depositAmount;
       
@@ -236,7 +261,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         performerBookings[booking.performer.name]++;
       }
       
-      booking.services_requested.forEach(serviceId => {
+      (booking.services_requested || []).forEach(serviceId => {
         const service = allServices.find(s => s.id === serviceId);
         if (service) {
            serviceCategoryCounts[service.category]++;
@@ -306,52 +331,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         <div className="card-base !p-6 flex items-center gap-4"><ShieldAlert className="w-10 h-10 text-yellow-500" /><div><p className="text-zinc-400 text-sm">Pending Actions</p><p className="text-3xl font-bold text-white">{pendingDnsEntries.length + pendingBookings}</p></div></div>
       </div>
 
-
-      {pendingDnsEntries.length > 0 && (
-         <div className="card-base !p-6 !border-yellow-500/50 !bg-yellow-900/20">
-           <h2 className="text-2xl font-semibold text-white mb-4">Pending 'Do Not Serve' Submissions</h2>
-           <div className="space-y-4">
-              {pendingDnsEntries.map(entry => (
-                <div key={entry.id} className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700 flex flex-col md:flex-row justify-between md:items-center gap-4">
-                    <div>
-                        <p className="font-bold text-lg text-white">{entry.client_name}</p>
-                        <p className="text-sm text-zinc-400">Submitted by: <span className="font-semibold text-orange-400">{entry.performer?.name || 'N/A'}</span></p>
-                        <p className="text-sm text-zinc-300 mt-1 italic">Reason: "{entry.reason}"</p>
-                    </div>
-                    <div className="flex-shrink-0 flex items-center gap-2">
-                        <button onClick={() => handleAction('dns-approve', entry.id, () => onUpdateDoNotServeStatus(entry.id, 'approved'))} disabled={loadingState?.id === entry.id} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded flex items-center gap-1 text-xs w-24 justify-center">
-                          {loadingState?.type === 'dns-approve' && loadingState.id === entry.id ? <LoaderCircle size={14} className="animate-spin" /> : <><Check size={14}/> Approve</>}
-                        </button>
-                        <button onClick={() => handleAction('dns-reject', entry.id, () => onUpdateDoNotServeStatus(entry.id, 'rejected'))} disabled={loadingState?.id === entry.id} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded flex items-center gap-1 text-xs w-24 justify-center">
-                          {loadingState?.type === 'dns-reject' && loadingState.id === entry.id ? <LoaderCircle size={14} className="animate-spin" /> : <><X size={14}/> Reject</>}
-                        </button>
-                    </div>
-                </div>
-              ))}
-           </div>
-         </div>
-      )}
-
       {/* Tab Navigation */}
-      <div className="border-b border-zinc-800">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+      <div className="border-b border-zinc-800 overflow-x-auto scrollbar-hide">
+        <nav className="-mb-px flex space-x-8 min-w-max px-2" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('management')}
             className={`${activeTab === 'management' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
-            <CreditCard size={16}/> Booking Management
+            <CreditCard size={16}/> Management
           </button>
           <button
             onClick={() => setActiveTab('payments')}
             className={`${activeTab === 'payments' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
-            <DollarSign size={16}/> Payment Tracking
+            <DollarSign size={16}/> Payments
           </button>
           <button
             onClick={() => setActiveTab('performers')}
             className={`${activeTab === 'performers' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
-            <UserCog size={16}/> Performer Management
+            <UserCog size={16}/> Performers
+          </button>
+          <button
+            onClick={() => setActiveTab('dns')}
+            className={`${activeTab === 'dns' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+          >
+            <ShieldAlert size={16}/> DNS
+            {pendingDnsEntries.length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
+                {pendingDnsEntries.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('reporting')}
@@ -432,6 +442,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   bio: '',
                   photo_url: 'https://picsum.photos/seed/performer/400/600',
                   status: 'available',
+                  rating: 5.0,
+                  review_count: 0,
                   service_ids: [],
                   service_areas: [],
                   created_at: new Date().toISOString(),
@@ -497,6 +509,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     <option value="offline">Offline</option>
                   </select>
                 </div>
+                <div className="space-y-1">
+                  <label className="text-sm text-zinc-400">Min Booking Duration (Hours)</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    step="0.5"
+                    value={performerForm.min_booking_duration_hours || ''} 
+                    onChange={e => setPerformerForm({...performerForm, min_booking_duration_hours: e.target.value ? Number(e.target.value) : undefined})}
+                    className="input-base w-full"
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button 
@@ -527,12 +550,61 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {performers.map(p => (
+            {performers.filter(p => p.status === 'pending_verification').length > 0 && (
+              <div className="col-span-full mb-6">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <ShieldAlert className="text-yellow-500" />
+                  Pending Verification
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {performers.filter(p => p.status === 'pending_verification').map(p => (
+                    <div key={p.id} className="card-base !p-4 flex flex-col gap-4 border-yellow-500/30 bg-yellow-500/5">
+                      <div className="flex gap-4">
+                        <img src={p.photo_url} alt={p.name} loading="lazy" className="w-20 h-20 rounded-lg object-cover border border-zinc-800" />
+                        <div className="flex-grow">
+                          <h4 className="font-bold text-white">{p.name}</h4>
+                          <p className="text-xs text-zinc-400 line-clamp-2 mt-1">{p.bio}</p>
+                          <div className="mt-2 text-xs text-zinc-500">
+                            <p><strong>Areas:</strong> {p.service_areas.join(', ')}</p>
+                            <p><strong>Services:</strong> {p.service_ids.join(', ')}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <button 
+                          onClick={() => onUpdatePerformer(p.id, { status: 'available' })}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 rounded transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Check size={14} /> Approve
+                        </button>
+                        <button 
+                          onClick={() => onUpdatePerformer(p.id, { status: 'rejected' })}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 rounded transition-colors flex items-center justify-center gap-1"
+                        >
+                          <X size={14} /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="col-span-full">
+              <h3 className="text-xl font-bold text-white mb-4">Active Performers</h3>
+            </div>
+            {performers.filter(p => p.status !== 'pending_verification' && p.status !== 'rejected').map(p => (
               <div key={p.id} className="card-base !p-4 flex gap-4">
                 <img src={p.photo_url} alt={p.name} loading="lazy" className="w-20 h-20 rounded-lg object-cover border border-zinc-800" />
                 <div className="flex-grow">
                   <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-white">{p.name}</h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-white">{p.name}</h4>
+                      <div className="flex items-center gap-1 text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded border border-white/5">
+                        <Star className="w-2.5 h-2.5 text-orange-400 fill-orange-400" />
+                        <span className="text-white font-bold">{(p.rating || 0).toFixed(1)}</span>
+                      </div>
+                    </div>
                     <div className="flex gap-1">
                       <button 
                         onClick={() => {
@@ -543,6 +615,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                             bio: p.bio,
                             photo_url: p.photo_url,
                             status: p.status,
+                            rating: p.rating,
+                            review_count: p.review_count,
                             service_ids: p.service_ids,
                             service_areas: p.service_areas,
                             created_at: p.created_at,
@@ -578,14 +652,118 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         </div>
       )}
 
+      {activeTab === 'dns' && (
+        <div className="space-y-8 animate-fade-in">
+          {pendingDnsEntries.length > 0 && (
+            <div className="card-base !p-6 !border-yellow-500/50 !bg-yellow-900/10">
+              <h2 className="text-2xl font-semibold text-white mb-4">Pending DNS Submissions</h2>
+              <div className="space-y-4">
+                {pendingDnsEntries.map(entry => (
+                  <div key={entry.id} className="bg-zinc-950/50 p-5 rounded-xl border border-zinc-800 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-3">
+                        <p className="font-bold text-xl text-white">{entry.client_name}</p>
+                        <span className="bg-yellow-500/20 text-yellow-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Pending Review</span>
+                      </div>
+                      <p className="text-sm text-zinc-400">
+                        Submitted by: <span className="font-semibold text-orange-400">{entry.performer?.name || 'N/A'}</span>
+                        <span className="mx-2 text-zinc-600">|</span>
+                        {new Date(entry.created_at).toLocaleDateString()}
+                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 mt-2">
+                        {entry.client_email && <span className="flex items-center gap-1"><Mail size={12}/> {entry.client_email}</span>}
+                        {entry.client_phone && <span className="flex items-center gap-1"><Phone size={12}/> {entry.client_phone}</span>}
+                      </div>
+                      <p className="text-sm text-zinc-300 mt-3 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800/50 italic">
+                        "{entry.reason}"
+                      </p>
+                    </div>
+                    <div className="flex flex-row md:flex-col gap-2 flex-shrink-0">
+                      <button 
+                        onClick={() => handleAction('dns-approve', entry.id, () => onUpdateDoNotServeStatus(entry.id, 'approved'))} 
+                        disabled={loadingState?.id === entry.id} 
+                        className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        {loadingState?.type === 'dns-approve' && loadingState.id === entry.id ? <LoaderCircle size={16} className="animate-spin" /> : <><Check size={16}/> Approve Entry</>}
+                      </button>
+                      <button 
+                        onClick={() => handleAction('dns-reject', entry.id, () => onUpdateDoNotServeStatus(entry.id, 'rejected'))} 
+                        disabled={loadingState?.id === entry.id} 
+                        className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        {loadingState?.type === 'dns-reject' && loadingState.id === entry.id ? <LoaderCircle size={16} className="animate-spin" /> : <><X size={16}/> Reject Entry</>}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="card-base !p-6">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+              <h2 className="text-2xl font-semibold text-white">Active 'Do Not Serve' List</h2>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search DNS entries..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="input-base !py-2 !pl-9 !pr-4 !text-sm !w-full sm:!w-64"
+                />
+              </div>
+            </div>
+            <div className="space-y-4">
+              {doNotServeList.filter(e => e.status === 'approved' && (
+                e.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (e.client_email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (e.client_phone || '').toLowerCase().includes(searchTerm.toLowerCase())
+              )).length > 0 ? (
+                doNotServeList.filter(e => e.status === 'approved' && (
+                  e.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  (e.client_email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  (e.client_phone || '').toLowerCase().includes(searchTerm.toLowerCase())
+                )).map(entry => (
+                  <div key={entry.id} className="bg-zinc-900/40 p-4 rounded-lg border border-zinc-800 flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-lg text-white">{entry.client_name}</p>
+                      <div className="flex flex-wrap gap-x-4 text-xs text-zinc-500 mt-1">
+                        {entry.client_email && <span>{entry.client_email}</span>}
+                        {entry.client_phone && <span>{entry.client_phone}</span>}
+                      </div>
+                      <p className="text-sm text-zinc-400 mt-2 italic">"{entry.reason}"</p>
+                      <p className="text-[10px] text-zinc-600 mt-2 uppercase tracking-widest font-bold">Approved on {new Date(entry.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        if (confirm(`Are you sure you want to remove ${entry.client_name} from the DNS list?`)) {
+                          onUpdateDoNotServeStatus(entry.id, 'rejected');
+                        }
+                      }}
+                      className="text-zinc-500 hover:text-red-500 p-2 transition-colors"
+                      title="Remove from DNS"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-zinc-500 text-center py-10">No active DNS entries found.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'reporting' && (
         <div className="card-base !p-6 animate-fade-in">
            <h2 className="text-2xl font-semibold text-white mb-6">Reporting & Analytics</h2>
            {reportingMetrics.confirmedCount > 0 ? (
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><DollarSign className="w-10 h-10 text-green-500" /><div><p className="text-zinc-400 text-sm">Total Revenue</p><p className="text-3xl font-bold text-white">${reportingMetrics.totalRevenue.toFixed(2)}</p></div></div>
-                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><CreditCard className="w-10 h-10 text-orange-500" /><div><p className="text-zinc-400 text-sm">Total Deposits Paid</p><p className="text-3xl font-bold text-white">${reportingMetrics.totalDeposits.toFixed(2)}</p></div></div>
+                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><DollarSign className="w-10 h-10 text-green-500" /><div><p className="text-zinc-400 text-sm">Total Revenue</p><p className="text-3xl font-bold text-white">${(reportingMetrics.totalRevenue || 0).toFixed(2)}</p></div></div>
+                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><CreditCard className="w-10 h-10 text-orange-500" /><div><p className="text-zinc-400 text-sm">Total Deposits Paid</p><p className="text-3xl font-bold text-white">${(reportingMetrics.totalDeposits || 0).toFixed(2)}</p></div></div>
                   <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><CheckCircle className="w-10 h-10 text-blue-500" /><div><p className="text-zinc-400 text-sm">Confirmed Bookings</p><p className="text-3xl font-bold text-white">{reportingMetrics.confirmedCount}</p></div></div>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -692,15 +870,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                            {isLoading && loadingState?.type === 'reject' ? <LoaderCircle size={14} className="animate-spin"/> : <><X size={14}/> Reject</>}
                         </button>
                      )}
-                     {booking.status === 'pending_performer_acceptance' && (
+                     {booking.status !== 'confirmed' && (
                         <div className="flex items-center gap-2 pl-2 border-l border-zinc-600">
                            <p className="text-xs font-semibold text-zinc-300">Admin Override:</p>
-                           <button onClick={() => handleAction('override-accept', booking.id, () => onAdminDecisionForPerformer(booking.id, 'accepted'))} disabled={isLoading} className="text-xs bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
-                             {isLoading && loadingState?.type === 'override-accept' ? <LoaderCircle size={14} className="animate-spin"/> : <><Check size={14}/> Accept for Performer</>}
-                           </button>
-                           <button onClick={() => handleAction('override-decline', booking.id, () => onAdminDecisionForPerformer(booking.id, 'declined'))} disabled={isLoading} className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
-                             {isLoading && loadingState?.type === 'override-decline' ? <LoaderCircle size={14} className="animate-spin"/> : <><X size={14}/> Decline for Performer</>}
-                           </button>
+                           {booking.status !== 'pending_vetting' && booking.status !== 'deposit_pending' && booking.status !== 'pending_deposit_confirmation' && (
+                             <button onClick={() => handleAction('override-accept', booking.id, () => onAdminDecisionForPerformer(booking.id, 'accepted'))} disabled={isLoading} className="text-xs bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
+                               {isLoading && loadingState?.type === 'override-accept' ? <LoaderCircle size={14} className="animate-spin"/> : <><Check size={14}/> Accept for Performer</>}
+                             </button>
+                           )}
+                           {booking.status !== 'rejected' && (
+                             <button onClick={() => handleAction('override-decline', booking.id, () => onAdminDecisionForPerformer(booking.id, 'declined'))} disabled={isLoading} className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
+                               {isLoading && loadingState?.type === 'override-decline' ? <LoaderCircle size={14} className="animate-spin"/> : <><X size={14}/> Decline for Performer</>}
+                             </button>
+                           )}
                         </div>
                      )}
                      <button onClick={() => handleOpenChat(booking)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5">
@@ -708,7 +890,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                      </button>
                 </div>
                  <div className="flex flex-wrap gap-2 items-center">
-                    {booking.status !== 'confirmed' && booking.status !== 'rejected' && (
                        <div className="relative group">
                           <RefreshCcw className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                           <select 
@@ -724,7 +905,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                           </select>
                           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                        </div>
-                    )}
                     {booking.status === 'confirmed' && booking.verified_at && (
                         <div className="text-xs text-green-300/80">
                             Verified by <strong>{booking.verified_by_admin_name}</strong> on {new Date(booking.verified_at).toLocaleDateString()}
@@ -755,14 +935,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     </thead>
                     <tbody>
                         {paymentRelatedBookings.length > 0 ? paymentRelatedBookings.map(booking => {
-                            const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested, 1);
+                            const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
                             const isLoading = loadingState?.id === booking.id;
                             
-                            let paymentStatusText = 'Unknown';
-                            if (booking.status === 'deposit_pending') paymentStatusText = 'Awaiting Payment';
-                            if (booking.status === 'pending_deposit_confirmation') paymentStatusText = 'Verification Needed';
-                            if (booking.status === 'confirmed') paymentStatusText = 'Verified';
-                            if (booking.status === 'rejected') paymentStatusText = 'Payment Rejected/Cancelled';
+                            let paymentStatusText = booking.payment_status ? booking.payment_status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Unknown';
+                            if (!booking.payment_status) {
+                                if (booking.status === 'deposit_pending') paymentStatusText = 'Awaiting Payment';
+                                if (booking.status === 'pending_deposit_confirmation') paymentStatusText = 'Verification Needed';
+                                if (booking.status === 'confirmed') paymentStatusText = 'Verified';
+                                if (booking.status === 'rejected') paymentStatusText = 'Payment Rejected/Cancelled';
+                            }
 
                             return (
                                 <tr key={booking.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
@@ -771,8 +953,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                                       <div className="text-[10px] text-zinc-500 mt-1">{new Date(booking.event_date).toLocaleDateString()}</div>
                                     </td>
                                     <td className="px-3 py-4 sm:px-6">{booking.performer?.name}</td>
-                                    <td className="px-3 py-4 sm:px-6">${totalCost.toFixed(2)}</td>
-                                    <td className="px-3 py-4 sm:px-6 font-bold text-orange-400">${depositAmount.toFixed(2)}</td>
+                                    <td className="px-3 py-4 sm:px-6">${(totalCost || 0).toFixed(2)}</td>
+                                    <td className="px-3 py-4 sm:px-6 font-bold text-orange-400">${(depositAmount || 0).toFixed(2)}</td>
                                     <td className={`px-3 py-4 sm:px-6 font-semibold ${statusClasses[booking.status]}`}>{paymentStatusText}</td>
                                     <td className="px-3 py-4 sm:px-6">
                                         <div className="flex flex-col gap-2">

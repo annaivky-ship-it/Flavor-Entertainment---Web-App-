@@ -87,11 +87,11 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
             <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-zinc-800/40 p-3 rounded-lg border border-zinc-800">
                     <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Total Value</p>
-                    <p className="text-lg font-bold text-zinc-300">${totalAmount.toFixed(2)}</p>
+                    <p className="text-lg font-bold text-zinc-300">${(totalAmount || 0).toFixed(2)}</p>
                 </div>
                 <div className="bg-orange-500/10 p-3 rounded-lg border border-orange-500/20">
                     <p className="text-[10px] text-orange-500/70 uppercase font-bold tracking-wider">Deposit Due</p>
-                    <p className="text-2xl font-black text-white">${amount.toFixed(2)}</p>
+                    <p className="text-2xl font-black text-white">${(amount || 0).toFixed(2)}</p>
                 </div>
             </div>
 

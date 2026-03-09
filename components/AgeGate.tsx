@@ -27,8 +27,9 @@ const CustomCheckbox: React.FC<CustomCheckboxProps> = ({ id, checked, onChange, 
 );
 
 const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onShowTermsOfService }) => {
-  const [agreedAge, setAgreedAge] = useState(false);
+  const [dob, setDob] = useState({ day: '', month: '', year: '' });
   const [agreedTerms, setAgreedTerms] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -37,47 +38,125 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
     };
   }, []);
 
-  const canEnter = agreedAge && agreedTerms;
+  const handleVerify = () => {
+    if (!dob.day || !dob.month || !dob.year) {
+      setError('Please enter your full date of birth.');
+      return;
+    }
+
+    const birthDate = new Date(Number(dob.year), Number(dob.month) - 1, Number(dob.day));
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    if (age < 18) {
+      setError('You must be at least 18 years old to enter this site.');
+    } else {
+      onVerified();
+    }
+  };
+
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const months = [
+    { value: 1, label: 'January' },
+    { value: 2, label: 'February' },
+    { value: 3, label: 'March' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'June' },
+    { value: 7, label: 'July' },
+    { value: 8, label: 'August' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'October' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'December' },
+  ];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-lg z-50 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 max-w-md w-full text-white shadow-2xl shadow-black/50 animate-fade-in">
-        <div className="text-center">
-            <div className="flex flex-col items-center cursor-pointer no-underline group mb-4">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full text-white shadow-2xl shadow-black/50 animate-fade-in ring-1 ring-white/10">
+        <div className="text-center mb-6 sm:mb-8">
+            <div className="flex flex-col items-center cursor-pointer no-underline group mb-4 sm:mb-6">
                 <div className="flex items-center">
-                    <span className="font-logo-main text-4xl tracking-wider text-white">FLAV</span>
-                    <span className="text-4xl mx-[-0.15em] relative" style={{top: "-0.05em"}}>🍑</span>
-                    <span className="font-logo-main text-4xl tracking-wider text-white">R</span>
+                    <span className="font-logo-main text-4xl sm:text-5xl tracking-wider text-white">FLAV</span>
+                    <span className="text-4xl sm:text-5xl mx-[-0.15em] relative" style={{top: "-0.05em"}}>🍑</span>
+                    <span className="font-logo-main text-4xl sm:text-5xl tracking-wider text-white">R</span>
                 </div>
-                <span className="font-logo-sub text-lg text-zinc-500 -mt-2 ml-1 tracking-wide">entertainers</span>
+                <span className="font-logo-sub text-lg sm:text-xl text-zinc-500 -mt-2 ml-1 tracking-wide">entertainers</span>
             </div>
-            <h2 className="text-2xl font-semibold mb-2 text-orange-400">Age Verification Required</h2>
-            <p className="text-zinc-400 mb-8">You must be 18+ to enter. Please confirm and agree to our terms.</p>
+            <h2 className="text-xl sm:text-2xl font-bold mb-2 text-white">Age Verification</h2>
+            <p className="text-zinc-400 text-xs sm:text-sm">Please enter your date of birth to continue.</p>
         </div>
 
-        <div className="space-y-4 mb-8">
-            {/* Fix: Wrap state setter in an arrow function to ensure correct type matching for onChange prop. */}
-            <CustomCheckbox id="age-check" checked={agreedAge} onChange={(checked) => setAgreedAge(checked)}>
-                I confirm I am 18 years or older.
-            </CustomCheckbox>
-            {/* Fix: Wrap state setter in an arrow function to ensure correct type matching for onChange prop. */}
-            <CustomCheckbox id="terms-check" checked={agreedTerms} onChange={(checked) => setAgreedTerms(checked)}>
-                <span>
+        <div className="space-y-6 mb-8">
+            <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-zinc-500 ml-1">Day</label>
+                    <select 
+                        value={dob.day} 
+                        onChange={(e) => { setDob(prev => ({ ...prev, day: e.target.value })); setError(null); }}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
+                    >
+                        <option value="">DD</option>
+                        {days.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-zinc-500 ml-1">Month</label>
+                    <select 
+                        value={dob.month} 
+                        onChange={(e) => { setDob(prev => ({ ...prev, month: e.target.value })); setError(null); }}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
+                    >
+                        <option value="">MM</option>
+                        {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-zinc-500 ml-1">Year</label>
+                    <select 
+                        value={dob.year} 
+                        onChange={(e) => { setDob(prev => ({ ...prev, year: e.target.value })); setError(null); }}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
+                    >
+                        <option value="">YYYY</option>
+                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                </div>
+            </div>
+
+            <CustomCheckbox id="terms-check" checked={agreedTerms} onChange={(checked) => { setAgreedTerms(checked); setError(null); }}>
+                <span className="text-xs leading-relaxed">
                   I agree to the{' '}
                   <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="underline text-orange-400 hover:text-orange-300">Terms</a>
                   {' & '}
                   <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="underline text-orange-400 hover:text-orange-300">Privacy Policy</a>.
                 </span>
             </CustomCheckbox>
+
+            {error && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs text-center animate-in zoom-in-95 duration-200">
+                    {error}
+                </div>
+            )}
         </div>
 
         <button
-          onClick={onVerified}
-          disabled={!canEnter}
-          className="btn-primary w-full text-lg"
+          onClick={handleVerify}
+          disabled={!agreedTerms}
+          className="btn-primary w-full py-4 text-lg font-bold shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none transition-all"
         >
-          Enter Site
+          Confirm & Enter
         </button>
+        
+        <p className="mt-6 text-[10px] text-zinc-500 text-center uppercase tracking-widest">
+            Strictly 18+ Only
+        </p>
       </div>
     </div>
   );

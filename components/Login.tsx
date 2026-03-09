@@ -9,9 +9,10 @@ interface LoginProps {
   onLogin: (user: { name: string; role: Role; id?: number }) => void;
   onClose: () => void;
   performers: Performer[];
+  onNavigateToOnboarding?: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateToOnboarding }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -46,6 +47,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) {
+      setError('Authentication is currently disabled. Please check configuration.');
+      return;
+    }
     setError('');
     setIsLoading(true);
 
@@ -61,6 +66,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers }) => {
   };
 
   const handleGoogleLogin = async () => {
+    if (!auth) {
+      setError('Authentication is currently disabled. Please check configuration.');
+      return;
+    }
     setIsLoading(true);
     setError('');
     try {
@@ -69,7 +78,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers }) => {
       await handleAuthSuccess(result.user);
     } catch (err: any) {
       console.error('Google login error:', err);
-      setError(err.message || 'Failed to sign in with Google');
+      if (err.message?.includes('projectconfigservice.getprojectconfig-are-blocked')) {
+        setError('Google Identity Toolkit API is blocked. Please ensure it is enabled in your Google Cloud Console and that your API key has the correct permissions.');
+      } else {
+        setError(err.message || 'Failed to sign in with Google');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -119,6 +132,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers }) => {
                 Login
             </button>
         </form>
+        <div className="mt-6 text-center text-sm text-zinc-400">
+          Want to join the team? <button onClick={() => { onClose(); onNavigateToOnboarding?.(); }} className="text-orange-400 hover:text-orange-300 font-semibold underline">Apply to be a Performer</button>
+        </div>
       </div>
     </div>
   );

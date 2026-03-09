@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 // Fix: Import Service type
 import type { Performer, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { ArrowLeft, Briefcase, MapPin, Sparkles } from 'lucide-react';
+import { ArrowLeft, Briefcase, MapPin, Sparkles, Star, Clock } from 'lucide-react';
 
 interface PerformerProfileProps {
   performer: Performer;
@@ -26,7 +26,7 @@ const PerformerProfile: React.FC<PerformerProfileProps> = ({ performer, onBack, 
   }, [performerServices]);
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in pb-24 md:pb-0">
       <button
         onClick={onBack}
         className="mb-8 inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-transparent px-5 py-2.5 text-sm font-semibold text-zinc-300 transition-all hover:border-zinc-600 hover:bg-zinc-800 hover:text-white"
@@ -42,21 +42,45 @@ const PerformerProfile: React.FC<PerformerProfileProps> = ({ performer, onBack, 
                 <img
                   src={performer.photo_url}
                   alt={performer.name}
+                  loading="lazy"
                   className="rounded-2xl shadow-2xl shadow-black/50 w-full h-auto object-cover aspect-[3/4] border-4 border-zinc-800"
                 />
                 <div className="absolute -inset-2 rounded-2xl bg-orange-500/30 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
             </div>
+            <button 
+              onClick={() => onBook(performer)}
+              className="mt-6 btn-primary w-full py-4 text-lg flex items-center justify-center gap-3 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40"
+            >
+              <Sparkles className="h-5 w-5" />
+              Book {performer.name} Now
+            </button>
           </div>
         </div>
 
         <div className="md:col-span-3">
-          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-white mb-2">{performer.name}</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-white tracking-tight">{performer.name}</h1>
+            <div className="flex items-center gap-2 bg-zinc-800/50 px-4 py-2 rounded-xl border border-white/5 self-start sm:self-center">
+              <Star className="w-5 h-5 text-orange-400 fill-orange-400" />
+              <span className="text-xl font-bold text-white">{(performer.rating || 0).toFixed(1)}</span>
+              <span className="text-zinc-400">({performer.review_count || 0} reviews)</span>
+            </div>
+          </div>
           <p className="text-xl sm:text-2xl text-orange-400 font-medium mb-4">{performer.tagline}</p>
           
-          <div className="flex items-center gap-2 mb-8 text-zinc-300">
-            <MapPin className="h-5 w-5 text-orange-500 flex-shrink-0" />
-            <span className="font-semibold">Service Areas:</span>
-            <span className="text-zinc-400">{performer.service_areas.join(', ')}</span>
+          <div className="flex flex-wrap items-center gap-6 mb-8 text-zinc-300">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-orange-500 flex-shrink-0" />
+              <span className="font-semibold">Service Areas:</span>
+              <span className="text-zinc-400">{performer.service_areas.join(', ')}</span>
+            </div>
+            {performer.min_booking_duration_hours && (
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-orange-500 flex-shrink-0" />
+                <span className="font-semibold">Min Booking:</span>
+                <span className="text-zinc-400">{performer.min_booking_duration_hours} hr{performer.min_booking_duration_hours > 1 ? 's' : ''}</span>
+              </div>
+            )}
           </div>
 
           <div className="prose prose-invert sm:prose-lg max-w-none text-zinc-300 mb-10 leading-relaxed">
@@ -81,10 +105,17 @@ const PerformerProfile: React.FC<PerformerProfileProps> = ({ performer, onBack, 
                              <p className="font-bold text-white">{service.name}</p>
                              <p className="text-sm text-zinc-400 mt-1">{service.description}</p>
                           </div>
-                          <span className="bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap flex-shrink-0 mt-1">
-                            ${service.rate}
-                            {service.rate_type === 'per_hour' ? '/hr' : ''}
-                          </span>
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0 mt-1">
+                            <span className="bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap">
+                              ${service.rate}
+                              {service.rate_type === 'per_hour' ? '/hr' : ''}
+                            </span>
+                            {(service.duration_minutes || service.min_duration_hours) && (
+                              <span className="text-xs text-zinc-400 font-medium">
+                                {service.duration_minutes ? `${service.duration_minutes} mins` : `Min ${service.min_duration_hours} hr${service.min_duration_hours! > 1 ? 's' : ''}`}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -96,12 +127,23 @@ const PerformerProfile: React.FC<PerformerProfileProps> = ({ performer, onBack, 
           
            <button 
              onClick={() => onBook(performer)}
-             className="btn-primary w-full md:w-auto py-4 px-10 text-lg flex items-center justify-center gap-3"
+             className="hidden md:flex btn-primary w-full md:w-auto py-4 px-10 text-lg items-center justify-center gap-3"
             >
-            <Sparkles />
+            <Sparkles className="h-5 w-5" />
             Book {performer.name} Now
            </button>
         </div>
+      </div>
+
+      {/* Mobile Sticky Book Button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-950/90 backdrop-blur-md border-t border-zinc-800 md:hidden z-40">
+        <button 
+          onClick={() => onBook(performer)}
+          className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-3 shadow-lg shadow-orange-500/20"
+        >
+          <Sparkles className="h-5 w-5" />
+          Book {performer.name} Now
+        </button>
       </div>
     </div>
   );

@@ -417,5 +417,5 @@ export const onBookingStatusChanged = fns.firestore
     }
   });
 
-// Export KYC functions
-export * from './kyc';
+// Export DNS functions
+export * from './dns';

@@ -3,19 +3,19 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import './index.css';
+import { registerSW } from 'virtual:pwa-register';
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(
-      (registration) => {
-        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-      },
-      (err) => {
-        console.log('ServiceWorker registration failed: ', err);
-      }
-    );
-  });
-}
+const updateSW = registerSW({
+  onNeedRefresh() {
+    if (confirm('New content available. Reload?')) {
+      updateSW(true);
+    }
+  },
+  onOfflineReady() {
+    console.log('App ready to work offline');
+  },
+});
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
