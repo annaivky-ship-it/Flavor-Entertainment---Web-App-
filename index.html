@@ -1,100 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍑</text></svg>">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#F97316" />
-    <link rel="manifest" href="/manifest.json" />
-    <title>Flavor Entertainers | Premium Entertainment Booking</title>
-    <meta name="description" content="A premium platform to book professional entertainers in Western Australia. Secure, compliant, and professional." />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700&family=Special+Elite&display=swap" rel="stylesheet">
-    <style>
-      :root {
-        --color-bg: #0A0A0A;
-        --color-bg-light: #18181B;
-        --color-border: #27272A;
-        --color-primary: #F97316;
-        --color-primary-hover: #EA580C;
-        --color-primary-light: #FB923C;
-      }
-      body {
-        background-color: var(--color-bg);
-        color: #A1A1AA;
-        font-family: 'Inter', sans-serif;
-        background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
-        background-size: 20px 20px;
-      }
-      .font-logo-main { font-family: 'Anton', sans-serif; }
-      .font-logo-sub { font-family: 'Special Elite', monospace; }
-      h1, h2, h3, h4 { font-family: 'Poppins', sans-serif; font-weight: 700; color: #F4F4F5; }
-      .card-base {
-        background-color: var(--color-bg-light);
-        border: 1px solid var(--color-border);
-        border-radius: 1rem;
-        padding: 2rem;
-        transition: all 0.3s ease-in-out;
-      }
-      .btn-primary {
-        background-color: var(--color-primary);
-        color: white;
-        font-weight: 600;
-        padding: 0.75rem 1.5rem;
-        border-radius: 0.5rem;
-        transition: all 0.3s ease;
-      }
-      .input-base {
-        width: 100%;
-        background-color: #09090b;
-        border: 1px solid var(--color-border);
-        border-radius: 0.5rem;
-        padding: 0.75rem 1rem;
-        color: #f4f4f5;
-      }
-      .input-with-icon {
-        padding-left: 2.75rem;
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍑</text></svg>">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#F97316" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>Flavor Entertainers | Premium Entertainment Booking</title>
+  <meta name="description"
+    content="A premium platform to book professional entertainers in Western Australia. Secure, compliant, and professional." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700&family=Special+Elite&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --color-bg: #0A0A0A;
+      --color-bg-light: #18181B;
+      --color-border: #27272A;
+      --color-primary: #F97316;
+      --color-primary-hover: #EA580C;
+      --color-primary-light: #FB923C;
+    }
+
+    body {
+      background-color: var(--color-bg);
+      color: #A1A1AA;
+      font-family: 'Inter', sans-serif;
+      background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0);
+      background-size: 20px 20px;
+    }
+
+    .font-logo-main {
+      font-family: 'Anton', sans-serif;
+    }
+
+    .font-logo-sub {
+      font-family: 'Special Elite', monospace;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      color: #F4F4F5;
+    }
+
+    .card-base {
+      background-color: var(--color-bg-light);
+      border: 1px solid var(--color-border);
+      border-radius: 1rem;
+      padding: 2rem;
+      transition: all 0.3s ease-in-out;
+    }
+
+    .btn-primary {
+      background-color: var(--color-primary);
+      color: white;
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .input-base {
+      width: 100%;
+      background-color: #09090b;
+      border: 1px solid var(--color-border);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      color: #f4f4f5;
+    }
+
+    .input-with-icon {
+      padding-left: 2.75rem;
+    }
+
+    /* Custom animations for a high-end feel */
+    @keyframes float {
+      0% {
+        transform: translateY(0px);
       }
 
-      /* Custom animations for a high-end feel */
-      @keyframes float {
-        0% { transform: translateY(0px); }
-        50% { transform: translateY(-10px); }
-        100% { transform: translateY(0px); }
+      50% {
+        transform: translateY(-10px);
       }
-      .animate-float {
-        animation: float 6s ease-in-out infinite;
+
+      100% {
+        transform: translateY(0px);
       }
-    </style>
-    <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@19.0.0",
-    "react-dom": "https://esm.sh/react-dom@19.0.0",
-    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.417.0",
-    "firebase/app": "https://esm.sh/firebase@11.0.2/app",
-    "firebase/auth": "https://esm.sh/firebase@11.0.2/auth?deps=firebase@11.0.2/app",
-    "firebase/firestore": "https://esm.sh/firebase@11.0.2/firestore?deps=firebase@11.0.2/app",
-    "firebase/storage": "https://esm.sh/firebase@11.0.2/storage?deps=firebase@11.0.2/app",
-    "firebase/functions": "https://esm.sh/firebase@11.0.2/functions?deps=firebase@11.0.2/app",
-    "@google/genai": "https://esm.sh/@google/genai@1.11.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "firebase/": "https://esm.sh/firebase@^12.9.0/",
-    "firebase-functions": "https://esm.sh/firebase-functions@^7.0.5",
-    "twilio": "https://esm.sh/twilio@^5.12.1",
-    "firebase-admin": "https://esm.sh/firebase-admin@^13.6.1"
-  }
-}
-</script>
+    }
+
+    .animate-float {
+      animation: float 6s ease-in-out infinite;
+    }
+  </style>
+
   <link rel="stylesheet" href="/index.css">
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+
+<body>
+  <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>
