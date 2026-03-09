@@ -64,8 +64,10 @@ const statusConfig: Record<PerformerStatus, { color: string; label: string; icon
 
 const bookingStatusClasses: Record<Booking['status'], string> = {
   confirmed: 'text-green-400',
+  CONFIRMED: 'text-green-400',
   pending_deposit_confirmation: 'text-blue-400',
   deposit_pending: 'text-orange-400',
+  DEPOSIT_PAID: 'text-purple-400',
   pending_vetting: 'text-yellow-400',
   pending_performer_acceptance: 'text-purple-400',
   en_route: 'text-blue-400',
@@ -73,7 +75,9 @@ const bookingStatusClasses: Record<Booking['status'], string> = {
   in_progress: 'text-indigo-400',
   completed: 'text-zinc-400',
   cancelled: 'text-zinc-500',
-  rejected: 'text-red-400'
+  rejected: 'text-red-400',
+  DENIED: 'text-red-400',
+  PENDING: 'text-yellow-400',
 }
 
 interface BookingCardProps {

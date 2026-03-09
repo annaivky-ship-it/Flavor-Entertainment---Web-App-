@@ -492,7 +492,6 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             case 4:
                 // Skip all identity checks if client passed the OTP bypass.
                 if (!isReturningClientVerified && !isVerifiedBooker) {
-                    if (!isFrankieOneVerified) errors.frankieOne = "Identity verification is required.";
                     if (!agreedTerms) errors.agreedTerms = "Agreement required.";
                 }
                 break;
@@ -837,41 +836,28 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                    <div className="p-8 bg-green-900/20 border border-green-500/50 rounded-2xl text-center space-y-4"><CheckCircle className="h-16 w-16 text-green-500 mx-auto" /><h3 className="text-2xl font-bold text-white">Verified Trust Status</h3><p className="text-green-200">You are pre-cleared for this booking. Proceed to confirmation.</p></div>
                                 ) : (
                                    <div className="space-y-6">
-                                        <div className="p-4 bg-blue-950/40 border border-blue-500/50 rounded-xl flex items-start gap-4">
-                                            <Shield className="h-6 w-6 text-blue-400 mt-1 flex-shrink-0" />
+                                        <div className="p-6 bg-orange-950/30 border border-orange-500/40 rounded-2xl flex items-start gap-4">
+                                            <ShieldCheck className="h-8 w-8 text-orange-400 mt-1 flex-shrink-0" />
                                             <div>
-                                                <h4 className="font-bold text-blue-300">Identity Verification Required</h4>
-                                                <p className="text-sm text-blue-200/80 leading-relaxed mt-1">
-                                                    We use FrankieOne to securely verify your identity. This process is quick and ensures the safety of our performers.
+                                                <h4 className="font-bold text-orange-300 text-lg">Identity Verification — Sent After Deposit</h4>
+                                                <p className="text-sm text-orange-200/80 leading-relaxed mt-2">
+                                                    Once your deposit is confirmed, we'll SMS you a secure <strong>Didit</strong> identity verification link. It takes 2–3 minutes and protects our performers. You'll need your photo ID and a selfie.
                                                 </p>
+                                                <div className="mt-4 grid grid-cols-3 gap-3 text-center text-xs">
+                                                    <div className="bg-zinc-800/60 rounded-xl p-3">
+                                                        <div className="text-orange-400 font-bold text-base mb-1">1</div>
+                                                        <div className="text-zinc-300">Pay deposit</div>
+                                                    </div>
+                                                    <div className="bg-zinc-800/60 rounded-xl p-3">
+                                                        <div className="text-orange-400 font-bold text-base mb-1">2</div>
+                                                        <div className="text-zinc-300">Receive SMS link</div>
+                                                    </div>
+                                                    <div className="bg-zinc-800/60 rounded-xl p-3">
+                                                        <div className="text-orange-400 font-bold text-base mb-1">3</div>
+                                                        <div className="text-zinc-300">Booking confirmed</div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                        
-                                        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-zinc-700 rounded-2xl bg-zinc-900/50">
-                                            {isFrankieOneVerified ? (
-                                                <div className="text-center animate-fade-in">
-                                                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                                                    <h3 className="text-xl font-bold text-white mb-2">Identity Verified</h3>
-                                                    <p className="text-zinc-400">Your identity has been successfully verified via FrankieOne.</p>
-                                                </div>
-                                            ) : (
-                                                <div className="text-center">
-                                                    <ShieldCheck className="h-16 w-16 text-zinc-600 mx-auto mb-4" />
-                                                    <h3 className="text-xl font-bold text-white mb-4">Verify Your Identity</h3>
-                                                    <button
-                                                        onClick={() => setShowFrankieOneModal(true)}
-                                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2 mx-auto"
-                                                    >
-                                                        <Shield size={20} />
-                                                        Verify with FrankieOne
-                                                    </button>
-                                                    {fieldErrors.frankieOne && (
-                                                        <p className="text-red-400 text-sm mt-4 font-medium animate-slide-in-up">
-                                                            {fieldErrors.frankieOne}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
 
                                         <div className="space-y-4 pt-6 border-t border-zinc-800">
@@ -970,21 +956,6 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
             <BookingConfirmationDialog isOpen={isConfirmDialogOpen} onClose={() => setIsConfirmDialogOpen(false)} onConfirm={handleFinalSubmission} isLoading={isSubmitting} bookingDetails={{ performers, eventDate: form.eventDate, eventTime: form.eventTime, eventAddress: form.eventAddress, selectedServices: form.selectedServices.map(id => allServices.find(s => s.id === id)?.name || id), eventDuration: formattedTotalDuration, totalCost, depositAmount }} />
             
-            {showFrankieOneModal && (
-                <FrankieOneVerification 
-                    clientName={form.fullName || 'Guest'}
-                    onSuccess={() => {
-                        setIsFrankieOneVerified(true);
-                        setShowFrankieOneModal(false);
-                        setFieldErrors(prev => {
-                            const newErrors = { ...prev };
-                            delete newErrors.frankieOne;
-                            return newErrors;
-                        });
-                    }}
-                    onCancel={() => setShowFrankieOneModal(false)}
-                />
-            )}
         </div>
     );
 };

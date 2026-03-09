@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone, Shield } from 'lucide-react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../services/firebaseClient';
 import { calculateBookingCost, getServiceDurationsFromBooking } from '../utils/bookingUtils';
 import { resetDemoData, api } from '../services/api';
 import { SERVICE_AREAS } from '../constants';
@@ -36,13 +38,17 @@ const statusClasses: Record<BookingStatus, string> = {
   pending_vetting: 'border-yellow-500/50 bg-yellow-900/30 text-yellow-300',
   deposit_pending: 'border-orange-500/50 bg-orange-900/30 text-orange-300',
   pending_deposit_confirmation: 'border-blue-500/50 bg-blue-900/30 text-blue-300',
+  DEPOSIT_PAID: 'border-purple-500/50 bg-purple-900/30 text-purple-300',
   confirmed: 'border-green-500/50 bg-green-900/30 text-green-300',
+  CONFIRMED: 'border-green-500/50 bg-green-900/30 text-green-300',
   en_route: 'border-blue-500/50 bg-blue-900/30 text-blue-300',
   arrived: 'border-emerald-500/50 bg-emerald-900/30 text-emerald-300',
   in_progress: 'border-indigo-500/50 bg-indigo-900/30 text-indigo-300',
   completed: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-300',
   cancelled: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-400',
   rejected: 'border-red-500/50 bg-red-900/30 text-red-300',
+  DENIED: 'border-red-500/50 bg-red-900/30 text-red-300',
+  PENDING: 'border-yellow-500/50 bg-yellow-900/30 text-yellow-300',
 };
 
 const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
@@ -93,6 +99,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
       await action();
     } catch (error) {
       console.error(`Action ${type} for id ${id} failed:`, error);
+    } finally {
+      setLoadingState(null);
+    }
+  };
+
+  const handleConfirmDeposit = async (bookingId: string) => {
+    setLoadingState({ type: 'confirm-deposit', id: bookingId });
+    try {
+      if (functions) {
+        const confirmFn = httpsCallable(functions, 'confirmPayidPayment');
+        await confirmFn({ bookingId });
+      } else {
+        await onUpdateBookingStatus(bookingId, 'DEPOSIT_PAID' as any);
+      }
+    } catch (err) {
+      console.error('confirmPayidPayment failed:', err);
+    } finally {
+      setLoadingState(null);
+    }
+  };
+
+  const handleTriggerKyc = async (bookingId: string) => {
+    setLoadingState({ type: 'trigger-kyc', id: bookingId });
+    try {
+      if (functions) {
+        const triggerFn = httpsCallable(functions, 'adminTriggerKyc');
+        const result: any = await triggerFn({ bookingId });
+        if (result.data?.verification_url) {
+          window.open(result.data.verification_url, '_blank');
+        } else {
+          alert('KYC session created. Verification link sent to client via SMS.');
+        }
+      }
+    } catch (err: any) {
+      alert(`KYC trigger failed: ${err.message}`);
     } finally {
       setLoadingState(null);
     }
@@ -886,8 +927,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                         </button>
                       )}
                       {booking.status === 'pending_deposit_confirmation' && (
-                        <button onClick={() => handleAction('confirm-deposit', booking.id, () => onUpdateBookingStatus(booking.id, 'confirmed'))} disabled={isLoading} className="text-xs bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-32">
-                          {isLoading && loadingState?.type === 'confirm-deposit' ? <LoaderCircle size={14} className="animate-spin" /> : <><Check size={14} /> Confirm Deposit</>}
+                        <button onClick={() => handleConfirmDeposit(booking.id)} disabled={isLoading} className="text-xs bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
+                          {isLoading && loadingState?.type === 'confirm-deposit' && loadingState.id === booking.id ? <LoaderCircle size={14} className="animate-spin" /> : <><Check size={14} /> Confirm Deposit</>}
+                        </button>
+                      )}
+                      {(booking.status === 'DEPOSIT_PAID' as any || (booking as any).kyc_status === 'ERROR') && (
+                        <button onClick={() => handleTriggerKyc(booking.id)} disabled={isLoading} className="text-xs bg-purple-600 hover:bg-purple-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
+                          {isLoading && loadingState?.type === 'trigger-kyc' && loadingState.id === booking.id ? <LoaderCircle size={14} className="animate-spin" /> : <><Shield size={14} /> Send KYC Link</>}
                         </button>
                       )}
                       {(booking.status === 'pending_vetting' || booking.status === 'deposit_pending' || booking.status === 'pending_performer_acceptance') && (

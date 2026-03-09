@@ -5,18 +5,22 @@ export type PerformerStatus = 'available' | 'busy' | 'offline' | 'pending_verifi
 export type Role = 'user' | 'performer' | 'admin';
 export type ServiceArea = 'Perth North' | 'Perth South' | 'Southwest' | 'Northwest';
 
-export type BookingStatus = 
+export type BookingStatus =
   | 'pending_performer_acceptance'
   | 'pending_vetting'
   | 'deposit_pending'
   | 'pending_deposit_confirmation'
+  | 'DEPOSIT_PAID'
   | 'confirmed'
+  | 'CONFIRMED'
   | 'en_route'
   | 'arrived'
   | 'in_progress'
   | 'completed'
   | 'cancelled'
-  | 'rejected';
+  | 'rejected'
+  | 'DENIED'
+  | 'PENDING';
 
 export type VettingStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 export type DoNotServeStatus = 'pending' | 'approved' | 'rejected';
@@ -85,6 +89,9 @@ export interface Booking {
     selfie_document_path: string | null;
     deposit_receipt_path: string | null;
     payment_status?: PaymentStatus;
+    kyc_status?: 'NOT_STARTED' | 'PENDING' | 'PASS' | 'FAIL' | 'BYPASSED' | 'ERROR' | 'PASS_WITH_FLAGS';
+    kyc_verification_url?: string | null;
+    kyc_session_id?: string | null;
     created_at: string;
     duration_hours: number;
     service_durations?: Record<string, number>;

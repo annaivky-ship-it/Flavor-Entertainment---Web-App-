@@ -240,13 +240,17 @@ const App: React.FC = () => {
               pending_vetting: 'Pending Vetting',
               deposit_pending: 'Deposit Pending',
               pending_deposit_confirmation: 'Confirming Deposit',
+              DEPOSIT_PAID: 'Deposit Paid — KYC Required',
               confirmed: 'Confirmed',
+              CONFIRMED: 'Confirmed',
               en_route: 'Performer En Route',
               arrived: 'Performer Arrived',
               in_progress: 'In Progress',
               completed: 'Completed',
               cancelled: 'Cancelled',
-              rejected: 'Rejected'
+              rejected: 'Rejected',
+              DENIED: 'Denied',
+              PENDING: 'Pending Review',
             };
 
             const message = `Booking #${newB.id.slice(0, 8)} status updated to ${statusLabels[newB.status] || newB.status}`;

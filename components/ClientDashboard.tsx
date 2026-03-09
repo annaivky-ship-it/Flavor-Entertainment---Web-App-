@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Booking, Communication } from '../types';
-import { Calendar, Clock, User, MessageCircle, MapPin, Wallet, Search, LogOut, Briefcase, LoaderCircle, AlertTriangle, CheckCircle, Archive, History, Info, Settings, Timer, Radio, X, Bell } from 'lucide-react';
+import { Calendar, Clock, User, MessageCircle, MapPin, Wallet, Search, LogOut, Briefcase, LoaderCircle, AlertTriangle, CheckCircle, Archive, History, Info, Settings, Timer, Radio, X, Bell, Shield, ExternalLink } from 'lucide-react';
 import ChatDialog from './ChatDialog';
 import { api } from '../services/api';
 import { calculateBookingCost, getServiceDurationsFromBooking } from '../utils/bookingUtils';
@@ -24,7 +24,11 @@ const statusConfig: Record<Booking['status'], {
   pending_vetting: { color: 'text-yellow-400', borderColor: 'border-yellow-500', Icon: LoaderCircle, title: "Pending Admin Review", description: "The performer accepted! Our admin team is now reviewing your application." },
   deposit_pending: { color: 'text-orange-400', borderColor: 'border-orange-500', Icon: Wallet, title: "Action Required: Pay Deposit", description: "Your booking is approved! Please pay the deposit to confirm your spot." },
   pending_deposit_confirmation: { color: 'text-blue-400', borderColor: 'border-blue-500', Icon: LoaderCircle, title: "Confirming Deposit", description: "We've received your payment confirmation and our team is verifying it." },
+  DEPOSIT_PAID: { color: 'text-purple-400', borderColor: 'border-purple-500', Icon: Shield, title: "Identity Verification Required", description: "Deposit received! Check your phone for a secure KYC verification link." },
+  PENDING: { color: 'text-yellow-400', borderColor: 'border-yellow-500', Icon: LoaderCircle, title: "Pending Review", description: "Your booking is being reviewed." },
   confirmed: { color: 'text-green-400', borderColor: 'border-green-500', Icon: CheckCircle, title: "Booking Confirmed!", description: "You're all set! The performer is booked for your event." },
+  CONFIRMED: { color: 'text-green-400', borderColor: 'border-green-500', Icon: CheckCircle, title: "Booking Confirmed!", description: "You're all set! The performer is booked for your event." },
+  DENIED: { color: 'text-red-400', borderColor: 'border-red-500', Icon: X, title: "Booking Declined", description: "Unfortunately, this booking could not be completed." },
   en_route: { color: 'text-blue-400', borderColor: 'border-blue-500', Icon: Timer, title: "Performer En Route", description: "The performer is on their way to your location!" },
   arrived: { color: 'text-emerald-400', borderColor: 'border-emerald-500', Icon: MapPin, title: "Performer Arrived", description: "The performer has arrived at the venue." },
   in_progress: { color: 'text-indigo-400', borderColor: 'border-indigo-500', Icon: Radio, title: "In Progress", description: "The performance is currently taking place." },
@@ -213,6 +217,17 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                                 </div>
                               </div>
 
+                             {booking.kyc_status === 'PENDING' && booking.kyc_verification_url && (
+                               <a href={booking.kyc_verification_url} target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-3 p-3 my-3 bg-purple-900/30 border border-purple-500/50 rounded-xl hover:bg-purple-900/50 transition-colors group">
+                                 <Shield className="h-5 w-5 text-purple-400 flex-shrink-0" />
+                                 <div className="flex-1">
+                                   <p className="text-sm font-semibold text-purple-300">Complete Identity Verification</p>
+                                   <p className="text-xs text-purple-400/70">Tap to open your secure Didit verification link</p>
+                                 </div>
+                                 <ExternalLink className="h-4 w-4 text-purple-400 group-hover:text-purple-300" />
+                               </a>
+                             )}
                              <div className="text-zinc-300 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm mt-2 border-t border-zinc-800 pt-4">
                                 <div className="flex items-center gap-2"><Calendar size={16} className="text-orange-500/80"/> {new Date(booking.event_date).toLocaleDateString()} at {booking.event_time}</div>
                                 <div className="flex items-center gap-2"><Clock size={16} className="text-orange-500/80"/> {booking.duration_hours} hour{booking.duration_hours > 1 ? 's' : ''}</div>
