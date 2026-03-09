@@ -1,11 +1,11 @@
 import { db, storage, functions, auth } from './firebaseClient';
-import { 
-  collection, 
-  getDocs, 
-  doc, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  collection,
+  getDocs,
+  doc,
+  query,
+  where,
+  orderBy,
   updateDoc,
   addDoc,
   getDoc,
@@ -63,6 +63,19 @@ export const resetDemoData = async () => {
 
 export const api = {
   async getInitialData() {
+    const isMock = import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '';
+
+    if (isMock) {
+      console.warn("Using mock data because Firebase is not configured.");
+      return {
+        performers: { data: mockPerformers, error: null },
+        bookings: { data: mockBookings, error: null },
+        doNotServeList: { data: mockDoNotServeList, error: null },
+        communications: { data: mockCommunications, error: null },
+        auditLogs: { data: [], error: null },
+      };
+    }
+
     const fetchCollection = async (name: string, q: any) => {
       try {
         const snap = await getDocs(q);
@@ -158,7 +171,7 @@ export const api = {
   async createBookingRequest(formState: BookingFormState, performers: Performer[]) {
     try {
       const callCreateBooking = httpsCallable(functions, 'createBookingRequest');
-      
+
       let idUrl = null;
       let selfieUrl = null;
 
@@ -175,7 +188,7 @@ export const api = {
         const idRef = ref(storage, idPath);
         uploadPromises.push(uploadBytes(idRef, formState.idDocument).then(async res => idUrl = await getDownloadURL(res.ref)));
       }
-      
+
       if (formState.selfieDocument) {
         const selfiePath = `vetting/${userUid}/${submissionId}/selfie_${formState.selfieDocument.name}`;
         const selfieRef = ref(storage, selfiePath);
@@ -185,21 +198,21 @@ export const api = {
       await Promise.all(uploadPromises);
 
       const result = await callCreateBooking({
-        formState: { 
-            ...formState, 
-            id_document_path: idUrl, 
-            selfie_document_path: selfieUrl,
-            idDocument: null,
-            selfieDocument: null
+        formState: {
+          ...formState,
+          id_document_path: idUrl,
+          selfie_document_path: selfieUrl,
+          idDocument: null,
+          selfieDocument: null
         },
         performerIds: performers.map(p => p.id)
       }) as { data: { success: boolean; bookingIds: string[] } };
 
       const { bookingIds } = result.data;
-      
+
       const newBookings = await Promise.all(bookingIds.map(async (id) => {
-          const bDoc = await getDoc(doc(db, 'bookings', id));
-          return { ...bDoc.data(), id: bDoc.id } as Booking;
+        const bDoc = await getDoc(doc(db, 'bookings', id));
+        return { ...bDoc.data(), id: bDoc.id } as Booking;
       }));
 
       return { data: newBookings, error: null };
@@ -210,11 +223,14 @@ export const api = {
 
   async updateBookingStatus(bookingId: string, status: BookingStatus, updates: any = {}) {
     try {
+      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
+        return { error: null };
+      }
       const docRef = doc(db, 'bookings', bookingId);
-      await updateDoc(docRef, { 
-          status, 
-          ...updates,
-          ...(status === 'confirmed' ? { verified_at: new Date().toISOString() } : {})
+      await updateDoc(docRef, {
+        status,
+        ...updates,
+        ...(status === 'confirmed' ? { verified_at: new Date().toISOString() } : {})
       });
       return { error: null };
     } catch (err: any) {
@@ -234,6 +250,9 @@ export const api = {
 
   async addCommunication(commData: Omit<Communication, 'id' | 'created_at' | 'read'>) {
     try {
+      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
+        return { data: [{ ...commData, id: `msg-${Date.now()}`, created_at: new Date().toISOString(), read: false }] as Communication[], error: null };
+      }
       const docRef = await addDoc(collection(db, 'communications'), {
         ...commData,
         created_at: new Date().toISOString(),
@@ -248,6 +267,9 @@ export const api = {
 
   async updatePerformerStatus(performerId: number, status: PerformerStatus) {
     try {
+      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
+        return { error: null };
+      }
       const docRef = doc(db, 'performers', String(performerId));
       await updateDoc(docRef, { status });
       return { error: null };
@@ -258,10 +280,13 @@ export const api = {
 
   async createPerformer(performerData: Omit<Performer, 'id'>) {
     try {
+      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
+        return { data: { ...performerData, id: Math.floor(Math.random() * 1000) } as Performer, error: null };
+      }
       const performersSnap = await getDocs(query(collection(db, 'performers'), orderBy('id', 'desc'), limit(1)));
       const lastId = performersSnap.docs.length > 0 ? (performersSnap.docs[0].data() as Performer).id : 0;
       const newId = lastId + 1;
-      
+
       const docRef = doc(db, 'performers', String(newId));
       const newPerformer = { ...performerData, id: newId };
       await setDoc(docRef, newPerformer);
@@ -295,6 +320,9 @@ export const api = {
 
   async updateDoNotServeStatus(entryId: string, status: DoNotServeStatus) {
     try {
+      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
+        return { error: null };
+      }
       const docRef = doc(db, 'do_not_serve', entryId);
       await updateDoc(docRef, { status });
       return { error: null };
