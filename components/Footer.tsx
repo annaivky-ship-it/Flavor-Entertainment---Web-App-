@@ -4,10 +4,9 @@ import { MapPin } from 'lucide-react';
 interface FooterProps {
   onShowPrivacyPolicy: () => void;
   onShowTermsOfService: () => void;
-  onShowPresentation: () => void;
 }
 
-const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfService, onShowPresentation }) => {
+const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfService }) => {
   return (
     <footer className="mt-16 py-12 border-t border-zinc-800 bg-zinc-950/20">
       <div className="container mx-auto px-4">
@@ -60,7 +59,6 @@ const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfServi
             <div className="flex flex-wrap justify-center md:justify-end gap-6">
                 <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-sm text-zinc-400 hover:text-white transition-colors border-b border-transparent hover:border-orange-500/50">Privacy Policy</a>
                 <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-sm text-zinc-400 hover:text-white transition-colors border-b border-transparent hover:border-orange-500/50">Terms of Service</a>
-                <a href="#" onClick={(e) => { e.preventDefault(); onShowPresentation(); }} className="text-sm text-zinc-400 hover:text-white transition-colors border-b border-transparent hover:border-orange-500/50">Platform Demo</a>
             </div>
           </div>
         </div>

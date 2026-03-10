@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import { ShoppingCart, LoaderCircle, CalendarCheck, Clock, BookOpen, LogIn, LogOut, Sparkles, Database, X, Briefcase } from 'lucide-react';
+import { ShoppingCart, LoaderCircle, CalendarCheck, Clock, BookOpen, LogIn, LogOut, Sparkles, X, Briefcase } from 'lucide-react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PerformerCard from './components/EntertainerCard';
 import AgeGate from './components/AgeGate';
-import RoleSwitcher from './components/RoleSwitcher';
 import Login from './components/Login';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { api, resetDemoData } from './services/api';
+import { api } from './services/api';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
 import { calculateBookingCost, getServiceDurationsFromBooking } from './utils/bookingUtils';
@@ -27,9 +26,6 @@ const FAQ = React.lazy(() => import('./components/FAQ'));
 const PrivacyPolicy = React.lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfService = React.lazy(() => import('./components/TermsOfService'));
 const UserSettings = React.lazy(() => import('./components/UserSettings'));
-const PresentationVideo = React.lazy(() => import('./components/PresentationVideo'));
-const DemoPhone = React.lazy(() => import('./components/DemoPhone'));
-import WalkthroughOverlay from './components/WalkthroughOverlay';
 
 // Inline fallback spinner (avoids LoadingSpinner default export issue)
 const SuspenseFallback = () => (
@@ -94,7 +90,6 @@ const App: React.FC = () => {
 
   const [authedUser, setAuthedUser] = useState<AuthedUser>(null);
   const [showLogin, setShowLogin] = useState(false);
-  const [showPresentation, setShowPresentation] = useState(false);
   const [settings, setSettings] = useState({ bookingUpdates: true, confirmations: true });
 
   const [performers, setPerformers] = useState<Performer[]>([]);
@@ -104,7 +99,6 @@ const App: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [phoneMessage, setPhoneMessage] = useState<PhoneMessage>(null);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showTermsOfService, setShowTermsOfService] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,11 +107,7 @@ const App: React.FC = () => {
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState<PerformerStatus | ''>('');
-  const [showDemoBanner, setShowDemoBanner] = useState(true);
   const [usingMockData, setUsingMockData] = useState(false);
-  const [showWalkthrough, setShowWalkthrough] = useState(() => {
-    try { return localStorage.getItem('walkthroughShown') !== 'true'; } catch { return true; }
-  });
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' }[]>([]);
 
   const prevBookingsRef = React.useRef<Booking[]>([]);
@@ -162,12 +152,7 @@ const App: React.FC = () => {
   const serviceAreas: ServiceArea[] = ['Perth North', 'Perth South', 'Southwest', 'Northwest'];
   const role = authedUser?.role || 'user';
 
-  const showPhoneMessage = useCallback((msg: PhoneMessage) => {
-    setPhoneMessage(msg);
-    setTimeout(() => {
-      setPhoneMessage(null);
-    }, 7000);
-  }, []);
+  const showPhoneMessage = useCallback((_msg: PhoneMessage) => { /* handled by Twilio in production */ }, []);
 
   const handleShowPrivacyPolicy = () => {
     window.scrollTo(0, 0);
@@ -780,19 +765,12 @@ const App: React.FC = () => {
 
     if (performers.length === 0 && !isLoading) {
       return (
-        <div className="text-center py-20 card-base !bg-orange-500/5 border-orange-500/20 max-w-2xl mx-auto animate-fade-in">
+        <div className="text-center py-20 card-base !bg-zinc-900/50 border-zinc-800 max-w-2xl mx-auto animate-fade-in">
           <Sparkles className="h-16 w-16 text-orange-500 mx-auto mb-6" />
-          <h2 className="text-3xl font-bold text-white mb-4">Demo Environment Ready</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">No Performers Available</h2>
           <p className="text-zinc-400 mb-8 text-lg">
-            This is a fresh demonstration environment. To begin exploring the booking flow, dashboards, and admin features, please seed the database with sample data.
+            There are no performers available at this time. Please check back soon or contact us for more information.
           </p>
-          <button
-            onClick={() => resetDemoData('CONFIRM_RESET')}
-            className="btn-primary !py-4 !px-8 !text-lg flex items-center gap-3 mx-auto shadow-xl shadow-orange-500/20"
-          >
-            <Database className="h-6 w-6" />
-            Seed Demonstration Data
-          </button>
         </div>
       );
     }
@@ -989,27 +967,10 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen text-white flex flex-col">
-      {showDemoBanner && performers.length > 0 && (
-        <div className="bg-orange-600 text-white py-2 px-4 text-center text-xs sm:text-sm font-medium relative z-50">
-          <div className="container mx-auto flex items-center justify-center gap-4">
-            <span className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              <strong>Demo Mode Active:</strong> Use the role switcher in the header to explore Client, Performer, and Admin views.
-            </span>
-            <button
-              onClick={() => setShowDemoBanner(false)}
-              className="hover:bg-white/20 rounded p-0.5 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
       {usingMockData && (
         <div className="bg-yellow-600/90 text-yellow-50 py-1.5 px-4 text-center text-xs font-medium relative z-50">
           <span className="flex items-center justify-center gap-2">
-            <Database className="h-3.5 w-3.5" />
-            Firebase unavailable — showing demo data. Live data will load automatically when connection is restored.
+            Firebase unavailable — live data will load automatically when connection is restored.
           </span>
         </div>
       )}
@@ -1020,13 +981,6 @@ const App: React.FC = () => {
         notificationUserId={authedUser ? (authedUser.role === 'performer' ? `performer_${authedUser.id}` : authedUser.role === 'admin' ? 'admin' : null) : null}
       >
         <div className="flex items-center gap-2 sm:gap-4">
-          <RoleSwitcher
-            currentRole={authedUser?.role || 'user'}
-            onRoleChange={handleRoleChange}
-            performers={performers}
-            currentPerformerId={(authedUser?.role === 'performer' && authedUser.id) ? authedUser.id : null}
-            onPerformerChange={handlePerformerChange}
-          />
           {authedUser ? (
             <>
               <span className="text-sm text-zinc-300 hidden sm:block">Welcome, <strong className="font-semibold text-white">{authedUser.name}</strong></span>
@@ -1049,13 +1003,6 @@ const App: React.FC = () => {
                 <LogIn className="h-4 w-4" />
                 <span className="hidden sm:inline">Login</span>
               </button>
-              <button
-                onClick={() => setShowWalkthrough(true)}
-                title="Start Guided Tour"
-                className="hidden sm:flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500/20 transition-colors"
-              >
-                <span>▶</span><span>Tour</span>
-              </button>
             </>
           )}
         </div>
@@ -1067,12 +1014,7 @@ const App: React.FC = () => {
           </Suspense>
         </ErrorBoundary>
       </main>
-      <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} onShowPresentation={() => setShowPresentation(true)} />
-      {phoneMessage && (
-        <Suspense fallback={null}>
-          <DemoPhone message={phoneMessage} onClose={() => setPhoneMessage(null)} />
-        </Suspense>
-      )}
+      <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} />
 
       {/* Real-time Notifications Toast Container */}
       <div className="fixed top-24 right-4 z-[100] flex flex-col gap-3 pointer-events-none max-w-sm w-full">
@@ -1114,23 +1056,8 @@ const App: React.FC = () => {
           <Login onLogin={handleLogin} onClose={() => setShowLogin(false)} performers={performers} onNavigateToOnboarding={() => { setShowLogin(false); setView('performer_onboarding'); }} />
         </Suspense>
       )}
-      {showPresentation && (
-        <Suspense fallback={null}>
-          <PresentationVideo onClose={() => setShowPresentation(false)} />
-        </Suspense>
-      )}
       <BookingStickyFooter performers={selectedForBooking} onProceed={handleProceedToBooking} />
       {!ageVerified && <AgeGate onVerified={handleAgeVerified} onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} />}
-      <WalkthroughOverlay
-        isActive={showWalkthrough && ageVerified}
-        onClose={() => {
-          setShowWalkthrough(false);
-          try { localStorage.setItem('walkthroughShown', 'true'); } catch { }
-        }}
-        onRoleChange={(role: Role) => handleRoleChange(role)}
-        onNavigate={handleNavigate}
-        performers={performers}
-      />
     </div>
   );
 };
