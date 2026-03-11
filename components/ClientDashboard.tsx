@@ -249,7 +249,28 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                 <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                   <History className="text-zinc-400" /> Booking History
                 </h2>
-                <div className="card-base !p-0 overflow-hidden">
+                {/* Mobile: card layout */}
+                <div className="space-y-3 md:hidden">
+                  {bookingGroups.past.map(booking => {
+                    const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
+                    const config = statusConfig[booking.status];
+                    return (
+                      <div key={booking.id} className="card-base !p-4 flex justify-between items-start gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{booking.event_type}</p>
+                          <p className="text-xs text-zinc-400 mt-0.5">{new Date(booking.event_date).toLocaleDateString()} &middot; {booking.performer?.name || 'N/A'}</p>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border mt-2 ${config.borderColor} ${config.color} bg-zinc-900/50`}>
+                            <config.Icon size={10} className={config.Icon === LoaderCircle ? 'animate-spin' : ''} />
+                            {config.title}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-white whitespace-nowrap">${(totalCost || 0).toFixed(2)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Desktop: table layout */}
+                <div className="card-base !p-0 overflow-hidden hidden md:block">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>

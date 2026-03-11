@@ -136,7 +136,7 @@ const PerformerProfile: React.FC<PerformerProfileProps> = ({ performer, onBack, 
       </div>
 
       {/* Mobile Sticky Book Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-950/90 backdrop-blur-md border-t border-zinc-800 md:hidden z-40">
+      <div className="fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-zinc-950/90 backdrop-blur-md border-t border-zinc-800 md:hidden z-40">
         <button 
           onClick={() => onBook(performer)}
           className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-3 shadow-lg shadow-orange-500/20"

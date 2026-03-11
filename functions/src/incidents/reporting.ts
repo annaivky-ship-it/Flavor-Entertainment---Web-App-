@@ -68,7 +68,10 @@ export async function approveIncidentReport(
 
     // Import hash utilities from DNS module
     const crypto = await import('crypto');
-    const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
+    const PEPPER = process.env.DNS_HASH_PEPPER;
+    if (!PEPPER) {
+      throw new functions.https.HttpsError('failed-precondition', 'DNS_HASH_PEPPER environment variable is required.');
+    }
 
     function sha256(value: string): string {
         return crypto.createHash('sha256').update(value + PEPPER).digest('hex');

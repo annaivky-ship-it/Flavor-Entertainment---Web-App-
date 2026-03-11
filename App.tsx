@@ -21,6 +21,9 @@ import RoleSwitcher from './components/RoleSwitcher';
 import FAQ from './components/FAQ';
 import PerformerOnboarding from './components/PerformerOnboarding';
 import WalkthroughOverlay from './components/WalkthroughOverlay';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './services/firebaseClient';
+import { getUserProfile } from './services/userService';
 import { api, resetDemoData, isDemoMode } from './services/api';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
@@ -89,6 +92,7 @@ const App: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [connectionWarning, setConnectionWarning] = useState(false);
   const [phoneMessage, setPhoneMessage] = useState<PhoneMessage>(null);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showTermsOfService, setShowTermsOfService] = useState(false);
@@ -169,7 +173,7 @@ const App: React.FC = () => {
       if (apiError) throw apiError;
       setCommunications(prev => prev.map(c => c.id === tempId ? data![0] : c));
     } catch (err) {
-      console.error("Failed to add communication:", err);
+      if (!import.meta.env.PROD) console.error("Failed to add communication:", err);
       setCommunications(prev => prev.filter(c => c.id !== tempId));
     }
   }, []);
@@ -178,8 +182,15 @@ const App: React.FC = () => {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setConnectionWarning(false);
     try {
-      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = await api.getInitialData();
+      const result = await api.getInitialData(role);
+      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = result;
+
+      // Show non-blocking banner if Firestore was unreachable
+      if ((result as any).offline) {
+        setConnectionWarning(true);
+      }
 
       if (pData.error) throw new Error(`Performers Error: ${pData.error.message}`);
       setPerformers(pData.data as Performer[] || []);
@@ -198,12 +209,13 @@ const App: React.FC = () => {
 
     } catch (err: any) {
       setError(`Backend initialization error: ${err.message}.`);
-      console.error(err);
+      if (!import.meta.env.PROD) console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [role]);
 
+  // Re-subscribe whenever the user's role changes so queries are scoped correctly
   useEffect(() => {
     const unsubscribeBookings = api.subscribeToBookings((newBookings) => {
       // Check for status changes to notify
@@ -211,7 +223,6 @@ const App: React.FC = () => {
         newBookings.forEach(newB => {
           const oldB = prevBookingsRef.current.find(b => b.id === newB.id);
           if (oldB && oldB.status !== newB.status) {
-            // Status changed!
             const statusLabels: Record<BookingStatus, string> = {
               pending_performer_acceptance: 'Pending Acceptance',
               pending_vetting: 'Pending Vetting',
@@ -229,9 +240,8 @@ const App: React.FC = () => {
             const message = `Booking #${newB.id.slice(0, 8)} status updated to ${statusLabels[newB.status] || newB.status}`;
             addNotification(message, newB.status === 'confirmed' ? 'success' : 'info');
 
-            // Also show phone message for demo feel
             showPhoneMessage({
-              for: authedUser?.role === 'performer' ? 'Performer' : authedUser?.role === 'admin' ? 'Admin' : 'Client',
+              for: role === 'performer' ? 'Performer' : role === 'admin' ? 'Admin' : 'Client',
               content: (
                 <div className="space-y-1">
                   <p className="font-bold text-zinc-900">Booking Update</p>
@@ -244,23 +254,27 @@ const App: React.FC = () => {
       }
       prevBookingsRef.current = newBookings;
       setBookings(newBookings);
-    });
+      // Connection restored — clear any offline warning
+      setConnectionWarning(false);
+    }, role, () => setConnectionWarning(true));
 
     const unsubscribeComms = api.subscribeToCommunications((newComms) => {
       setCommunications(newComms);
-    });
+      setConnectionWarning(false);
+    }, role, () => setConnectionWarning(true));
 
     const unsubscribePerformers = api.subscribeToPerformers((newPerformers) => {
       setPerformers(newPerformers);
+      setConnectionWarning(false);
     });
 
     const unsubscribeDNS = api.subscribeToDoNotServe((newEntries) => {
       setDoNotServeList(newEntries);
-    });
+    }, role);
 
     const unsubscribeAudit = api.subscribeToAuditLogs((newLogs) => {
       setAuditLogs(newLogs);
-    });
+    }, role);
 
     return () => {
       unsubscribeBookings();
@@ -269,11 +283,49 @@ const App: React.FC = () => {
       unsubscribeDNS();
       unsubscribeAudit();
     };
-  }, [addNotification, showPhoneMessage]);
+  }, [role, addNotification, showPhoneMessage]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Persist auth state across page refreshes using Firebase onAuthStateChanged
+  useEffect(() => {
+    if (!auth) return;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setAuthedUser(null);
+        return;
+      }
+
+      try {
+        let name: string;
+        let role: Role;
+        let performerId: number | undefined;
+
+        // Try to restore from Firestore user profile first
+        const profile = await getUserProfile(firebaseUser.uid);
+        if (profile) {
+          name = profile.displayName || firebaseUser.email?.split('@')[0] || 'User';
+          role = profile.role;
+          performerId = profile.performerId;
+        } else {
+          // Fallback: use token claims if no Firestore profile yet
+          const token = await firebaseUser.getIdTokenResult();
+          name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
+          role = (token.claims.role as Role) || 'user';
+          performerId = token.claims.performerId as number | undefined;
+        }
+
+        setAuthedUser({ name, role, id: performerId });
+        if (role === 'admin') setView('admin_dashboard');
+        else if (role === 'performer') setView('performer_dashboard');
+      } catch (err) {
+        if (!import.meta.env.PROD) console.error('Error restoring auth state:', err);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleAgeVerified = () => {
     localStorage.setItem('ageVerified', 'true');
@@ -318,7 +370,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (auth) {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        if (!import.meta.env.PROD) console.error('Error signing out:', err);
+      }
+    }
     setAuthedUser(null);
     localStorage.removeItem('clientEmail');
     setView('available_now');
@@ -351,7 +410,7 @@ const App: React.FC = () => {
 
       addCommunication({ sender: 'System', recipient: 'admin', message: `${performerName}'s status changed to ${status}.`, type: 'admin_message' });
     } catch (err) {
-      console.error("Failed to update status:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update status:", err);
       setPerformers(originalPerformers);
       setError("Could not update performer status.");
     }
@@ -418,7 +477,7 @@ const App: React.FC = () => {
       if (adminMessage) addCommunication({ sender: 'System', recipient: 'admin', message: adminMessage, booking_id: bookingId, type: 'admin_message' });
 
     } catch (err) {
-      console.error("Failed to update booking:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update booking:", err);
       setBookings(originalBookings);
       setError("Could not update booking status.");
     }
@@ -449,7 +508,7 @@ const App: React.FC = () => {
         addCommunication({ sender: 'System', recipient: entry.submitted_by_performer_id, message, type: 'admin_message' });
       }
     } catch (err) {
-      console.error("Failed to update DNS entry:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update DNS entry:", err);
       setDoNotServeList(originalList);
       setError("Could not update 'Do Not Serve' entry.");
     }
@@ -462,7 +521,7 @@ const App: React.FC = () => {
       setDoNotServeList(prev => [data![0], ...prev]);
       addCommunication({ sender: submitterName, recipient: 'admin', message: `New 'Do Not Serve' entry submitted by ${submitterName} for review against "${newEntryData.client_name}".`, type: 'admin_message' })
     } catch (err) {
-      console.error("Failed to create DNS entry:", err);
+      if (!import.meta.env.PROD) console.error("Failed to create DNS entry:", err);
       setError("Could not create 'Do Not Serve' entry.");
     }
   };
@@ -515,7 +574,7 @@ const App: React.FC = () => {
         showPhoneMessage({ for: 'Client', content: <p>🙌 <strong>Request Accepted!</strong><br /><strong>{performerName}</strong> has accepted your request!{eta && <><br />{etaSmsIcon}</>}<br /><br />Our admin team is now performing final vetting. We'll notify you once it's ready for deposit.</p> });
       }
     } catch (err) {
-      console.error("Failed performer decision update:", err);
+      if (!import.meta.env.PROD) console.error("Failed performer decision update:", err);
       setBookings(originalBookings);
       setError("Failed to process performer decision.");
     }
@@ -541,7 +600,7 @@ const App: React.FC = () => {
         content: <p>⏱ <strong>ETA Updated!</strong><br /><strong>{performerName}</strong> has updated their ETA to <strong>{eta} minutes</strong> for your {booking.event_type} booking.</p>
       });
     } catch (err) {
-      console.error("Failed to update ETA:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update ETA:", err);
       setBookings(originalBookings);
       setError("Failed to update ETA.");
     }
@@ -585,7 +644,7 @@ const App: React.FC = () => {
       addCommunication({ sender: 'Admin', recipient: oldPerformerId, message: `Your booking for ${booking.client_name} has been reassigned to another performer by an administrator.`, booking_id: booking.id, type: 'booking_update' });
       addCommunication({ sender: 'Admin', recipient: newPerformerId, message: `You have been newly assigned a booking for ${booking.client_name}. Please review and accept/decline.`, booking_id: booking.id, type: 'booking_update' });
     } catch (err) {
-      console.error("Failed to reassign performer:", err);
+      if (!import.meta.env.PROD) console.error("Failed to reassign performer:", err);
       setBookings(originalBookings);
       setError("Could not reassign performer.");
     }
@@ -598,7 +657,7 @@ const App: React.FC = () => {
       const { error } = await api.updatePerformer(performerId, updates);
       if (error) throw error;
     } catch (err) {
-      console.error("Failed to update performer:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update performer:", err);
       setPerformers(originalPerformers);
       setError("Failed to update performer details.");
     }
@@ -612,7 +671,7 @@ const App: React.FC = () => {
         setPerformers(prev => [...prev, data]);
       }
     } catch (err) {
-      console.error("Failed to create performer:", err);
+      if (!import.meta.env.PROD) console.error("Failed to create performer:", err);
       setError("Failed to create new performer.");
     }
   };
@@ -774,7 +833,15 @@ const App: React.FC = () => {
     }
 
     if (error) {
-      return <div className="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg text-white max-w-4xl mx-auto"><h2 className="text-xl font-bold">An Error Occurred</h2><p className="mt-2 text-red-200">{error}</p></div>;
+      return (
+        <div className="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg text-white max-w-4xl mx-auto">
+          <h2 className="text-xl font-bold">An Error Occurred</h2>
+          <p className="mt-2 text-red-200">{error}</p>
+          <button onClick={() => { setError(null); fetchData(); }} className="mt-4 btn-primary px-6 py-2 text-sm">
+            Retry
+          </button>
+        </div>
+      );
     }
 
     const renderTabs = () => {
@@ -1054,6 +1121,15 @@ const App: React.FC = () => {
         </div>
       </Header>
       <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
+        {connectionWarning && (
+          <div className="mb-6 flex items-center gap-3 p-4 bg-yellow-900/30 border border-yellow-600/40 rounded-xl text-yellow-200 text-sm animate-fade-in">
+            <Radio className="h-5 w-5 text-yellow-500 flex-shrink-0 animate-pulse" />
+            <span>Connecting to server&hellip; Live data will load automatically when the connection is restored.</span>
+            <button onClick={() => setConnectionWarning(false)} className="ml-auto text-yellow-500 hover:text-yellow-300 p-1">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         {renderContent()}
       </main>
       <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} onShowPresentation={() => setShowPresentation(true)} />

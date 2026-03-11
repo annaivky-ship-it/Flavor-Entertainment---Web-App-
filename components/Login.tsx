@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, LogIn, Mail, Lock } from 'lucide-react';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../services/firebaseClient';
+import { saveUserProfile } from '../services/userService';
 import type { Performer, Role } from '../types';
 import InputField from './InputField';
 
@@ -18,31 +19,46 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleAuthSuccess = async (user: any) => {
+  const handleAuthSuccess = async (user: any, provider: string = 'email') => {
+    let resolvedRole: Role = 'user';
+    let performerId: number | undefined;
+    let displayName: string = user.displayName || user.email?.split('@')[0] || 'User';
+
     try {
       const token = await user.getIdTokenResult();
-      const role = token.claims.role as Role || 'user';
-      const performerId = token.claims.performerId as number | undefined;
-      
-      onLogin({ 
-        name: user.displayName || user.email?.split('@')[0] || 'User', 
-        role, 
-        id: performerId 
-      });
+      resolvedRole = token.claims.role as Role || 'user';
+      performerId = token.claims.performerId as number | undefined;
     } catch (err) {
-      console.error('Error getting custom claims:', err);
+      if (!import.meta.env.PROD) console.error('Error getting custom claims:', err);
       // Fallback for development/testing if claims aren't set up yet
       if (user.email === 'admin@flavorentertainers.com.au') {
-        onLogin({ name: 'Admin', role: 'admin' });
+        resolvedRole = 'admin';
+        displayName = 'Admin';
       } else {
         const performer = performers.find(p => `${p.name.toLowerCase().split(' ')[0]}@flavorentertainers.com.au` === user.email?.toLowerCase());
         if (performer) {
-          onLogin({ name: performer.name, role: 'performer', id: performer.id });
-        } else {
-          onLogin({ name: user.displayName || 'User', role: 'user' });
+          resolvedRole = 'performer';
+          performerId = performer.id;
+          displayName = performer.name;
         }
       }
     }
+
+    // Persist user profile to Firestore
+    try {
+      await saveUserProfile(user.uid, {
+        email: user.email,
+        displayName,
+        photoURL: user.photoURL,
+        role: resolvedRole,
+        performerId,
+        provider,
+      });
+    } catch (err) {
+      if (!import.meta.env.PROD) console.error('Error saving user profile to Firestore:', err);
+    }
+
+    onLogin({ name: displayName, role: resolvedRole, id: performerId });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,7 +74,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       await handleAuthSuccess(userCredential.user);
     } catch (err: any) {
-      console.error('Login error:', err);
+      if (!import.meta.env.PROD) console.error('Login error:', err);
       setError(err.message || 'Invalid email or password.');
     } finally {
       setIsLoading(false);
@@ -75,9 +91,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      await handleAuthSuccess(result.user);
+      await handleAuthSuccess(result.user, 'google');
     } catch (err: any) {
-      console.error('Google login error:', err);
+      if (!import.meta.env.PROD) console.error('Google login error:', err);
       if (err.message?.includes('projectconfigservice.getprojectconfig-are-blocked')) {
         setError('Google Identity Toolkit API is blocked. Please ensure it is enabled in your Google Cloud Console and that your API key has the correct permissions.');
       } else {

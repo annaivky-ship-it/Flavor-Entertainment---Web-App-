@@ -77,7 +77,7 @@ const FileUploadField: React.FC<FileUploadFieldProps> = ({ file, setFile, id, la
     const displayError = internalError || error;
 
     return (
-        <div className="flex-1 min-w-[280px]">
+        <div className="flex-1 min-w-0 sm:min-w-[280px]">
             <label htmlFor={id} className="block text-sm font-semibold text-zinc-300 mb-2">{label}</label>
             <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 transition-all duration-300 ${displayError ? 'border-red-500 bg-red-900/10' : file ? 'border-green-500 bg-green-900/10' : 'border-zinc-700 bg-zinc-900/50 hover:border-orange-500 hover:bg-zinc-800/50'}`}>
                 {file ? (

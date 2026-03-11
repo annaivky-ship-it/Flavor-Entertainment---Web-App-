@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LoaderCircle, CheckCircle, Shield, Building2, X, PartyPopper, User, Calendar, MapPin, DollarSign } from 'lucide-react';
-import { PAY_ID_NAME, PAY_ID_EMAIL } from '../constants';
+import { PAY_ID_NAME, PAY_ID_EMAIL, PAY_ID_CONFIGURED } from '../constants';
 
 interface PayIDSimulationModalProps {
   amount: number;
@@ -39,7 +39,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
     switch (status) {
       case 'processing':
         return (
-          <div className="flex flex-col items-center justify-center text-center h-[450px]">
+          <div className="flex flex-col items-center justify-center text-center min-h-[300px] sm:min-h-[450px]">
             <LoaderCircle className="h-16 w-16 animate-spin text-orange-500" />
             <p className="mt-4 text-zinc-300 font-semibold text-lg">Submitting Confirmation...</p>
             <p className="text-zinc-500 text-sm mt-2">Notifying admin of your PayID transfer...</p>
@@ -47,7 +47,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
         );
       case 'success':
         return (
-          <div className="flex flex-col items-center justify-center text-center h-[450px]">
+          <div className="flex flex-col items-center justify-center text-center min-h-[300px] sm:min-h-[450px]">
             <div className="bg-green-500/20 p-4 rounded-full mb-4">
                 <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
@@ -57,6 +57,15 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
         );
       case 'idle':
       default:
+        if (!PAY_ID_CONFIGURED) {
+          return (
+            <div className="flex flex-col items-center justify-center text-center min-h-[300px] sm:min-h-[450px]">
+              <Shield className="h-16 w-16 text-red-500 mb-4" />
+              <p className="text-zinc-100 font-bold text-xl">Payments Unavailable</p>
+              <p className="text-zinc-400 mt-2 max-w-xs">Payment processing is not configured. Please contact support to complete your booking.</p>
+            </div>
+          );
+        }
         return (
           <>
             <div className="mb-6">

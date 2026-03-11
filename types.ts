@@ -71,6 +71,8 @@ export interface VettingApplication {
 export interface Booking {
     id: string;
     performer_id: number;
+    client_uid?: string;
+    performer_uid?: string;
     client_name: string;
     client_email: string;
     client_phone: string;
@@ -126,7 +128,10 @@ export interface DoNotServeEntry {
 export interface Communication {
   id: string;
   sender: 'System' | Performer['name'] | 'Admin' | string;
+  sender_uid?: string;
   recipient: Role | number | string;
+  recipient_uid?: string;
+  participant_uids?: string[];
   message: string;
   created_at: string;
   read: boolean;

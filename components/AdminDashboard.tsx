@@ -302,7 +302,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           <p className="text-xl text-zinc-400 mt-1">Manage bookings and monitor performers.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(import.meta.env.DEV || isDemoMode) && (
+          {import.meta.env.DEV && (
             <button 
               onClick={() => {
                 if (confirm('DEV ONLY: Overwrite data with mock data?')) {
@@ -333,7 +333,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
 
       {/* Tab Navigation */}
       <div className="border-b border-zinc-800 overflow-x-auto scrollbar-hide">
-        <nav className="-mb-px flex space-x-8 min-w-max px-2" aria-label="Tabs">
+        <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max px-2" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('management')}
             className={`${activeTab === 'management' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}

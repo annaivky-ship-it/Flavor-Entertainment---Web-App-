@@ -24,7 +24,7 @@ const missingVars = Object.entries(firebaseConfig)
   .map(([k]) => `VITE_${k.replace(/([A-Z])/g, '_$1').toUpperCase()}`);
 
 if (missingVars.length > 0) {
-  console.warn(`Missing required environment variables: ${missingVars.join(', ')}. Firebase services will not work correctly.`);
+  if (!import.meta.env.PROD) console.warn(`Missing required environment variables: ${missingVars.join(', ')}. Firebase services will not work correctly.`);
   // Use dummy values if missing to prevent crash
   firebaseConfig.apiKey = firebaseConfig.apiKey || 'dummy-key';
   firebaseConfig.authDomain = firebaseConfig.authDomain || 'dummy-auth-domain';
