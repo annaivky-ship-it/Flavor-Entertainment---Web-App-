@@ -5,7 +5,7 @@ export async function checkAndSetIdempotency(key: string): Promise<boolean> {
   const ref = db.collection('idempotency_keys').doc(key);
   
   try {
-    await db.runTransaction(async (t) => {
+    await db.runTransaction(async (t: FirebaseFirestore.Transaction) => {
       const doc = await t.get(ref);
       if (doc.exists) {
         throw new Error('ALREADY_PROCESSED');
