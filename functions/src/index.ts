@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import { sendWhatsApp, sendSms, verifyTwilioSignature } from './twilio';
 import { sendMessage } from './messaging/send';
 import { renderTemplate } from './messaging/templates';
@@ -14,7 +15,7 @@ import { recordConsent, CONSENT_TEXT } from './consent';
 declare const Buffer: any;
 
 admin.initializeApp();
-const db = admin.firestore();
+const db = getFirestore('default');
 const fns = functions as any;
 
 export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: any) => {

@@ -1,7 +1,8 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export async function checkAndSetIdempotency(key: string): Promise<boolean> {
-  const db = admin.firestore();
+  const db = getFirestore('default');
   const ref = db.collection('idempotency_keys').doc(key);
   
   try {

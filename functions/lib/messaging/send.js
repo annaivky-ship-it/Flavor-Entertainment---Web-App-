@@ -35,12 +35,13 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendMessage = sendMessage;
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const clicksend_1 = require("./providers/clicksend");
 const twilio_1 = require("./providers/twilio");
 const messagemedia_1 = require("./providers/messagemedia");
 const phone_1 = require("../utils/phone");
 async function sendMessage(params) {
-    const db = admin.firestore();
+    const db = (0, firestore_1.getFirestore)('default');
     const normalizedTo = (0, phone_1.normalizePhone)(params.to);
     if (!normalizedTo) {
         console.error(`Invalid phone number: ${params.to}`);

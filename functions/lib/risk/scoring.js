@@ -36,7 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateRiskScore = calculateRiskScore;
 exports.shouldSkipKyc = shouldSkipKyc;
 const admin = __importStar(require("firebase-admin"));
-const getDb = () => admin.firestore();
+const firestore_1 = require("firebase-admin/firestore");
+const getDb = () => (0, firestore_1.getFirestore)('default');
 // --- Risk Scoring Engine ---
 /**
  * Calculate a comprehensive risk score for a booking.

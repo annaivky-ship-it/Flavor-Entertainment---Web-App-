@@ -41,9 +41,10 @@ exports.dnsLookup = dnsLookup;
 exports.hasPreviousSuccessfulBooking = hasPreviousSuccessfulBooking;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const crypto = __importStar(require("crypto"));
 const didit_1 = require("../didit");
-const getDb = () => admin.firestore();
+const getDb = () => (0, firestore_1.getFirestore)('default');
 const fns = functions;
 const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
 // --- Helpers ---
