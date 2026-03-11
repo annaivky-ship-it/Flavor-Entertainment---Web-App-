@@ -55,7 +55,7 @@ const ChatDialog: React.FC<ChatDialogProps> = ({ isOpen, onClose, booking, curre
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="card-base !p-0 !bg-[#0c0c0e] max-w-md w-full flex flex-col h-[650px] max-h-[90vh] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden border-zinc-800">
+      <div className="card-base !p-0 !bg-[#0c0c0e] max-w-md w-full flex flex-col h-[100dvh] sm:h-[650px] sm:max-h-[90vh] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden border-zinc-800">
         {/* Header */}
         <div className="flex-shrink-0 p-4 flex justify-between items-center border-b border-zinc-800 bg-zinc-900/40 backdrop-blur-md relative z-10">
           <div className="flex items-center gap-3">
@@ -79,7 +79,7 @@ const ChatDialog: React.FC<ChatDialogProps> = ({ isOpen, onClose, booking, curre
                 </div>
              </div>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors p-2 hover:bg-zinc-800 rounded-lg">
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors p-2.5 hover:bg-zinc-800 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center">
             <X className="h-6 w-6" />
           </button>
         </div>

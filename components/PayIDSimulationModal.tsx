@@ -39,7 +39,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
     switch (status) {
       case 'processing':
         return (
-          <div className="flex flex-col items-center justify-center text-center h-[450px]">
+          <div className="flex flex-col items-center justify-center text-center min-h-[300px] sm:min-h-[450px]">
             <LoaderCircle className="h-16 w-16 animate-spin text-orange-500" />
             <p className="mt-4 text-zinc-300 font-semibold text-lg">Submitting Confirmation...</p>
             <p className="text-zinc-500 text-sm mt-2">Notifying admin of your PayID transfer...</p>
@@ -47,7 +47,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
         );
       case 'success':
         return (
-          <div className="flex flex-col items-center justify-center text-center h-[450px]">
+          <div className="flex flex-col items-center justify-center text-center min-h-[300px] sm:min-h-[450px]">
             <div className="bg-green-500/20 p-4 rounded-full mb-4">
                 <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
