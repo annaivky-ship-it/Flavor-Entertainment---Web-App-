@@ -1,11 +1,12 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export async function checkAndSetIdempotency(key: string): Promise<boolean> {
-  const db = admin.firestore();
+  const db = getFirestore('default');
   const ref = db.collection('idempotency_keys').doc(key);
   
   try {
-    await db.runTransaction(async (t) => {
+    await db.runTransaction(async (t: FirebaseFirestore.Transaction) => {
       const doc = await t.get(ref);
       if (doc.exists) {
         throw new Error('ALREADY_PROCESSED');

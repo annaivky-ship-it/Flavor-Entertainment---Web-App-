@@ -1,9 +1,10 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
 import { createKycSession } from '../didit';
 
-const getDb = () => admin.firestore();
+const getDb = () => getFirestore('default');
 const fns = functions as any;
 
 const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
@@ -189,7 +190,7 @@ export const confirmPayidPayment = fns.https.onCall(async (data: any, context: a
 
   let shouldSkipKyc = false;
 
-  await getDb().runTransaction(async (t) => {
+  await getDb().runTransaction(async (t: FirebaseFirestore.Transaction) => {
     const doc = await t.get(bookingRef);
     if (!doc.exists) throw new fns.https.HttpsError('not-found', 'Booking not found');
 

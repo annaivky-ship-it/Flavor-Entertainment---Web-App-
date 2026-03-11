@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const twilio_1 = require("./twilio");
 const send_1 = require("./messaging/send");
 const templates_1 = require("./messaging/templates");
@@ -49,7 +50,7 @@ const scoring_1 = require("./risk/scoring");
 const reporting_1 = require("./incidents/reporting");
 const consent_1 = require("./consent");
 admin.initializeApp();
-const db = admin.firestore();
+const db = (0, firestore_1.getFirestore)('default');
 const fns = functions;
 exports.analyzeVettingRisk = fns.https.onCall(async (data, context) => {
     var _a;

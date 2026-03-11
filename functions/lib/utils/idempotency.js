@@ -35,8 +35,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkAndSetIdempotency = checkAndSetIdempotency;
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 async function checkAndSetIdempotency(key) {
-    const db = admin.firestore();
+    const db = (0, firestore_1.getFirestore)('default');
     const ref = db.collection('idempotency_keys').doc(key);
     try {
         await db.runTransaction(async (t) => {

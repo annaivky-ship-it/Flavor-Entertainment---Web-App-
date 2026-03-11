@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
-const getDb = () => admin.firestore();
+const getDb = () => getFirestore('default');
 
 /**
  * Record client consent for identity verification.

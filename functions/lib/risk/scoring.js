@@ -36,7 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateRiskScore = calculateRiskScore;
 exports.shouldSkipKyc = shouldSkipKyc;
 const admin = __importStar(require("firebase-admin"));
-const getDb = () => admin.firestore();
+const firestore_1 = require("firebase-admin/firestore");
+const getDb = () => (0, firestore_1.getFirestore)('default');
 // --- Risk Scoring Engine ---
 /**
  * Calculate a comprehensive risk score for a booking.
@@ -294,7 +295,7 @@ async function detectBehaviorAnomalies(email, phone) {
         .where('client_email', '==', email.toLowerCase().trim())
         .where('created_at', '>=', oneDayAgo)
         .get();
-    const uniquePerformers = new Set(dayBookings.docs.map(d => d.data().performer_id));
+    const uniquePerformers = new Set(dayBookings.docs.map((d) => d.data().performer_id));
     if (uniquePerformers.size > 3) {
         score += 5;
         reasons.push(`Requested ${uniquePerformers.size} different performers in 24h`);
@@ -325,7 +326,7 @@ async function checkDeviceRisk(fingerprint, ipAddress) {
             .where('device_fingerprint', '==', fingerprint)
             .limit(10)
             .get();
-        const uniqueEmails = new Set(multipleEmails.docs.map(d => d.data().client_email));
+        const uniqueEmails = new Set(multipleEmails.docs.map((d) => d.data().client_email));
         if (uniqueEmails.size > 3) {
             score += 5;
             reasons.push(`Same device used by ${uniqueEmails.size} different email addresses`);
