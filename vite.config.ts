@@ -45,6 +45,9 @@ export default defineConfig(({ mode }) => {
           }
         })
       ],
+      css: {
+        transformer: 'lightningcss',
+      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
