@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import { sendClickSendSms } from './providers/clicksend';
 import { sendTwilioMessage } from './providers/twilio';
 import { sendMessageMediaSms } from './providers/messagemedia';
@@ -13,7 +14,7 @@ export interface SendMessageParams {
 }
 
 export async function sendMessage(params: SendMessageParams): Promise<void> {
-  const db = admin.firestore();
+  const db = getFirestore('default');
   const normalizedTo = normalizePhone(params.to);
   
   if (!normalizedTo) {

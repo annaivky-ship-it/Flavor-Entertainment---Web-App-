@@ -37,8 +37,9 @@ exports.createKycSession = createKycSession;
 exports.verifyWebhookSignature = verifyWebhookSignature;
 exports.processKycResult = processKycResult;
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const crypto = __importStar(require("crypto"));
-const getDb = () => admin.firestore();
+const getDb = () => (0, firestore_1.getFirestore)('default');
 // Didit API Configuration
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY || '';
 const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '';

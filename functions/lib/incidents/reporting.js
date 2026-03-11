@@ -38,7 +38,8 @@ exports.approveIncidentReport = approveIncidentReport;
 exports.rejectIncidentReport = rejectIncidentReport;
 exports.getPendingReports = getPendingReports;
 const admin = __importStar(require("firebase-admin"));
-const getDb = () => admin.firestore();
+const firestore_1 = require("firebase-admin/firestore");
+const getDb = () => (0, firestore_1.getFirestore)('default');
 // --- Create Incident Report ---
 async function createIncidentReport(report) {
     const reportRef = await getDb().collection('incident_reports').add(Object.assign(Object.assign({}, report), { client_email: report.client_email.toLowerCase().trim(), client_phone: report.client_phone.replace(/[\s\-\(\)]/g, ''), status: 'PENDING_REVIEW', created_at: admin.firestore.FieldValue.serverTimestamp() }));
@@ -131,6 +132,6 @@ async function getPendingReports() {
         .where('status', '==', 'PENDING_REVIEW')
         .orderBy('created_at', 'desc')
         .get();
-    return snap.docs.map(d => (Object.assign(Object.assign({}, d.data()), { id: d.id })));
+    return snap.docs.map((d) => (Object.assign(Object.assign({}, d.data()), { id: d.id })));
 }
 //# sourceMappingURL=reporting.js.map

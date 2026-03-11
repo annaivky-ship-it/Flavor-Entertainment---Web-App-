@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
-const getDb = () => admin.firestore();
+const getDb = () => getFirestore('default');
 
 // --- Types ---
 
@@ -349,7 +350,7 @@ async function detectBehaviorAnomalies(email: string, phone: string): Promise<{
         .where('created_at', '>=', oneDayAgo)
         .get();
 
-    const uniquePerformers = new Set(dayBookings.docs.map(d => d.data().performer_id));
+    const uniquePerformers = new Set(dayBookings.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => d.data().performer_id));
     if (uniquePerformers.size > 3) {
         score += 5;
         reasons.push(`Requested ${uniquePerformers.size} different performers in 24h`);
@@ -389,7 +390,7 @@ async function checkDeviceRisk(fingerprint: string, ipAddress?: string): Promise
             .limit(10)
             .get();
 
-        const uniqueEmails = new Set(multipleEmails.docs.map(d => d.data().client_email));
+        const uniqueEmails = new Set(multipleEmails.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => d.data().client_email));
         if (uniqueEmails.size > 3) {
             score += 5;
             reasons.push(`Same device used by ${uniqueEmails.size} different email addresses`);

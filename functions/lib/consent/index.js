@@ -36,7 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CONSENT_TEXT = void 0;
 exports.recordConsent = recordConsent;
 const admin = __importStar(require("firebase-admin"));
-const getDb = () => admin.firestore();
+const firestore_1 = require("firebase-admin/firestore");
+const getDb = () => (0, firestore_1.getFirestore)('default');
 /**
  * Record client consent for identity verification.
  * Must be called before KYC session creation.

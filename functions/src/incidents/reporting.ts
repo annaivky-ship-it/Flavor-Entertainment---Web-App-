@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
-const getDb = () => admin.firestore();
+const getDb = () => getFirestore('default');
 
 // --- Types ---
 
@@ -147,5 +148,5 @@ export async function getPendingReports(): Promise<(IncidentReport & { id: strin
         .orderBy('created_at', 'desc')
         .get();
 
-    return snap.docs.map(d => ({ ...d.data(), id: d.id } as IncidentReport & { id: string }));
+    return snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({ ...d.data(), id: d.id } as IncidentReport & { id: string }));
 }
