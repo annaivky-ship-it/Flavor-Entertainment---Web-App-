@@ -20,8 +20,10 @@
     "deploy:all": "npm run build:production && firebase deploy --only hosting:production && npm run build:demo && firebase deploy --only hosting:demo"
   },
   "dependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.59.0",
     "@tailwindcss/vite": "^4.2.1",
     "firebase": "^12.9.0",
+    "lightningcss": "^1.32.0",
     "lucide-react": "0.417.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
