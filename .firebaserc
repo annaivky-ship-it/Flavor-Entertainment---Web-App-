@@ -2,6 +2,17 @@
   "projects": {
     "default": "studio-4495412314-3b1ce"
   },
-  "targets": {},
+  "targets": {
+    "studio-4495412314-3b1ce": {
+      "hosting": {
+        "production": [
+          "studio-4495412314-3b1ce"
+        ],
+        "demo": [
+          "flavor-demo"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

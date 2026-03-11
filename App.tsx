@@ -21,7 +21,7 @@ import RoleSwitcher from './components/RoleSwitcher';
 import FAQ from './components/FAQ';
 import PerformerOnboarding from './components/PerformerOnboarding';
 import WalkthroughOverlay from './components/WalkthroughOverlay';
-import { api, resetDemoData } from './services/api';
+import { api, resetDemoData, isDemoMode } from './services/api';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
 import { calculateBookingCost } from './utils/bookingUtils';
@@ -98,7 +98,7 @@ const App: React.FC = () => {
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState<PerformerStatus | ''>('');
-  const [showDemoBanner, setShowDemoBanner] = useState(true);
+  const [showDemoBanner, setShowDemoBanner] = useState(isDemoMode);
   const [showWalkthrough, setShowWalkthrough] = useState(() => {
     // Auto-show walkthrough on first visit
     return localStorage.getItem('walkthroughShown') !== 'true';
