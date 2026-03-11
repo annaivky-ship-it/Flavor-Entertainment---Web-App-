@@ -1,7 +1,8 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
 
-const getDb = () => admin.firestore();
+const getDb = () => getFirestore('default');
 
 // Didit API Configuration
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY || '';

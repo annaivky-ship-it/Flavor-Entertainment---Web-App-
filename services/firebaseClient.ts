@@ -45,7 +45,7 @@ const app: FirebaseApp | null = missingVars.length === 0
 /**
  * Initialize and export service instances.
  */
-export const db: Firestore | null = app ? getFirestore(app) : null;
+export const db: Firestore | null = app ? getFirestore(app, 'default') : null;
 
 export const auth: Auth | null = app ? getAuth(app) : null;
 export const storage: FirebaseStorage | null = app ? getStorage(app) : null;
