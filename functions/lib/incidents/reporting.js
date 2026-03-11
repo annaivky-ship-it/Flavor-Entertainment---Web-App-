@@ -131,6 +131,6 @@ async function getPendingReports() {
         .where('status', '==', 'PENDING_REVIEW')
         .orderBy('created_at', 'desc')
         .get();
-    return snap.docs.map(d => (Object.assign(Object.assign({}, d.data()), { id: d.id })));
+    return snap.docs.map((d) => (Object.assign(Object.assign({}, d.data()), { id: d.id })));
 }
 //# sourceMappingURL=reporting.js.map
