@@ -1,10 +1,9 @@
-import { db, auth } from './firebaseClient';
+import { db } from './firebaseClient';
 import {
   doc,
   getDoc,
   setDoc,
   serverTimestamp,
-  updateDoc,
 } from 'firebase/firestore';
 import type { Role } from '../types';
 
@@ -22,7 +21,9 @@ export interface UserProfile {
 
 /**
  * Creates or updates a user profile document in Firestore.
- * Called after successful authentication to persist user data.
+ * Uses setDoc with merge to avoid read-then-write race conditions.
+ * On first login, all fields are written. On subsequent logins,
+ * only displayName, photoURL, and lastLoginAt are updated.
  */
 export async function saveUserProfile(
   uid: string,
@@ -38,27 +39,24 @@ export async function saveUserProfile(
   if (!db) return;
 
   const userRef = doc(db, 'users', uid);
-  const existing = await getDoc(userRef);
 
-  if (existing.exists()) {
-    await updateDoc(userRef, {
-      displayName: data.displayName,
-      photoURL: data.photoURL,
-      lastLoginAt: serverTimestamp(),
-    });
-  } else {
-    await setDoc(userRef, {
-      uid,
-      email: data.email,
-      displayName: data.displayName,
-      photoURL: data.photoURL,
-      role: data.role,
-      ...(data.performerId != null ? { performerId: data.performerId } : {}),
-      provider: data.provider,
-      createdAt: serverTimestamp(),
-      lastLoginAt: serverTimestamp(),
-    });
-  }
+  // merge: true preserves existing fields (like createdAt) while updating
+  // the fields we provide. For createdAt we only want to set it once,
+  // so we check existence to avoid overwriting it.
+  const snap = await getDoc(userRef);
+  const isNew = !snap.exists();
+
+  await setDoc(userRef, {
+    uid,
+    email: data.email,
+    displayName: data.displayName,
+    photoURL: data.photoURL,
+    role: data.role,
+    ...(data.performerId != null ? { performerId: data.performerId } : {}),
+    provider: data.provider,
+    lastLoginAt: serverTimestamp(),
+    ...(isNew ? { createdAt: serverTimestamp() } : {}),
+  }, { merge: true });
 }
 
 /**

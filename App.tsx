@@ -282,34 +282,35 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          // Try to restore user profile from Firestore
-          const profile = await getUserProfile(firebaseUser.uid);
-          if (profile) {
-            setAuthedUser({
-              name: profile.displayName || firebaseUser.email?.split('@')[0] || 'User',
-              role: profile.role,
-              id: profile.performerId,
-            });
-            if (profile.role === 'admin') setView('admin_dashboard');
-            else if (profile.role === 'performer') setView('performer_dashboard');
-          } else {
-            // Fallback: use token claims if no Firestore profile yet
-            const token = await firebaseUser.getIdTokenResult();
-            const role = (token.claims.role as Role) || 'user';
-            const performerId = token.claims.performerId as number | undefined;
-            setAuthedUser({
-              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-              role,
-              id: performerId,
-            });
-            if (role === 'admin') setView('admin_dashboard');
-            else if (role === 'performer') setView('performer_dashboard');
-          }
-        } catch (err) {
-          console.error('Error restoring auth state:', err);
+      if (!firebaseUser) {
+        setAuthedUser(null);
+        return;
+      }
+
+      try {
+        let name: string;
+        let role: Role;
+        let performerId: number | undefined;
+
+        // Try to restore from Firestore user profile first
+        const profile = await getUserProfile(firebaseUser.uid);
+        if (profile) {
+          name = profile.displayName || firebaseUser.email?.split('@')[0] || 'User';
+          role = profile.role;
+          performerId = profile.performerId;
+        } else {
+          // Fallback: use token claims if no Firestore profile yet
+          const token = await firebaseUser.getIdTokenResult();
+          name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
+          role = (token.claims.role as Role) || 'user';
+          performerId = token.claims.performerId as number | undefined;
         }
+
+        setAuthedUser({ name, role, id: performerId });
+        if (role === 'admin') setView('admin_dashboard');
+        else if (role === 'performer') setView('performer_dashboard');
+      } catch (err) {
+        console.error('Error restoring auth state:', err);
       }
     });
     return () => unsubscribe();
