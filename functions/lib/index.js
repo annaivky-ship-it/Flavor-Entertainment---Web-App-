@@ -37,7 +37,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
-const functions = __importStar(require("firebase-functions"));
+const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
 const twilio_1 = require("./twilio");
@@ -53,7 +53,6 @@ admin.initializeApp();
 const db = (0, firestore_1.getFirestore)('default');
 const fns = functions;
 exports.analyzeVettingRisk = fns.https.onCall(async (data, context) => {
-    var _a;
     if (!context.auth) {
         throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
     }
@@ -81,7 +80,7 @@ exports.analyzeVettingRisk = fns.https.onCall(async (data, context) => {
                 },
             },
         });
-        return JSON.parse(((_a = response.text) === null || _a === void 0 ? void 0 : _a.trim()) || "{}");
+        return JSON.parse(response.text?.trim() || "{}");
     }
     catch (error) {
         console.error("Gemini Vetting Error:", error);
@@ -116,7 +115,16 @@ exports.createDraftApplication = fns.https.onCall(async (data, context) => {
         throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
     const appData = data.application;
     const appRef = db.collection('vetting_applications').doc();
-    await appRef.set(Object.assign(Object.assign({}, appData), { userId: context.auth.uid, status: 'draft', submittedAt: null, reviewedAt: null, reviewedBy: null, riskFlags: [], lastUpdatedAt: admin.firestore.FieldValue.serverTimestamp() }));
+    await appRef.set({
+        ...appData,
+        userId: context.auth.uid,
+        status: 'draft',
+        submittedAt: null,
+        reviewedAt: null,
+        reviewedBy: null,
+        riskFlags: [],
+        lastUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
     return { applicationId: appRef.id };
 });
 /**
@@ -235,7 +243,13 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
                 throw new fns.https.HttpsError('already-exists', `This time slot is already booked for performer ${pId}.`);
             }
             const bookingRef = db.collection('bookings').doc();
-            const bookingData = Object.assign(Object.assign({}, formState), { performer_id: pId, status: 'pending_performer_acceptance', slotLock: slotId, created_at: admin.firestore.FieldValue.serverTimestamp() });
+            const bookingData = {
+                ...formState,
+                performer_id: pId,
+                status: 'pending_performer_acceptance',
+                slotLock: slotId,
+                created_at: admin.firestore.FieldValue.serverTimestamp(),
+            };
             // Reserve the slot atomically
             transaction.set(slotRef, {
                 bookingId: bookingRef.id,
@@ -245,7 +259,7 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             });
             transaction.set(bookingRef, bookingData);
-            newBookings.push(Object.assign({ id: bookingRef.id }, bookingData));
+            newBookings.push({ id: bookingRef.id, ...bookingData });
             transaction.set(db.collection('notificationsQueue').doc(), {
                 type: 'WHATSAPP',
                 to: pId,
@@ -284,7 +298,6 @@ exports.twilioInboundWebhook = fns.https.onRequest(async (req, res) => {
 exports.onBookingCreated = fns.firestore
     .document('bookings/{bookingId}')
     .onCreate(async (snap, context) => {
-    var _a;
     const bookingId = context.params.bookingId;
     const data = snap.data();
     if (data.status !== 'pending_performer_acceptance' && data.status !== 'PENDING')
@@ -293,7 +306,7 @@ exports.onBookingCreated = fns.firestore
     if (!(await (0, idempotency_1.checkAndSetIdempotency)(idempotencyKey)))
         return;
     const settingsDoc = await db.collection('settings').doc('messaging').get();
-    const adminNumbers = ((_a = settingsDoc.data()) === null || _a === void 0 ? void 0 : _a.adminNotifyNumbers) || [];
+    const adminNumbers = settingsDoc.data()?.adminNotifyNumbers || [];
     // Notify Admin
     for (const adminNum of adminNumbers) {
         await (0, send_1.sendMessage)({
@@ -429,7 +442,7 @@ exports.diditKycWebhook = fns.https.onRequest(async (req, res) => {
             // Send notification to client
             const bookingDoc = await db.collection('bookings').doc(result.bookingId).get();
             const booking = bookingDoc.data();
-            const clientPhone = (booking === null || booking === void 0 ? void 0 : booking.clientPhone) || (booking === null || booking === void 0 ? void 0 : booking.phone) || (booking === null || booking === void 0 ? void 0 : booking.client_phone);
+            const clientPhone = booking?.clientPhone || booking?.phone || booking?.client_phone;
             if (clientPhone) {
                 if (result.kycResult === 'PASS' && result.newStatus === 'CONFIRMED') {
                     await (0, send_1.sendMessage)({
@@ -476,8 +489,8 @@ exports.adminTriggerKyc = fns.https.onCall(async (data, context) => {
         const session = await (0, didit_1.createKycSession)(bookingId);
         return {
             success: true,
-            verification_url: (session === null || session === void 0 ? void 0 : session.verification_url) || null,
-            session_id: (session === null || session === void 0 ? void 0 : session.session_id) || null
+            verification_url: session?.verification_url || null,
+            session_id: session?.session_id || null
         };
     }
     catch (error) {
@@ -489,7 +502,6 @@ exports.adminTriggerKyc = fns.https.onCall(async (data, context) => {
  * Step 2: Record client consent before identity verification.
  */
 exports.recordBookingConsent = fns.https.onCall(async (data, context) => {
-    var _a;
     const { bookingId, ipAddress, userAgent, deviceFingerprint } = data;
     if (!bookingId) {
         throw new fns.https.HttpsError('invalid-argument', 'bookingId is required');
@@ -503,7 +515,7 @@ exports.recordBookingConsent = fns.https.onCall(async (data, context) => {
         bookingId,
         clientEmail: booking.client_email || booking.email,
         clientPhone: booking.client_phone || booking.phone,
-        ipAddress: ipAddress || ((_a = context.rawRequest) === null || _a === void 0 ? void 0 : _a.ip) || 'unknown',
+        ipAddress: ipAddress || context.rawRequest?.ip || 'unknown',
         userAgent: userAgent || 'unknown',
         deviceFingerprint,
         consentText: consent_1.CONSENT_TEXT,
@@ -514,7 +526,6 @@ exports.recordBookingConsent = fns.https.onCall(async (data, context) => {
  * Performer: Submit an incident report about a dangerous client.
  */
 exports.submitIncidentReport = fns.https.onCall(async (data, context) => {
-    var _a;
     if (!context.auth) {
         throw new fns.https.HttpsError('unauthenticated', 'Must be authenticated');
     }
@@ -538,7 +549,7 @@ exports.submitIncidentReport = fns.https.onCall(async (data, context) => {
     });
     // Notify admins
     const settingsDoc = await db.collection('settings').doc('messaging').get();
-    const adminNumbers = ((_a = settingsDoc.data()) === null || _a === void 0 ? void 0 : _a.adminNotifyNumbers) || [];
+    const adminNumbers = settingsDoc.data()?.adminNotifyNumbers || [];
     for (const num of adminNumbers) {
         await (0, send_1.sendMessage)({
             bookingId: booking_id || 'incident',

@@ -152,7 +152,6 @@ function verifyWebhookSignature(payload, signature, timestamp) {
  * Process a Didit webhook event and update booking/DNS status accordingly.
  */
 async function processKycResult(webhookData) {
-    var _a, _b, _c;
     const { session_id, status, vendor_data } = webhookData;
     // Look up booking from session
     let bookingId = vendor_data;
@@ -181,7 +180,7 @@ async function processKycResult(webhookData) {
     let newBookingStatus;
     if (kycResult === 'PASS') {
         // KYC passed — check AML flags
-        const hasAmlHits = ((_a = webhookData.aml_screening) === null || _a === void 0 ? void 0 : _a.result) === 'flagged';
+        const hasAmlHits = webhookData.aml_screening?.result === 'flagged';
         if (hasAmlHits) {
             // Flag for admin review but don't auto-deny
             newBookingStatus = 'PENDING_ADMIN_REVIEW';
@@ -194,7 +193,7 @@ async function processKycResult(webhookData) {
             });
             await logAudit('system', 'system', 'KYC_PASS_WITH_AML_FLAGS', bookingId, {
                 provider: 'didit',
-                aml_hits: (_b = webhookData.aml_screening) === null || _b === void 0 ? void 0 : _b.hits,
+                aml_hits: webhookData.aml_screening?.hits,
             });
         }
         else {
@@ -227,7 +226,7 @@ async function processKycResult(webhookData) {
                 });
                 await logAudit('system', 'system', 'KYC_PASS', bookingId, {
                     provider: 'didit',
-                    verified_name: (_c = webhookData.document_data) === null || _c === void 0 ? void 0 : _c.full_name,
+                    verified_name: webhookData.document_data?.full_name,
                 });
             }
         }

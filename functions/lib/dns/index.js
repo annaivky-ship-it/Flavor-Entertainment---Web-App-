@@ -39,7 +39,7 @@ exports.normalizePhoneToE164 = normalizePhoneToE164;
 exports.sha256 = sha256;
 exports.dnsLookup = dnsLookup;
 exports.hasPreviousSuccessfulBooking = hasPreviousSuccessfulBooking;
-const functions = __importStar(require("firebase-functions"));
+const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
 const crypto = __importStar(require("crypto"));
@@ -100,7 +100,6 @@ async function hasPreviousSuccessfulBooking(emailHash, phoneHash) {
 }
 // --- Cloud Functions ---
 exports.createBookingAndScreenDns = fns.https.onCall(async (data, context) => {
-    var _a, _b, _c;
     const { client_email, client_phone, client_name, amount_deposit, amount_kyc_fee } = data;
     if (!client_email || !client_phone || !client_name) {
         throw new fns.https.HttpsError('invalid-argument', 'Missing required client details.');
@@ -129,8 +128,8 @@ exports.createBookingAndScreenDns = fns.https.onCall(async (data, context) => {
             kyc_status: 'NOT_STARTED'
         };
         await bookingRef.set(bookingData);
-        await writeAuditLog(((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) || 'anonymous', context.auth ? 'client' : 'system', 'DNS_HIT', bookingRef.id, { reason: 'Matched active DNS entry during initial screening' });
-        await writeAuditLog(((_b = context.auth) === null || _b === void 0 ? void 0 : _b.uid) || 'anonymous', context.auth ? 'client' : 'system', 'BOOKING_DENIED', bookingRef.id, { reason: 'DNS_HIT' });
+        await writeAuditLog(context.auth?.uid || 'anonymous', context.auth ? 'client' : 'system', 'DNS_HIT', bookingRef.id, { reason: 'Matched active DNS entry during initial screening' });
+        await writeAuditLog(context.auth?.uid || 'anonymous', context.auth ? 'client' : 'system', 'BOOKING_DENIED', bookingRef.id, { reason: 'DNS_HIT' });
         return {
             success: false,
             message: 'We can’t proceed with this booking.'
@@ -158,7 +157,7 @@ exports.createBookingAndScreenDns = fns.https.onCall(async (data, context) => {
         kyc_status: final_kyc_status
     };
     await bookingRef.set(bookingData);
-    await writeAuditLog(((_c = context.auth) === null || _c === void 0 ? void 0 : _c.uid) || 'anonymous', context.auth ? 'client' : 'system', 'DNS_CHECK', bookingRef.id, { result: 'CLEAR', isPreviousBooker });
+    await writeAuditLog(context.auth?.uid || 'anonymous', context.auth ? 'client' : 'system', 'DNS_CHECK', bookingRef.id, { result: 'CLEAR', isPreviousBooker });
     return {
         success: true,
         bookingId: bookingRef.id,
@@ -203,12 +202,12 @@ exports.confirmPayidPayment = fns.https.onCall(async (data, context) => {
             const session = await (0, didit_1.createKycSession)(bookingId);
             await writeAuditLog('system', 'system', 'KYC_STARTED', bookingId, {
                 provider: 'didit',
-                session_id: (session === null || session === void 0 ? void 0 : session.session_id) || null
+                session_id: session?.session_id || null
             });
             return {
                 success: true,
                 kyc_required: true,
-                verification_url: (session === null || session === void 0 ? void 0 : session.verification_url) || null
+                verification_url: session?.verification_url || null
             };
         }
         catch (error) {

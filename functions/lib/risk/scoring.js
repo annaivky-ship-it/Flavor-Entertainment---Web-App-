@@ -157,7 +157,13 @@ async function calculateRiskScore(params) {
         timestamp: new Date().toISOString(),
     };
     // Store risk score in Firestore
-    await getDb().collection('risk_scores').add(Object.assign(Object.assign({ booking_id: params.bookingId, client_email_hash: params.clientEmailHash, client_phone_hash: params.clientPhoneHash }, assessment), { created_at: admin.firestore.FieldValue.serverTimestamp() }));
+    await getDb().collection('risk_scores').add({
+        booking_id: params.bookingId,
+        client_email_hash: params.clientEmailHash,
+        client_phone_hash: params.clientPhoneHash,
+        ...assessment,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
     // Audit log
     await getDb().collection('audit_log').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -211,7 +217,6 @@ async function checkDnsRegister(emailHash, phoneHash, rawEmail) {
     return { blocked: false, review: false, matchType: 'none', reason: '' };
 }
 async function checkRepeatClientTrust(emailHash, phoneHash) {
-    var _a, _b;
     // Check for previous successful bookings
     const emailBookings = await getDb().collection('bookings')
         .where('client_email_hash', '==', emailHash)
@@ -238,7 +243,7 @@ async function checkRepeatClientTrust(emailHash, phoneHash) {
     let verificationAge = null;
     if (!kycQuery.empty) {
         const kycData = kycQuery.docs[0].data();
-        const completedAt = ((_b = (_a = kycData.completed_at) === null || _a === void 0 ? void 0 : _a.toDate) === null || _b === void 0 ? void 0 : _b.call(_a)) || new Date(kycData.completed_at);
+        const completedAt = kycData.completed_at?.toDate?.() || new Date(kycData.completed_at);
         lastVerifiedAt = completedAt.toISOString();
         verificationAge = Math.floor((Date.now() - completedAt.getTime()) / (1000 * 60 * 60 * 24));
     }
