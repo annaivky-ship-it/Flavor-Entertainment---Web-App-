@@ -104,6 +104,10 @@ export const api = {
         return { data: snap.docs.map(d => ({ ...(d.data() as any), id: name === 'performers' ? Number(d.id) : d.id })), error: null };
       } catch (err: any) {
         if (!import.meta.env.PROD) console.error(`Error fetching ${name}:`, err);
+        // Connection errors are non-fatal — subscriptions will auto-reconnect
+        if (err.code === 'unavailable' || err.code === 'failed-precondition') {
+          return { data: [], error: null, offline: true };
+        }
         return { data: [], error: err };
       }
     };
@@ -140,12 +144,16 @@ export const api = {
 
     const [pRes, bRes, dRes, cRes, aRes] = await Promise.all(fetches);
 
+    // If any collection came back offline, flag it so the UI can show a non-blocking banner
+    const isOffline = [pRes, bRes, dRes, cRes, aRes].some((r: any) => r.offline);
+
     return {
       performers: pRes,
       bookings: bRes,
       doNotServeList: dRes,
       communications: cRes,
       auditLogs: aRes,
+      offline: isOffline,
     };
   },
 
@@ -155,7 +163,7 @@ export const api = {
    * - performer: only bookings assigned to their UID
    * - user/client: only bookings they created
    */
-  subscribeToBookings(callback: (bookings: Booking[]) => void, role: Role = 'user') {
+  subscribeToBookings(callback: (bookings: Booking[]) => void, role: Role = 'user', onError?: (err: any) => void) {
     if (!db) return () => { };
     const uid = currentUid();
     let q;
@@ -174,6 +182,7 @@ export const api = {
       callback(bookings);
     }, (err) => {
       if (!import.meta.env.PROD) console.error("Error subscribing to bookings:", err);
+      onError?.(err);
     });
   },
 
@@ -182,7 +191,7 @@ export const api = {
    * - admin: all communications
    * - others: only messages where the user's UID is in participant_uids
    */
-  subscribeToCommunications(callback: (comms: Communication[]) => void, role: Role = 'user') {
+  subscribeToCommunications(callback: (comms: Communication[]) => void, role: Role = 'user', onError?: (err: any) => void) {
     if (!db) return () => { };
     const uid = currentUid();
     let q;
@@ -199,6 +208,7 @@ export const api = {
       callback(comms);
     }, (err) => {
       if (!import.meta.env.PROD) console.error("Error subscribing to communications:", err);
+      onError?.(err);
     });
   },
 

@@ -92,6 +92,7 @@ const App: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [connectionWarning, setConnectionWarning] = useState(false);
   const [phoneMessage, setPhoneMessage] = useState<PhoneMessage>(null);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showTermsOfService, setShowTermsOfService] = useState(false);
@@ -181,8 +182,15 @@ const App: React.FC = () => {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setConnectionWarning(false);
     try {
-      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = await api.getInitialData(role);
+      const result = await api.getInitialData(role);
+      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = result;
+
+      // Show non-blocking banner if Firestore was unreachable
+      if ((result as any).offline) {
+        setConnectionWarning(true);
+      }
 
       if (pData.error) throw new Error(`Performers Error: ${pData.error.message}`);
       setPerformers(pData.data as Performer[] || []);
@@ -246,14 +254,18 @@ const App: React.FC = () => {
       }
       prevBookingsRef.current = newBookings;
       setBookings(newBookings);
-    }, role);
+      // Connection restored — clear any offline warning
+      setConnectionWarning(false);
+    }, role, () => setConnectionWarning(true));
 
     const unsubscribeComms = api.subscribeToCommunications((newComms) => {
       setCommunications(newComms);
-    }, role);
+      setConnectionWarning(false);
+    }, role, () => setConnectionWarning(true));
 
     const unsubscribePerformers = api.subscribeToPerformers((newPerformers) => {
       setPerformers(newPerformers);
+      setConnectionWarning(false);
     });
 
     const unsubscribeDNS = api.subscribeToDoNotServe((newEntries) => {
@@ -821,7 +833,15 @@ const App: React.FC = () => {
     }
 
     if (error) {
-      return <div className="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg text-white max-w-4xl mx-auto"><h2 className="text-xl font-bold">An Error Occurred</h2><p className="mt-2 text-red-200">{error}</p></div>;
+      return (
+        <div className="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg text-white max-w-4xl mx-auto">
+          <h2 className="text-xl font-bold">An Error Occurred</h2>
+          <p className="mt-2 text-red-200">{error}</p>
+          <button onClick={() => { setError(null); fetchData(); }} className="mt-4 btn-primary px-6 py-2 text-sm">
+            Retry
+          </button>
+        </div>
+      );
     }
 
     const renderTabs = () => {
@@ -1101,6 +1121,15 @@ const App: React.FC = () => {
         </div>
       </Header>
       <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
+        {connectionWarning && (
+          <div className="mb-6 flex items-center gap-3 p-4 bg-yellow-900/30 border border-yellow-600/40 rounded-xl text-yellow-200 text-sm animate-fade-in">
+            <Radio className="h-5 w-5 text-yellow-500 flex-shrink-0 animate-pulse" />
+            <span>Connecting to server&hellip; Live data will load automatically when the connection is restored.</span>
+            <button onClick={() => setConnectionWarning(false)} className="ml-auto text-yellow-500 hover:text-yellow-300 p-1">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         {renderContent()}
       </main>
       <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} onShowPresentation={() => setShowPresentation(true)} />
