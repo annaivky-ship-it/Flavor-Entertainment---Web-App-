@@ -21,8 +21,11 @@ import type { Performer, Booking, BookingStatus, DoNotServeEntry, DoNotServeStat
 import { BookingFormState } from '../components/BookingProcess';
 import { mockPerformers, mockBookings, mockDoNotServeList, mockCommunications } from '../data/mockData';
 
+/** Whether the app is running in demo mode (mock data, no real Firebase writes) */
+export const isDemoMode = import.meta.env.VITE_APP_MODE === 'demo';
+
 export const resetDemoData = async () => {
-  if (import.meta.env.PROD) {
+  if (import.meta.env.PROD && !isDemoMode) {
     console.error('resetDemoData called in production — blocked.');
     return;
   }
@@ -68,7 +71,7 @@ export const resetDemoData = async () => {
 
 export const api = {
   async getInitialData() {
-    const isMock = import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '';
+    const isMock = isDemoMode || import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '';
 
     if (isMock || !db) {
       console.warn("Using mock data because Firebase is not configured.");

@@ -16,12 +16,48 @@ firebase init
 # Select: Firestore, Storage, Functions, Rules
 ```
 
-## Deployment
-```bash
-# Deploy everything
-firebase deploy
+## Multi-Site Hosting
 
-# Deploy specifically
+The project is configured with two Firebase Hosting sites:
+
+| Site | Target | Purpose | Data Source |
+|------|--------|---------|-------------|
+| `studio-4495412314-3b1ce` | `production` | Live site with real Firebase backend | Firestore |
+| `flavor-demo` | `demo` | Showcase site with mock data | Mock data (no Firebase needed) |
+
+### Deploy Demo Site
+```bash
+npm run deploy:demo
+```
+
+### Deploy Production Site
+```bash
+# Ensure .env.local has your Firebase credentials
+npm run deploy:production
+```
+
+### Deploy Both Sites
+```bash
+npm run deploy:all
+```
+
+### Local Development
+```bash
+# Run in demo mode (mock data)
+npm run dev:demo
+
+# Run in production mode (needs .env.local with Firebase creds)
+npm run dev
+```
+
+### Firebase Hosting Setup
+Before first deploy, create the demo hosting site in the Firebase Console:
+1. Go to Firebase Console > Hosting
+2. Click "Add another site"
+3. Enter site ID: `flavor-demo`
+
+## Deploy Functions / Rules
+```bash
 firebase deploy --only firestore:rules
 firebase deploy --only functions
 ```

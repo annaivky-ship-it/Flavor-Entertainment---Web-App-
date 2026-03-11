@@ -5,13 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:demo": "vite --mode demo",
     "build": "tsc --noEmit && vite build",
+    "build:demo": "tsc --noEmit && vite build --mode demo",
+    "build:production": "tsc --noEmit && vite build --mode production",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "functions:build": "cd functions && npm run build",
     "functions:deploy": "firebase deploy --only functions",
-    "deploy": "npm run build && firebase deploy"
+    "deploy": "npm run build:production && firebase deploy --only hosting:production",
+    "deploy:demo": "npm run build:demo && firebase deploy --only hosting:demo",
+    "deploy:production": "npm run build:production && firebase deploy --only hosting:production",
+    "deploy:all": "npm run build:production && firebase deploy --only hosting:production && npm run build:demo && firebase deploy --only hosting:demo"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
