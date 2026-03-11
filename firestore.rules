@@ -145,6 +145,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- User Profiles (users can read/write their own, admins can read all) ---
+    match /users/{userId} {
+      allow read: if isAdmin() || isOwner(userId);
+      allow create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+
     // --- Performer Auth Mapping ---
     match /performers_auth/{userId} {
       allow read: if isSignedIn();

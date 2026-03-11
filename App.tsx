@@ -21,6 +21,9 @@ import RoleSwitcher from './components/RoleSwitcher';
 import FAQ from './components/FAQ';
 import PerformerOnboarding from './components/PerformerOnboarding';
 import WalkthroughOverlay from './components/WalkthroughOverlay';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './services/firebaseClient';
+import { getUserProfile } from './services/userService';
 import { api, resetDemoData, isDemoMode } from './services/api';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
@@ -275,6 +278,43 @@ const App: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  // Persist auth state across page refreshes using Firebase onAuthStateChanged
+  useEffect(() => {
+    if (!auth) return;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          // Try to restore user profile from Firestore
+          const profile = await getUserProfile(firebaseUser.uid);
+          if (profile) {
+            setAuthedUser({
+              name: profile.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              role: profile.role,
+              id: profile.performerId,
+            });
+            if (profile.role === 'admin') setView('admin_dashboard');
+            else if (profile.role === 'performer') setView('performer_dashboard');
+          } else {
+            // Fallback: use token claims if no Firestore profile yet
+            const token = await firebaseUser.getIdTokenResult();
+            const role = (token.claims.role as Role) || 'user';
+            const performerId = token.claims.performerId as number | undefined;
+            setAuthedUser({
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              role,
+              id: performerId,
+            });
+            if (role === 'admin') setView('admin_dashboard');
+            else if (role === 'performer') setView('performer_dashboard');
+          }
+        } catch (err) {
+          console.error('Error restoring auth state:', err);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const handleAgeVerified = () => {
     localStorage.setItem('ageVerified', 'true');
     setAgeVerified(true);
@@ -318,7 +358,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (auth) {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.error('Error signing out:', err);
+      }
+    }
     setAuthedUser(null);
     localStorage.removeItem('clientEmail');
     setView('available_now');
