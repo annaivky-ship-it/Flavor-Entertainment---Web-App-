@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(git add .gitignore)",
-      "Bash(git rm --cached .claude/settings.local.json)"
+      "Bash(git rm --cached .claude/settings.local.json)",
+      "mcp__plugin_firebase_firebase__firebase_get_environment",
+      "Bash(npm install)",
+      "Bash(npm cache clean --force)",
+      "Bash(du -sh \"C:/Users/Rina/OneDrive/flavor-2026--booking/.claude/worktrees/\"*/node_modules)",
+      "Bash(ls -d \"C:/Users/Rina/OneDrive/flavor-2026--booking/.claude/worktrees/\"*/node_modules)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__plugin_firebase_firebase__firebase_init",
+      "mcp__plugin_firebase_firebase__firestore_add_document",
+      "mcp__plugin_firebase_firebase__firestore_list_databases",
+      "Bash(gcloud services enable firestore.googleapis.com --project=studio-4495412314-3b1ce)",
+      "mcp__plugin_firebase_firebase__firestore_create_database"
     ]
   }
 }
