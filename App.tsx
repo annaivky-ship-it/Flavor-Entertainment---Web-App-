@@ -172,7 +172,7 @@ const App: React.FC = () => {
       if (apiError) throw apiError;
       setCommunications(prev => prev.map(c => c.id === tempId ? data![0] : c));
     } catch (err) {
-      console.error("Failed to add communication:", err);
+      if (!import.meta.env.PROD) console.error("Failed to add communication:", err);
       setCommunications(prev => prev.filter(c => c.id !== tempId));
     }
   }, []);
@@ -182,7 +182,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = await api.getInitialData();
+      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = await api.getInitialData(role);
 
       if (pData.error) throw new Error(`Performers Error: ${pData.error.message}`);
       setPerformers(pData.data as Performer[] || []);
@@ -201,11 +201,11 @@ const App: React.FC = () => {
 
     } catch (err: any) {
       setError(`Backend initialization error: ${err.message}.`);
-      console.error(err);
+      if (!import.meta.env.PROD) console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [role]);
 
   // Re-subscribe whenever the user's role changes so queries are scoped correctly
   useEffect(() => {
@@ -309,7 +309,7 @@ const App: React.FC = () => {
         if (role === 'admin') setView('admin_dashboard');
         else if (role === 'performer') setView('performer_dashboard');
       } catch (err) {
-        console.error('Error restoring auth state:', err);
+        if (!import.meta.env.PROD) console.error('Error restoring auth state:', err);
       }
     });
     return () => unsubscribe();
@@ -363,7 +363,7 @@ const App: React.FC = () => {
       try {
         await signOut(auth);
       } catch (err) {
-        console.error('Error signing out:', err);
+        if (!import.meta.env.PROD) console.error('Error signing out:', err);
       }
     }
     setAuthedUser(null);
@@ -398,7 +398,7 @@ const App: React.FC = () => {
 
       addCommunication({ sender: 'System', recipient: 'admin', message: `${performerName}'s status changed to ${status}.`, type: 'admin_message' });
     } catch (err) {
-      console.error("Failed to update status:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update status:", err);
       setPerformers(originalPerformers);
       setError("Could not update performer status.");
     }
@@ -465,7 +465,7 @@ const App: React.FC = () => {
       if (adminMessage) addCommunication({ sender: 'System', recipient: 'admin', message: adminMessage, booking_id: bookingId, type: 'admin_message' });
 
     } catch (err) {
-      console.error("Failed to update booking:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update booking:", err);
       setBookings(originalBookings);
       setError("Could not update booking status.");
     }
@@ -496,7 +496,7 @@ const App: React.FC = () => {
         addCommunication({ sender: 'System', recipient: entry.submitted_by_performer_id, message, type: 'admin_message' });
       }
     } catch (err) {
-      console.error("Failed to update DNS entry:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update DNS entry:", err);
       setDoNotServeList(originalList);
       setError("Could not update 'Do Not Serve' entry.");
     }
@@ -509,7 +509,7 @@ const App: React.FC = () => {
       setDoNotServeList(prev => [data![0], ...prev]);
       addCommunication({ sender: submitterName, recipient: 'admin', message: `New 'Do Not Serve' entry submitted by ${submitterName} for review against "${newEntryData.client_name}".`, type: 'admin_message' })
     } catch (err) {
-      console.error("Failed to create DNS entry:", err);
+      if (!import.meta.env.PROD) console.error("Failed to create DNS entry:", err);
       setError("Could not create 'Do Not Serve' entry.");
     }
   };
@@ -562,7 +562,7 @@ const App: React.FC = () => {
         showPhoneMessage({ for: 'Client', content: <p>🙌 <strong>Request Accepted!</strong><br /><strong>{performerName}</strong> has accepted your request!{eta && <><br />{etaSmsIcon}</>}<br /><br />Our admin team is now performing final vetting. We'll notify you once it's ready for deposit.</p> });
       }
     } catch (err) {
-      console.error("Failed performer decision update:", err);
+      if (!import.meta.env.PROD) console.error("Failed performer decision update:", err);
       setBookings(originalBookings);
       setError("Failed to process performer decision.");
     }
@@ -588,7 +588,7 @@ const App: React.FC = () => {
         content: <p>⏱ <strong>ETA Updated!</strong><br /><strong>{performerName}</strong> has updated their ETA to <strong>{eta} minutes</strong> for your {booking.event_type} booking.</p>
       });
     } catch (err) {
-      console.error("Failed to update ETA:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update ETA:", err);
       setBookings(originalBookings);
       setError("Failed to update ETA.");
     }
@@ -632,7 +632,7 @@ const App: React.FC = () => {
       addCommunication({ sender: 'Admin', recipient: oldPerformerId, message: `Your booking for ${booking.client_name} has been reassigned to another performer by an administrator.`, booking_id: booking.id, type: 'booking_update' });
       addCommunication({ sender: 'Admin', recipient: newPerformerId, message: `You have been newly assigned a booking for ${booking.client_name}. Please review and accept/decline.`, booking_id: booking.id, type: 'booking_update' });
     } catch (err) {
-      console.error("Failed to reassign performer:", err);
+      if (!import.meta.env.PROD) console.error("Failed to reassign performer:", err);
       setBookings(originalBookings);
       setError("Could not reassign performer.");
     }
@@ -645,7 +645,7 @@ const App: React.FC = () => {
       const { error } = await api.updatePerformer(performerId, updates);
       if (error) throw error;
     } catch (err) {
-      console.error("Failed to update performer:", err);
+      if (!import.meta.env.PROD) console.error("Failed to update performer:", err);
       setPerformers(originalPerformers);
       setError("Failed to update performer details.");
     }
@@ -659,7 +659,7 @@ const App: React.FC = () => {
         setPerformers(prev => [...prev, data]);
       }
     } catch (err) {
-      console.error("Failed to create performer:", err);
+      if (!import.meta.env.PROD) console.error("Failed to create performer:", err);
       setError("Failed to create new performer.");
     }
   };

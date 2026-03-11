@@ -302,7 +302,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           <p className="text-xl text-zinc-400 mt-1">Manage bookings and monitor performers.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(import.meta.env.DEV || isDemoMode) && (
+          {import.meta.env.DEV && (
             <button 
               onClick={() => {
                 if (confirm('DEV ONLY: Overwrite data with mock data?')) {

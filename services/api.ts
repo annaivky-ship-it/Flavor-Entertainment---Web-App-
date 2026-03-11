@@ -30,15 +30,14 @@ function currentUid(): string | null {
 export const isDemoMode = import.meta.env.VITE_APP_MODE === 'demo';
 
 export const resetDemoData = async () => {
-  if (import.meta.env.PROD && !isDemoMode) {
-    console.error('resetDemoData called in production — blocked.');
+  if (import.meta.env.PROD) {
+    console.error('resetDemoData blocked in production.');
     return;
   }
   if (!db) {
-    console.error('Database not initialized. Check environment variables.');
+    console.error('Database not initialized.');
     return;
   }
-  console.log("Starting database seed...");
   try {
     const batch = writeBatch(db);
 
@@ -75,11 +74,19 @@ export const resetDemoData = async () => {
 };
 
 export const api = {
-  async getInitialData() {
+  /**
+   * Fetch initial data scoped by role.
+   * - Performers are always public.
+   * - Bookings/communications are scoped like subscriptions.
+   * - Do-not-serve & audit logs are admin-only.
+   */
+  async getInitialData(role: Role = 'user') {
     const isMock = isDemoMode || import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '';
 
     if (isMock || !db) {
-      console.warn("Using mock data because Firebase is not configured.");
+      if (!import.meta.env.PROD) {
+        console.warn("Using mock data because Firebase is not configured.");
+      }
       return {
         performers: { data: mockPerformers, error: null },
         bookings: { data: mockBookings, error: null },
@@ -89,31 +96,49 @@ export const api = {
       };
     }
 
+    const uid = currentUid();
+
     const fetchCollection = async (name: string, q: any) => {
       try {
         const snap = await getDocs(q);
         return { data: snap.docs.map(d => ({ ...(d.data() as any), id: name === 'performers' ? Number(d.id) : d.id })), error: null };
       } catch (err: any) {
-        console.error(`Error fetching ${name}:`, err);
-        if (err.code === 'unavailable') {
-          console.warn(`Firestore is currently offline or unreachable. Returning mock data for ${name} if available.`);
-          // Fallback to mock data if connection is unavailable
-          if (name === 'performers') return { data: mockPerformers, error: null };
-          if (name === 'bookings') return { data: mockBookings, error: null };
-          if (name === 'do_not_serve') return { data: mockDoNotServeList, error: null };
-          if (name === 'communications') return { data: mockCommunications, error: null };
-        }
+        if (!import.meta.env.PROD) console.error(`Error fetching ${name}:`, err);
         return { data: [], error: err };
       }
     };
 
-    const [pRes, bRes, dRes, cRes, aRes] = await Promise.all([
+    // Build role-scoped booking query
+    let bookingsQuery;
+    if (role === 'admin') {
+      bookingsQuery = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+    } else if (role === 'performer' && uid) {
+      bookingsQuery = query(collection(db, 'bookings'), where('performer_uid', '==', uid), orderBy('created_at', 'desc'));
+    } else if (uid) {
+      bookingsQuery = query(collection(db, 'bookings'), where('client_uid', '==', uid), orderBy('created_at', 'desc'));
+    } else {
+      bookingsQuery = null;
+    }
+
+    // Build role-scoped communications query
+    let commsQuery;
+    if (role === 'admin') {
+      commsQuery = query(collection(db, 'communications'), orderBy('created_at', 'desc'));
+    } else if (uid) {
+      commsQuery = query(collection(db, 'communications'), where('participant_uids', 'array-contains', uid), orderBy('created_at', 'desc'));
+    } else {
+      commsQuery = null;
+    }
+
+    const fetches: Promise<{ data: any[]; error: any }>[] = [
       fetchCollection('performers', query(collection(db, 'performers'))),
-      fetchCollection('bookings', query(collection(db, 'bookings'), orderBy('created_at', 'desc'))),
-      fetchCollection('do_not_serve', query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc'))),
-      fetchCollection('communications', query(collection(db, 'communications'), orderBy('created_at', 'desc'))),
-      fetchCollection('audit_logs', query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50))),
-    ]);
+      bookingsQuery ? fetchCollection('bookings', bookingsQuery) : Promise.resolve({ data: [], error: null }),
+      role === 'admin' ? fetchCollection('do_not_serve', query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc'))) : Promise.resolve({ data: [], error: null }),
+      commsQuery ? fetchCollection('communications', commsQuery) : Promise.resolve({ data: [], error: null }),
+      role === 'admin' ? fetchCollection('audit_logs', query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50))) : Promise.resolve({ data: [], error: null }),
+    ];
+
+    const [pRes, bRes, dRes, cRes, aRes] = await Promise.all(fetches);
 
     return {
       performers: pRes,
@@ -148,7 +173,7 @@ export const api = {
       const bookings = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Booking[];
       callback(bookings);
     }, (err) => {
-      console.error("Error subscribing to bookings:", err);
+      if (!import.meta.env.PROD) console.error("Error subscribing to bookings:", err);
     });
   },
 
@@ -173,7 +198,7 @@ export const api = {
       const comms = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Communication[];
       callback(comms);
     }, (err) => {
-      console.error("Error subscribing to communications:", err);
+      if (!import.meta.env.PROD) console.error("Error subscribing to communications:", err);
     });
   },
 
@@ -184,7 +209,7 @@ export const api = {
       const performers = snap.docs.map(d => ({ ...d.data(), id: Number(d.id) })) as Performer[];
       callback(performers);
     }, (err) => {
-      console.error("Error subscribing to performers:", err);
+      if (!import.meta.env.PROD) console.error("Error subscribing to performers:", err);
     });
   },
 
@@ -199,7 +224,7 @@ export const api = {
       const entries = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DoNotServeEntry[];
       callback(entries);
     }, (err) => {
-      console.error("Error subscribing to do_not_serve:", err);
+      if (!import.meta.env.PROD) console.error("Error subscribing to do_not_serve:", err);
     });
   },
 
@@ -214,7 +239,7 @@ export const api = {
       const logs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as AuditLog[];
       callback(logs);
     }, (err) => {
-      console.error("Error subscribing to audit_logs:", err);
+      if (!import.meta.env.PROD) console.error("Error subscribing to audit_logs:", err);
     });
   },
 
@@ -231,7 +256,7 @@ export const api = {
       });
       return { id: docRef.id, error: null };
     } catch (err: any) {
-      console.error("Error creating audit log:", err);
+      if (!import.meta.env.PROD) console.error("Error creating audit log:", err);
       return { id: null, error: err };
     }
   },
@@ -289,7 +314,7 @@ export const api = {
 
   async createBookingRequest(formState: BookingFormState, performers: Performer[]) {
     if (!db || !auth || !storage || !functions) {
-      console.warn('Firebase not initialized. Simulating booking request.');
+      if (!import.meta.env.PROD) console.warn('Firebase not initialized. Simulating booking request.');
       return { data: [], error: null };
     }
     try {

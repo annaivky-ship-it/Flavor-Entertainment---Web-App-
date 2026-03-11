@@ -29,7 +29,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
       resolvedRole = token.claims.role as Role || 'user';
       performerId = token.claims.performerId as number | undefined;
     } catch (err) {
-      console.error('Error getting custom claims:', err);
+      if (!import.meta.env.PROD) console.error('Error getting custom claims:', err);
       // Fallback for development/testing if claims aren't set up yet
       if (user.email === 'admin@flavorentertainers.com.au') {
         resolvedRole = 'admin';
@@ -55,7 +55,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
         provider,
       });
     } catch (err) {
-      console.error('Error saving user profile to Firestore:', err);
+      if (!import.meta.env.PROD) console.error('Error saving user profile to Firestore:', err);
     }
 
     onLogin({ name: displayName, role: resolvedRole, id: performerId });
@@ -74,7 +74,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       await handleAuthSuccess(userCredential.user);
     } catch (err: any) {
-      console.error('Login error:', err);
+      if (!import.meta.env.PROD) console.error('Login error:', err);
       setError(err.message || 'Invalid email or password.');
     } finally {
       setIsLoading(false);
@@ -93,7 +93,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
       const result = await signInWithPopup(auth, provider);
       await handleAuthSuccess(result.user, 'google');
     } catch (err: any) {
-      console.error('Google login error:', err);
+      if (!import.meta.env.PROD) console.error('Google login error:', err);
       if (err.message?.includes('projectconfigservice.getprojectconfig-are-blocked')) {
         setError('Google Identity Toolkit API is blocked. Please ensure it is enabled in your Google Cloud Console and that your API key has the correct permissions.');
       } else {
