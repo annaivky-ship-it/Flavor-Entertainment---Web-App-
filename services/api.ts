@@ -17,9 +17,14 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import type { Performer, Booking, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PerformerStatus, AuditLog, VettingApplication } from '../types';
+import type { Performer, Booking, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PerformerStatus, AuditLog, VettingApplication, Role } from '../types';
 import { BookingFormState } from '../components/BookingProcess';
 import { mockPerformers, mockBookings, mockDoNotServeList, mockCommunications } from '../data/mockData';
+
+/** Returns the current Firebase Auth UID, or null if not signed in. */
+function currentUid(): string | null {
+  return auth?.currentUser?.uid ?? null;
+}
 
 /** Whether the app is running in demo mode (mock data, no real Firebase writes) */
 export const isDemoMode = import.meta.env.VITE_APP_MODE === 'demo';
@@ -119,9 +124,26 @@ export const api = {
     };
   },
 
-  subscribeToBookings(callback: (bookings: Booking[]) => void) {
+  /**
+   * Subscribe to bookings scoped by role:
+   * - admin: all bookings
+   * - performer: only bookings assigned to their UID
+   * - user/client: only bookings they created
+   */
+  subscribeToBookings(callback: (bookings: Booking[]) => void, role: Role = 'user') {
     if (!db) return () => { };
-    const q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+    const uid = currentUid();
+    let q;
+    if (role === 'admin') {
+      q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+    } else if (role === 'performer' && uid) {
+      q = query(collection(db, 'bookings'), where('performer_uid', '==', uid), orderBy('created_at', 'desc'));
+    } else if (uid) {
+      q = query(collection(db, 'bookings'), where('client_uid', '==', uid), orderBy('created_at', 'desc'));
+    } else {
+      callback([]);
+      return () => { };
+    }
     return onSnapshot(q, (snap) => {
       const bookings = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Booking[];
       callback(bookings);
@@ -130,9 +152,23 @@ export const api = {
     });
   },
 
-  subscribeToCommunications(callback: (comms: Communication[]) => void) {
+  /**
+   * Subscribe to communications scoped by role:
+   * - admin: all communications
+   * - others: only messages where the user's UID is in participant_uids
+   */
+  subscribeToCommunications(callback: (comms: Communication[]) => void, role: Role = 'user') {
     if (!db) return () => { };
-    const q = query(collection(db, 'communications'), orderBy('created_at', 'desc'));
+    const uid = currentUid();
+    let q;
+    if (role === 'admin') {
+      q = query(collection(db, 'communications'), orderBy('created_at', 'desc'));
+    } else if (uid) {
+      q = query(collection(db, 'communications'), where('participant_uids', 'array-contains', uid), orderBy('created_at', 'desc'));
+    } else {
+      callback([]);
+      return () => { };
+    }
     return onSnapshot(q, (snap) => {
       const comms = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Communication[];
       callback(comms);
@@ -152,8 +188,12 @@ export const api = {
     });
   },
 
-  subscribeToDoNotServe(callback: (entries: DoNotServeEntry[]) => void) {
-    if (!db) return () => { };
+  /** Subscribe to do-not-serve list (admin only). */
+  subscribeToDoNotServe(callback: (entries: DoNotServeEntry[]) => void, role: Role = 'user') {
+    if (!db || role !== 'admin') {
+      callback([]);
+      return () => { };
+    }
     const q = query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc'));
     return onSnapshot(q, (snap) => {
       const entries = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DoNotServeEntry[];
@@ -163,8 +203,12 @@ export const api = {
     });
   },
 
-  subscribeToAuditLogs(callback: (logs: AuditLog[]) => void) {
-    if (!db) return () => { };
+  /** Subscribe to audit logs (admin only). */
+  subscribeToAuditLogs(callback: (logs: AuditLog[]) => void, role: Role = 'user') {
+    if (!db || role !== 'admin') {
+      callback([]);
+      return () => { };
+    }
     const q = query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50));
     return onSnapshot(q, (snap) => {
       const logs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as AuditLog[];
@@ -335,8 +379,19 @@ export const api = {
       if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
         return { data: [{ ...commData, id: `msg-${Date.now()}`, created_at: new Date().toISOString(), read: false }] as Communication[], error: null };
       }
+
+      const uid = currentUid();
+      // Build participant_uids for ownership scoping
+      const participantUids: string[] = [];
+      if (uid) participantUids.push(uid);
+      if (commData.recipient_uid && commData.recipient_uid !== uid) {
+        participantUids.push(commData.recipient_uid);
+      }
+
       const docRef = await addDoc(collection(db, 'communications'), {
         ...commData,
+        sender_uid: uid,
+        participant_uids: participantUids,
         created_at: new Date().toISOString(),
         read: false
       });

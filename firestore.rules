@@ -44,7 +44,7 @@ service cloud.firestore {
       // Clients can create bookings (even unauthenticated for public form)
       allow create: if true;
 
-      // Only the booking owner or admin can read
+      // Only the booking owner, assigned performer, or admin can read
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.client_uid == request.auth.uid)
         || (isPerformer() && resource.data.performer_uid == request.auth.uid);
@@ -103,10 +103,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // --- Audit Logs (admin read-only, system write) ---
+    // --- Audit Logs (admin read-only, Cloud Functions write) ---
+    // Covers both collection names for backwards compatibility
     match /audit_log/{logId} {
       allow read: if isAdmin();
-      allow write: if false; // Only Cloud Functions write
+      allow write: if false;
+    }
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // --- Vetting Applications ---
@@ -117,23 +122,33 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // --- Communications ---
+    // --- Communications (scoped to participants) ---
     match /communications/{msgId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
+      // Users can only read messages they participate in; admins can read all
+      allow read: if isAdmin()
+        || (isSignedIn() && request.auth.uid in resource.data.participant_uids);
+
+      // Signed-in users can create messages (must include their own UID)
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.participant_uids;
+
+      // Only the read flag can be toggled, and only by a participant
+      allow update: if isSignedIn()
+        && request.auth.uid in resource.data.participant_uids
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+
       allow delete: if false;
     }
 
-    // --- Admin Users ---
+    // --- Admin Users (admin only) ---
     match /admins/{adminId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
-    // --- Settings ---
+    // --- Settings (admin only) ---
     match /settings/{settingId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -152,9 +167,9 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // --- Performer Auth Mapping ---
+    // --- Performer Auth Mapping (self or admin only) ---
     match /performers_auth/{userId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin() || isOwner(userId);
       allow write: if isAdmin();
     }
 

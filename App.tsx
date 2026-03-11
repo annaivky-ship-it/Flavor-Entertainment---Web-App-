@@ -207,6 +207,7 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Re-subscribe whenever the user's role changes so queries are scoped correctly
   useEffect(() => {
     const unsubscribeBookings = api.subscribeToBookings((newBookings) => {
       // Check for status changes to notify
@@ -214,7 +215,6 @@ const App: React.FC = () => {
         newBookings.forEach(newB => {
           const oldB = prevBookingsRef.current.find(b => b.id === newB.id);
           if (oldB && oldB.status !== newB.status) {
-            // Status changed!
             const statusLabels: Record<BookingStatus, string> = {
               pending_performer_acceptance: 'Pending Acceptance',
               pending_vetting: 'Pending Vetting',
@@ -232,9 +232,8 @@ const App: React.FC = () => {
             const message = `Booking #${newB.id.slice(0, 8)} status updated to ${statusLabels[newB.status] || newB.status}`;
             addNotification(message, newB.status === 'confirmed' ? 'success' : 'info');
 
-            // Also show phone message for demo feel
             showPhoneMessage({
-              for: authedUser?.role === 'performer' ? 'Performer' : authedUser?.role === 'admin' ? 'Admin' : 'Client',
+              for: role === 'performer' ? 'Performer' : role === 'admin' ? 'Admin' : 'Client',
               content: (
                 <div className="space-y-1">
                   <p className="font-bold text-zinc-900">Booking Update</p>
@@ -247,11 +246,11 @@ const App: React.FC = () => {
       }
       prevBookingsRef.current = newBookings;
       setBookings(newBookings);
-    });
+    }, role);
 
     const unsubscribeComms = api.subscribeToCommunications((newComms) => {
       setCommunications(newComms);
-    });
+    }, role);
 
     const unsubscribePerformers = api.subscribeToPerformers((newPerformers) => {
       setPerformers(newPerformers);
@@ -259,11 +258,11 @@ const App: React.FC = () => {
 
     const unsubscribeDNS = api.subscribeToDoNotServe((newEntries) => {
       setDoNotServeList(newEntries);
-    });
+    }, role);
 
     const unsubscribeAudit = api.subscribeToAuditLogs((newLogs) => {
       setAuditLogs(newLogs);
-    });
+    }, role);
 
     return () => {
       unsubscribeBookings();
@@ -272,7 +271,7 @@ const App: React.FC = () => {
       unsubscribeDNS();
       unsubscribeAudit();
     };
-  }, [addNotification, showPhoneMessage]);
+  }, [role, addNotification, showPhoneMessage]);
 
   useEffect(() => {
     fetchData();
