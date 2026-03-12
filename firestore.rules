@@ -140,7 +140,7 @@ service cloud.firestore {
 
     // --- Admin Users ---
     match /admins/{adminId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin() || isOwner(adminId);
       allow write: if isAdmin();
     }
 
@@ -160,7 +160,7 @@ service cloud.firestore {
 
     // --- Performer Auth Mapping ---
     match /performers_auth/{userId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin() || isOwner(userId);
       allow write: if isAdmin();
     }
 
