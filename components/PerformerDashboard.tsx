@@ -446,12 +446,12 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                         <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">{log.action.replace(/_/g, ' ')}</span>
                         <span className="text-[10px] text-zinc-600 group-hover:text-zinc-400 transition-colors">
                           {/* Fix: Use createdAt instead of timestamp to match the interface. */}
-                          {log.createdAt?.toDate ? log.createdAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                          {typeof log.createdAt === 'string' ? new Date(log.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : log.createdAt && 'seconds' in log.createdAt ? new Date(log.createdAt.seconds * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                         </span>
                       </div>
                       <p className="text-xs text-zinc-300 leading-snug">
                         {log.action === 'PERFORMER_STATUS_CHANGE' ? (
-                          <>Changed status from <span className="text-zinc-500 font-semibold">{log.details.oldStatus}</span> to <span className="text-white font-bold">{log.details.newStatus}</span></>
+                          <>Changed status from <span className="text-zinc-500 font-semibold">{String(log.details.oldStatus ?? '')}</span> to <span className="text-white font-bold">{String(log.details.newStatus ?? '')}</span></>
                         ) : (
                           <span>Performed administrative action.</span>
                         )}

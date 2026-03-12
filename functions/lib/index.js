@@ -36,7 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
+exports.scheduledSlotCleanup = exports.scheduledRateLimitCleanup = exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
@@ -49,6 +49,8 @@ const didit_1 = require("./didit");
 const scoring_1 = require("./risk/scoring");
 const reporting_1 = require("./incidents/reporting");
 const consent_1 = require("./consent");
+const rateLimit_1 = require("./utils/rateLimit");
+const logger_1 = require("./utils/logger");
 admin.initializeApp();
 const db = (0, firestore_1.getFirestore)('default');
 const fns = functions;
@@ -84,7 +86,7 @@ exports.analyzeVettingRisk = fns.https.onCall(async (data, context) => {
         return JSON.parse(((_a = response.text) === null || _a === void 0 ? void 0 : _a.trim()) || "{}");
     }
     catch (error) {
-        console.error("Gemini Vetting Error:", error);
+        logger_1.logger.error("Gemini vetting analysis failed", { error: String(error) });
         throw new fns.https.HttpsError('internal', 'Failed to analyze risk.');
     }
 });
@@ -125,6 +127,15 @@ exports.createDraftApplication = fns.https.onCall(async (data, context) => {
 exports.submitApplication = fns.https.onCall(async (data, context) => {
     if (!context.auth)
         throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
+    // Rate limit: max 3 submissions per user per hour
+    const allowed = await (0, rateLimit_1.checkRateLimit)(context.auth.uid, {
+        prefix: 'vetting_submit',
+        maxRequests: 3,
+        windowSeconds: 3600,
+    });
+    if (!allowed) {
+        throw new fns.https.HttpsError('resource-exhausted', 'Too many submission attempts. Please try again later.');
+    }
     const { applicationId } = data;
     const appRef = db.collection('vetting_applications').doc(applicationId);
     const appSnap = await appRef.get();
@@ -205,13 +216,55 @@ exports.scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').onRun(
         });
         await writeAuditLog('system', 'system', 'FILES_DELETED', doc.id);
     }
-    console.log(`Cleaned up documents for ${toCleanup.length} applications.`);
+    logger_1.logger.info("Retention cleanup completed", { cleanedCount: toCleanup.length });
 });
 /**
  * Legacy Booking Transaction (Retained for functionality)
  */
 exports.createBookingRequest = fns.https.onCall(async (request) => {
     const { formState, performerIds } = request.data;
+    // --- Input Validation ---
+    if (!formState || typeof formState !== 'object') {
+        throw new fns.https.HttpsError('invalid-argument', 'formState is required.');
+    }
+    if (!Array.isArray(performerIds) || performerIds.length === 0) {
+        throw new fns.https.HttpsError('invalid-argument', 'At least one performer must be selected.');
+    }
+    if (!formState.email || typeof formState.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formState.email)) {
+        throw new fns.https.HttpsError('invalid-argument', 'A valid email address is required.');
+    }
+    if (!formState.fullName || typeof formState.fullName !== 'string' || formState.fullName.trim().length < 2) {
+        throw new fns.https.HttpsError('invalid-argument', 'Full name is required.');
+    }
+    if (!formState.phone && !formState.mobile) {
+        throw new fns.https.HttpsError('invalid-argument', 'Phone number is required.');
+    }
+    if (!formState.eventDate || typeof formState.eventDate !== 'string') {
+        throw new fns.https.HttpsError('invalid-argument', 'Event date is required.');
+    }
+    // Verify event date is today or in the future
+    const eventDateParsed = new Date(formState.eventDate + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (isNaN(eventDateParsed.getTime())) {
+        throw new fns.https.HttpsError('invalid-argument', 'Invalid event date format.');
+    }
+    if (eventDateParsed < today) {
+        throw new fns.https.HttpsError('invalid-argument', 'Event date cannot be in the past.');
+    }
+    if (!formState.eventTime || typeof formState.eventTime !== 'string') {
+        throw new fns.https.HttpsError('invalid-argument', 'Event time is required.');
+    }
+    // Rate limit: max 5 booking attempts per email per hour
+    const emailKey = (formState.email || '').toLowerCase().trim();
+    const allowed = await (0, rateLimit_1.checkRateLimit)(emailKey, {
+        prefix: 'booking_create',
+        maxRequests: 5,
+        windowSeconds: 3600,
+    });
+    if (!allowed) {
+        throw new fns.https.HttpsError('resource-exhausted', 'Too many booking attempts. Please try again later.');
+    }
     return db.runTransaction(async (transaction) => {
         const emailHash = Buffer.from(formState.email.toLowerCase()).toString('hex');
         const blacklistDoc = await transaction.get(db.collection('blacklist').doc(emailHash));
@@ -236,13 +289,14 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
             }
             const bookingRef = db.collection('bookings').doc();
             const bookingData = Object.assign(Object.assign({}, formState), { performer_id: pId, status: 'pending_performer_acceptance', slotLock: slotId, created_at: admin.firestore.FieldValue.serverTimestamp() });
-            // Reserve the slot atomically
+            // Reserve the slot atomically (expires after 48 hours if booking not confirmed)
             transaction.set(slotRef, {
                 bookingId: bookingRef.id,
                 performerId: pId,
                 date: formState.eventDate,
                 time: formState.eventTime,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
             });
             transaction.set(bookingRef, bookingData);
             newBookings.push(Object.assign({ id: bookingRef.id }, bookingData));
@@ -275,6 +329,10 @@ exports.notificationsWorker = fns.firestore
     }
 });
 exports.twilioInboundWebhook = fns.https.onRequest(async (req, res) => {
+    if (req.method !== 'POST') {
+        res.status(405).send('Method not allowed');
+        return;
+    }
     if (!(0, twilio_1.verifyTwilioSignature)(req)) {
         res.status(403).send('Invalid signature');
         return;
@@ -410,12 +468,17 @@ exports.diditKycWebhook = fns.https.onRequest(async (req, res) => {
         res.status(405).send('Method not allowed');
         return;
     }
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('application/json')) {
+        res.status(415).send('Content-Type must be application/json');
+        return;
+    }
     // Verify webhook signature
     const signature = req.headers['x-signature'] || '';
     const timestamp = req.headers['x-timestamp'] || '';
     const rawBody = JSON.stringify(req.body);
     if (!(0, didit_1.verifyWebhookSignature)(rawBody, signature, timestamp)) {
-        console.error('Invalid Didit webhook signature');
+        logger_1.logger.error('Invalid Didit webhook signature', { ip: req.ip });
         res.status(403).send('Invalid signature');
         return;
     }
@@ -425,7 +488,7 @@ exports.diditKycWebhook = fns.https.onRequest(async (req, res) => {
         if (eventType === 'status.updated' &&
             (webhookData.status === 'Approved' || webhookData.status === 'Declined')) {
             const result = await (0, didit_1.processKycResult)(webhookData);
-            console.log(`KYC ${result.kycResult} for booking ${result.bookingId} → ${result.newStatus}`);
+            logger_1.logger.info("KYC result processed", { kycResult: result.kycResult, bookingId: result.bookingId, newStatus: result.newStatus });
             // Send notification to client
             const bookingDoc = await db.collection('bookings').doc(result.bookingId).get();
             const booking = bookingDoc.data();
@@ -452,7 +515,7 @@ exports.diditKycWebhook = fns.https.onRequest(async (req, res) => {
         res.status(200).json({ received: true });
     }
     catch (error) {
-        console.error('Error processing Didit webhook:', error);
+        logger_1.logger.error('Error processing Didit webhook', { error: error.message });
         res.status(500).json({ error: 'Internal error processing webhook' });
     }
 });
@@ -639,5 +702,47 @@ exports.assessBookingRisk = fns.https.onCall(async (data, context) => {
             reasons: assessment.reasons,
         },
     };
+});
+/**
+ * Scheduled cleanup for expired rate limit entries.
+ * Runs every hour to prevent the rate_limits collection from growing indefinitely.
+ */
+exports.scheduledRateLimitCleanup = fns.pubsub.schedule('every 1 hours').onRun(async () => {
+    const cleaned = await (0, rateLimit_1.cleanupRateLimits)();
+    if (cleaned > 0) {
+        logger_1.logger.info("Rate limit cleanup completed", { cleanedCount: cleaned });
+    }
+});
+/**
+ * Clean up expired booking slot locks.
+ * Runs every 6 hours to release slots from abandoned bookings.
+ */
+exports.scheduledSlotCleanup = fns.pubsub.schedule('every 6 hours').onRun(async () => {
+    const now = new Date();
+    const expiredSlots = await db.collection('booking_slots')
+        .where('expiresAt', '<=', now)
+        .limit(200)
+        .get();
+    if (expiredSlots.empty)
+        return;
+    let cleaned = 0;
+    for (const slotDoc of expiredSlots.docs) {
+        const slot = slotDoc.data();
+        // Only release if the associated booking is not confirmed
+        if (slot.bookingId) {
+            const bookingDoc = await db.collection('bookings').doc(slot.bookingId).get();
+            const booking = bookingDoc.data();
+            if (booking && (booking.status === 'confirmed' || booking.status === 'CONFIRMED')) {
+                // Booking is confirmed, remove the expiry (slot is permanent)
+                await slotDoc.ref.update({ expiresAt: admin.firestore.FieldValue.delete() });
+                continue;
+            }
+        }
+        await slotDoc.ref.delete();
+        cleaned++;
+    }
+    if (cleaned > 0) {
+        logger_1.logger.info("Expired slot cleanup completed", { releasedCount: cleaned });
+    }
 });
 //# sourceMappingURL=index.js.map
