@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Disallow admin and private paths
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://flavorentertainers.com.au/sitemap.xml

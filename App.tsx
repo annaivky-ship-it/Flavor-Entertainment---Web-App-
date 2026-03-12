@@ -1,26 +1,29 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Briefcase, ChevronDown, ShoppingCart, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PerformerCard from './components/EntertainerCard';
-import PerformerProfile from './components/EntertainerProfile';
 import AgeGate from './components/AgeGate';
-import BookingProcess, { BookingFormState } from './components/BookingProcess';
-import PerformerDashboard from './components/PerformerDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import ClientDashboard from './components/ClientDashboard';
-import DoNotServe from './components/DoNotServe';
 import Login from './components/Login';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import TermsOfService from './components/TermsOfService';
-import ServicesGallery from './components/ServicesGallery';
-import DemoPhone from './components/DemoPhone';
-import UserSettings from './components/UserSettings';
-import PresentationVideo from './components/PresentationVideo';
 import RoleSwitcher from './components/RoleSwitcher';
-import FAQ from './components/FAQ';
-import PerformerOnboarding from './components/PerformerOnboarding';
-import WalkthroughOverlay from './components/WalkthroughOverlay';
+
+// Lazy-loaded components (large bundles loaded on demand)
+const PerformerProfile = React.lazy(() => import('./components/EntertainerProfile'));
+const BookingProcess = React.lazy(() => import('./components/BookingProcess'));
+import type { BookingFormState } from './components/BookingProcess';
+const PerformerDashboard = React.lazy(() => import('./components/PerformerDashboard'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
+const ClientDashboard = React.lazy(() => import('./components/ClientDashboard'));
+const DoNotServe = React.lazy(() => import('./components/DoNotServe'));
+const PrivacyPolicy = React.lazy(() => import('./components/PrivacyPolicy'));
+const TermsOfService = React.lazy(() => import('./components/TermsOfService'));
+const ServicesGallery = React.lazy(() => import('./components/ServicesGallery'));
+const DemoPhone = React.lazy(() => import('./components/DemoPhone'));
+const UserSettings = React.lazy(() => import('./components/UserSettings'));
+const PresentationVideo = React.lazy(() => import('./components/PresentationVideo'));
+const FAQ = React.lazy(() => import('./components/FAQ'));
+const PerformerOnboarding = React.lazy(() => import('./components/PerformerOnboarding'));
+const WalkthroughOverlay = React.lazy(() => import('./components/WalkthroughOverlay'));
 import { api, resetDemoData, isDemoMode } from './services/api';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
@@ -989,7 +992,14 @@ const App: React.FC = () => {
     }
   };
 
+  const suspenseFallback = (
+    <div className="flex items-center justify-center min-h-[200px]">
+      <LoaderCircle className="h-8 w-8 animate-spin text-orange-500" />
+    </div>
+  );
+
   return (
+    <Suspense fallback={suspenseFallback}>
     <div className="min-h-screen text-white flex flex-col">
       {showDemoBanner && performers.length > 0 && (
         <div className="bg-orange-600 text-white py-2 px-4 text-center text-xs sm:text-sm font-medium relative z-50">
@@ -1099,6 +1109,7 @@ const App: React.FC = () => {
         onRoleChange={(role) => handleRoleChange(role === 'Client' ? 'user' : role.toLowerCase() as Role)}
       />
     </div>
+    </Suspense>
   );
 };
 

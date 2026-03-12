@@ -3,8 +3,12 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { initErrorTracking } from './services/errorTracking';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
+
+// Initialize error tracking (Sentry when configured, console fallback otherwise)
+initErrorTracking();
 
 const updateSW = registerSW({
   onNeedRefresh() {

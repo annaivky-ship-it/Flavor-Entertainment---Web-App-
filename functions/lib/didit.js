@@ -137,8 +137,8 @@ async function createKycSession(bookingId) {
  */
 function verifyWebhookSignature(payload, signature, timestamp) {
     if (!DIDIT_WEBHOOK_SECRET) {
-        console.warn('Didit webhook secret not configured. Skipping signature verification.');
-        return true; // Allow in dev, but warn
+        console.error('CRITICAL: Didit webhook secret not configured. Rejecting webhook.');
+        return false;
     }
     const signedPayload = `${timestamp}.${payload}`;
     const expectedSignature = crypto
