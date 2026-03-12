@@ -109,19 +109,19 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="login-title">
-      <div ref={modalRef} className="card-base !p-8 !bg-zinc-900 max-w-sm w-full relative">
-        <button onClick={onClose} aria-label="Close login" className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors">
+      <div ref={modalRef} className="card-base !p-8 !bg-[#13131a] max-w-sm w-full relative">
+        <button onClick={onClose} aria-label="Close login" className="absolute top-4 right-4 text-[#8888a0] hover:text-white transition-colors">
           <X className="h-6 w-6" aria-hidden="true" />
         </button>
         <div className="text-center mb-8">
             <h2 id="login-title" className="text-2xl font-bold text-white">Secure Portal Login</h2>
-            <p className="text-zinc-400 mt-1">For Performers, Admins & Clients</p>
+            <p className="text-[#b8b8c2] mt-1">For Performers, Admins & Clients</p>
         </div>
         
         <button 
           onClick={handleGoogleLogin} 
           disabled={isLoading}
-          className="w-full bg-white text-zinc-900 font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-3 hover:bg-zinc-100 transition-colors mb-6 disabled:opacity-50"
+          className="w-full bg-white text-[#0f0f12] font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-3 hover:bg-gray-100 transition-colors mb-6 disabled:opacity-50"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -134,10 +134,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
 
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-zinc-800"></div>
+            <div className="w-full border-t border-[#2a2a35]"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-zinc-900 text-zinc-500">Or continue with email</span>
+            <span className="px-2 bg-[#13131a] text-[#8888a0]">Or continue with email</span>
           </div>
         </div>
 
@@ -145,13 +145,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
             <InputField icon={<Mail />} type="email" name="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <InputField icon={<Lock />} type="password" name="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             {error && <p role="alert" className="text-sm text-red-400 text-center">{error}</p>}
-            {import.meta.env.VITE_APP_MODE === 'demo' && <p className="text-xs text-zinc-500 text-center !mt-2">Demo mode: use any email with password 'password'.</p>}
+            {import.meta.env.VITE_APP_MODE === 'demo' && <p className="text-xs text-[#8888a0] text-center !mt-2">Demo mode: use any email with password 'password'.</p>}
             <button type="submit" disabled={isLoading} className="btn-primary w-full text-lg flex items-center justify-center gap-2 disabled:opacity-50">
                 <LogIn aria-hidden="true" />
                 Login
             </button>
         </form>
-        <div className="mt-6 text-center text-sm text-zinc-400">
+        <div className="mt-6 text-center text-sm text-[#b8b8c2]">
           Want to join the team? <button onClick={() => { onClose(); onNavigateToOnboarding?.(); }} className="text-[#e6398a] hover:text-[#f06aaa] font-semibold underline">Apply to be a Performer</button>
         </div>
       </div>

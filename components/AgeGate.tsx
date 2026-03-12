@@ -17,12 +17,12 @@ interface CustomCheckboxProps {
 
 // Fix: Explicitly type CustomCheckbox to avoid "missing children" errors in some TypeScript environments.
 const CustomCheckbox: React.FC<CustomCheckboxProps> = ({ id, checked, onChange, children }) => (
-   <label htmlFor={id} className="flex items-center p-4 bg-zinc-800/50 border border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-700/70 hover:border-zinc-600 transition-all duration-200">
+   <label htmlFor={id} className="flex items-center p-4 bg-[#1a1a22]/50 border border-[#2a2a35] rounded-lg cursor-pointer hover:bg-[#2a2a35]/70 hover:border-[#2a2a35] transition-all duration-200">
       <div className="relative h-6 w-6 flex-shrink-0">
-        <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="appearance-none h-6 w-6 rounded-md border-2 border-zinc-600 bg-zinc-900 checked:bg-[#e6398a] checked:border-[#e6398a] transition-all" />
+        <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="appearance-none h-6 w-6 rounded-md border-2 border-[#2a2a35] bg-[#13131a] checked:bg-[#e6398a] checked:border-[#e6398a] transition-all" />
         {checked && <Check className="h-4 w-4 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white pointer-events-none" />}
       </div>
-      <span className="ml-4 text-zinc-200">{children}</span>
+      <span className="ml-4 text-white">{children}</span>
   </label>
 );
 
@@ -79,7 +79,7 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full text-white shadow-2xl shadow-black/50 animate-fade-in ring-1 ring-white/10">
+      <div className="bg-[#13131a] border border-[#2a2a35] rounded-3xl p-6 sm:p-8 max-w-md w-full text-white shadow-2xl shadow-black/50 animate-fade-in ring-1 ring-white/10">
         <div className="text-center mb-6 sm:mb-8">
             <div className="flex flex-col items-center cursor-pointer no-underline group mb-4 sm:mb-6">
                 <div className="flex items-center">
@@ -87,42 +87,42 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
                     <span className="text-4xl sm:text-5xl mx-[-0.15em] relative" style={{top: "-0.05em"}}>🍑</span>
                     <span className="font-logo-main text-4xl sm:text-5xl tracking-wider text-white">R</span>
                 </div>
-                <span className="font-logo-sub text-lg sm:text-xl text-zinc-500 -mt-2 ml-1 tracking-wide">entertainers</span>
+                <span className="font-logo-sub text-lg sm:text-xl text-[#8888a0] -mt-2 ml-1 tracking-wide">entertainers</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold mb-2 text-white">Age Verification</h2>
-            <p className="text-zinc-400 text-xs sm:text-sm">Please enter your date of birth to continue.</p>
+            <p className="text-[#b8b8c2] text-xs sm:text-sm">Please enter your date of birth to continue.</p>
         </div>
 
         <div className="space-y-6 mb-8">
             <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-zinc-500 ml-1">Day</label>
+                    <label className="text-[10px] uppercase font-bold text-[#8888a0] ml-1">Day</label>
                     <select 
                         value={dob.day} 
                         onChange={(e) => { setDob(prev => ({ ...prev, day: e.target.value })); setError(null); }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-[#e6398a] outline-none transition-all appearance-none"
+                        className="w-full bg-[#1a1a22] border border-[#2a2a35] rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-[#e6398a] outline-none transition-all appearance-none"
                     >
                         <option value="">DD</option>
                         {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                 </div>
                 <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-zinc-500 ml-1">Month</label>
+                    <label className="text-[10px] uppercase font-bold text-[#8888a0] ml-1">Month</label>
                     <select 
                         value={dob.month} 
                         onChange={(e) => { setDob(prev => ({ ...prev, month: e.target.value })); setError(null); }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-[#e6398a] outline-none transition-all appearance-none"
+                        className="w-full bg-[#1a1a22] border border-[#2a2a35] rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-[#e6398a] outline-none transition-all appearance-none"
                     >
                         <option value="">MM</option>
                         {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                 </div>
                 <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-zinc-500 ml-1">Year</label>
+                    <label className="text-[10px] uppercase font-bold text-[#8888a0] ml-1">Year</label>
                     <select 
                         value={dob.year} 
                         onChange={(e) => { setDob(prev => ({ ...prev, year: e.target.value })); setError(null); }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-[#e6398a] outline-none transition-all appearance-none"
+                        className="w-full bg-[#1a1a22] border border-[#2a2a35] rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-[#e6398a] outline-none transition-all appearance-none"
                     >
                         <option value="">YYYY</option>
                         {years.map(y => <option key={y} value={y}>{y}</option>)}
@@ -154,7 +154,7 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
           Confirm & Enter
         </button>
         
-        <p className="mt-6 text-[10px] text-zinc-500 text-center uppercase tracking-widest">
+        <p className="mt-6 text-[10px] text-[#8888a0] text-center uppercase tracking-widest">
             Strictly 18+ Only
         </p>
       </div>

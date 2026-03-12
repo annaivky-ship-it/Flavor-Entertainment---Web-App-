@@ -27,8 +27,8 @@ const statusConfig: Record<Booking['status'], {
   en_route: { color: 'text-blue-400', borderColor: 'border-blue-500', Icon: Timer, title: "Performer En Route", description: "The performer is on their way to your location!" },
   arrived: { color: 'text-emerald-400', borderColor: 'border-emerald-500', Icon: MapPin, title: "Performer Arrived", description: "The performer has arrived at the venue." },
   in_progress: { color: 'text-indigo-400', borderColor: 'border-indigo-500', Icon: Radio, title: "In Progress", description: "The performance is currently taking place." },
-  completed: { color: 'text-zinc-400', borderColor: 'border-zinc-500', Icon: Archive, title: "Completed", description: "This booking has been successfully completed." },
-  cancelled: { color: 'text-zinc-500', borderColor: 'border-zinc-600', Icon: X, title: "Cancelled", description: "This booking has been cancelled." },
+  completed: { color: 'text-[#b8b8c2]', borderColor: 'border-[#8888a0]', Icon: Archive, title: "Completed", description: "This booking has been successfully completed." },
+  cancelled: { color: 'text-[#8888a0]', borderColor: 'border-[#2a2a35]', Icon: X, title: "Cancelled", description: "This booking has been cancelled." },
   rejected: { color: 'text-red-400', borderColor: 'border-red-500', Icon: AlertTriangle, title: "Booking Rejected", description: "Unfortunately, this booking could not be completed at this time." },
 };
 
@@ -150,7 +150,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
       <div className="animate-fade-in flex flex-col items-center justify-center min-h-[60vh] text-center">
         <div className="card-base !p-8 max-w-md w-full">
             <h1 className="text-3xl font-bold text-white">My Bookings</h1>
-            <p className="text-zinc-400 mt-2 mb-6">Enter your email to view your booking history and status.</p>
+            <p className="text-[#b8b8c2] mt-2 mb-6">Enter your email to view your booking history and status.</p>
             <form onSubmit={handleLookup} className="space-y-4">
                 <InputField icon={<User />} type="email" name="email" placeholder="Your booking email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} required error={error} />
                 <button type="submit" disabled={isLoading} className="btn-primary w-full flex items-center justify-center gap-2">
@@ -158,12 +158,12 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                     Find My Bookings
                 </button>
             </form>
-            <div className="my-6 flex items-center text-zinc-500 text-sm">
-                <span className="flex-grow border-t border-zinc-700"></span>
+            <div className="my-6 flex items-center text-[#8888a0] text-sm">
+                <span className="flex-grow border-t border-[#2a2a35]"></span>
                 <span className="flex-shrink mx-4">OR</span>
-                <span className="flex-grow border-t border-zinc-700"></span>
+                <span className="flex-grow border-t border-[#2a2a35]"></span>
             </div>
-             <button onClick={onBrowsePerformers} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+             <button onClick={onBrowsePerformers} className="w-full bg-[#1a1a22] hover:bg-[#2a2a35] text-white font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
                 <Briefcase className="h-5 w-5" />
                 Browse Performers & Services
             </button>
@@ -185,17 +185,17 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                       <div key={booking.id} className={`card-base !p-0 overflow-hidden flex flex-col md:flex-row border-l-4 ${config.borderColor}`}>
                          <div className="p-6 flex-grow">
                              <h3 className="text-2xl font-bold text-white">{booking.event_type}</h3>
-                             <p className="text-sm text-zinc-400 mb-4">with <strong className="text-[#e6398a]">{booking.performer?.name}</strong></p>
+                             <p className="text-sm text-[#b8b8c2] mb-4">with <strong className="text-[#e6398a]">{booking.performer?.name}</strong></p>
 
-                              <div className={`p-3 rounded-lg flex items-start gap-3 mb-4 bg-zinc-900/50`}>
+                              <div className={`p-3 rounded-lg flex items-start gap-3 mb-4 bg-[#13131a]/50`}>
                                 <config.Icon className={`h-6 w-6 mt-1 flex-shrink-0 ${config.color} ${config.Icon === LoaderCircle ? 'animate-spin' : ''}`} />
                                 <div>
                                     <p className={`font-semibold ${config.color}`}>{config.title}</p>
-                                    <p className="text-sm text-zinc-400">{config.description}</p>
+                                    <p className="text-sm text-[#b8b8c2]">{config.description}</p>
                                 </div>
                               </div>
 
-                             <div className="text-zinc-300 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm mt-2 border-t border-zinc-800 pt-4">
+                             <div className="text-[#b8b8c2] grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm mt-2 border-t border-[#2a2a35] pt-4">
                                 <div className="flex items-center gap-2"><Calendar size={16} className="text-[#e6398a]/80"/> {new Date(booking.event_date).toLocaleDateString()} at {booking.event_time}</div>
                                 <div className="flex items-center gap-2"><Clock size={16} className="text-[#e6398a]/80"/> {booking.duration_hours} hour{booking.duration_hours > 1 ? 's' : ''}</div>
                                 {booking.performer_eta_minutes && booking.performer_eta_minutes > 0 && (
@@ -206,9 +206,9 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                                 <div className="flex items-center gap-2 col-span-full"><MapPin size={16} className="text-[#e6398a]/80"/> {booking.event_address}</div>
                              </div>
                          </div>
-                         <div className="bg-zinc-900/50 p-6 flex flex-col justify-between items-center md:items-end md:border-l border-zinc-800 md:min-w-[220px]">
+                         <div className="bg-[#13131a]/50 p-6 flex flex-col justify-between items-center md:items-end md:border-l border-[#2a2a35] md:min-w-[220px]">
                             <div className="text-center md:text-right mb-4 w-full">
-                               <p className="text-zinc-400 text-sm flex items-center md:justify-end gap-1"><Wallet size={14}/> Total Cost</p>
+                               <p className="text-[#b8b8c2] text-sm flex items-center md:justify-end gap-1"><Wallet size={14}/> Total Cost</p>
                                <p className="text-3xl font-bold text-white">${(totalCost || 0).toFixed(2)}</p> 
                             </div>
                             {booking.status !== 'rejected' && (
@@ -230,14 +230,14 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl sm:text-4xl font-bold text-white">My Bookings</h1>
-          <p className="text-sm sm:text-base text-zinc-400">Viewing bookings for: <strong className="text-white">{clientEmail}</strong></p>
+          <p className="text-sm sm:text-base text-[#b8b8c2]">Viewing bookings for: <strong className="text-white">{clientEmail}</strong></p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-            <button onClick={onShowSettings} className="flex-1 sm:flex-none bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center gap-2 text-xs sm:text-sm px-4 py-2 rounded-lg transition-colors">
+            <button onClick={onShowSettings} className="flex-1 sm:flex-none bg-[#1a1a22] hover:bg-[#2a2a35] text-white flex items-center justify-center gap-2 text-xs sm:text-sm px-4 py-2 rounded-lg transition-colors">
                 <Settings className="h-4 w-4" />
                 Settings
             </button>
-            <button onClick={handleLogout} className="flex-1 sm:flex-none bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center gap-2 text-xs sm:text-sm px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+            <button onClick={handleLogout} className="flex-1 sm:flex-none bg-[#1a1a22] hover:bg-[#2a2a35] text-white flex items-center justify-center gap-2 text-xs sm:text-sm px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
                 <LogOut className="h-4 w-4" />
                 Change email
             </button>
@@ -252,37 +252,37 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
             {bookingGroups.past.length > 0 && (
               <div className="animate-fade-in">
                 <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                  <History className="text-zinc-400" /> Booking History
+                  <History className="text-[#b8b8c2]" /> Booking History
                 </h2>
                 <div className="card-base !p-0 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="bg-zinc-900/80 border-b border-zinc-800">
-                          <th className="px-6 py-4 text-sm font-semibold text-zinc-300">Date</th>
-                          <th className="px-6 py-4 text-sm font-semibold text-zinc-300">Event Type</th>
-                          <th className="px-6 py-4 text-sm font-semibold text-zinc-300">Performer</th>
-                          <th className="px-6 py-4 text-sm font-semibold text-zinc-300">Status</th>
-                          <th className="px-6 py-4 text-sm font-semibold text-zinc-300 text-right">Total</th>
+                        <tr className="bg-[#13131a]/80 border-b border-[#2a2a35]">
+                          <th className="px-6 py-4 text-sm font-semibold text-[#b8b8c2]">Date</th>
+                          <th className="px-6 py-4 text-sm font-semibold text-[#b8b8c2]">Event Type</th>
+                          <th className="px-6 py-4 text-sm font-semibold text-[#b8b8c2]">Performer</th>
+                          <th className="px-6 py-4 text-sm font-semibold text-[#b8b8c2]">Status</th>
+                          <th className="px-6 py-4 text-sm font-semibold text-[#b8b8c2] text-right">Total</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-800/50">
+                      <tbody className="divide-y divide-[#2a2a35]/50">
                         {bookingGroups.past.map(booking => {
                           const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
                           const config = statusConfig[booking.status];
                           return (
-                            <tr key={booking.id} className="hover:bg-zinc-800/30 transition-colors">
-                              <td className="px-6 py-4 text-sm text-zinc-300 whitespace-nowrap">
+                            <tr key={booking.id} className="hover:bg-[#1a1a22]/30 transition-colors">
+                              <td className="px-6 py-4 text-sm text-[#b8b8c2] whitespace-nowrap">
                                 {new Date(booking.event_date).toLocaleDateString()}
                               </td>
                               <td className="px-6 py-4 text-sm font-medium text-white">
                                 {booking.event_type}
                               </td>
-                              <td className="px-6 py-4 text-sm text-zinc-400">
+                              <td className="px-6 py-4 text-sm text-[#b8b8c2]">
                                 {booking.performer?.name || 'N/A'}
                               </td>
                               <td className="px-6 py-4 text-sm">
-                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.borderColor} ${config.color} bg-zinc-900/50`}>
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.borderColor} ${config.color} bg-[#13131a]/50`}>
                                   <config.Icon size={12} className={config.Icon === LoaderCircle ? 'animate-spin' : ''} />
                                   {config.title}
                                 </span>
@@ -301,9 +301,9 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
             )}
         </div>
       ) : (
-        <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-zinc-800">
+        <div className="text-center py-20 bg-[#13131a]/50 rounded-xl border border-[#2a2a35]">
             <h2 className="text-2xl font-semibold text-white">No Bookings Found</h2>
-            <p className="text-zinc-500 my-4 max-w-md mx-auto">It looks like there are no bookings associated with this email address yet. Ready to find the perfect entertainment?</p>
+            <p className="text-[#8888a0] my-4 max-w-md mx-auto">It looks like there are no bookings associated with this email address yet. Ready to find the perfect entertainment?</p>
              <button onClick={onBrowsePerformers} className="btn-primary flex items-center justify-center gap-2 mx-auto mt-6">
                 <Briefcase className="h-5 w-5" />
                 Book a Performer

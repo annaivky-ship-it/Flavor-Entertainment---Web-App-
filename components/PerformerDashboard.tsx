@@ -30,15 +30,15 @@ const statusConfig: Record<PerformerStatus, { color: string; label: string; icon
       label: 'Busy', 
       icon: Radio, 
       bgColor: 'bg-yellow-500/10', 
-      activeColor: 'bg-yellow-500 text-zinc-900',
+      activeColor: 'bg-yellow-500 text-[#0f0f12]',
       description: 'You are currently on a booking. Clients can still see you but know you are occupied.'
     },
     offline: { 
-      color: 'text-zinc-400', 
+      color: 'text-[#b8b8c2]', 
       label: 'Offline', 
       icon: EyeOff, 
-      bgColor: 'bg-zinc-500/10', 
-      activeColor: 'bg-zinc-500 text-white',
+      bgColor: 'bg-[#2a2a35]/10', 
+      activeColor: 'bg-[#2a2a35] text-white',
       description: 'You are hidden from the "Available Now" gallery and won\'t receive instant alerts.'
     },
     pending_verification: {
@@ -46,7 +46,7 @@ const statusConfig: Record<PerformerStatus, { color: string; label: string; icon
       label: 'Pending Verification',
       icon: ShieldAlert,
       bgColor: 'bg-yellow-500/10',
-      activeColor: 'bg-yellow-500 text-zinc-900',
+      activeColor: 'bg-yellow-500 text-[#0f0f12]',
       description: 'Your account is pending verification by an administrator.'
     },
     rejected: {
@@ -68,8 +68,8 @@ const bookingStatusClasses: Record<Booking['status'], string> = {
   en_route: 'text-blue-400',
   arrived: 'text-emerald-400',
   in_progress: 'text-indigo-400',
-  completed: 'text-zinc-400',
-  cancelled: 'text-zinc-500',
+  completed: 'text-[#b8b8c2]',
+  cancelled: 'text-[#8888a0]',
   rejected: 'text-red-400'
 }
 
@@ -124,18 +124,18 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
   const isPending = booking.status !== 'confirmed' && booking.status !== 'rejected' && !['en_route', 'arrived', 'in_progress', 'completed', 'cancelled'].includes(booking.status);
 
   return (
-    <div className="bg-zinc-900/70 p-4 rounded-lg border border-zinc-700/50 hover:border-zinc-600 transition-colors">
+    <div className="bg-[#13131a]/70 p-4 rounded-lg border border-[#2a2a35]/50 hover:border-[#2a2a35] transition-colors">
         <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2">
             <div>
                 <p className="font-bold text-lg text-white">{booking.event_type}</p>
                 <p className={`text-sm font-semibold capitalize ${bookingStatusClasses[booking.status]}`}>{booking.status.replace(/_/g, ' ')}</p>
             </div>
             <div className="text-left sm:text-right text-sm">
-               <div className="flex items-center gap-2 text-zinc-300"><Calendar className="h-4 w-4 text-[#e6398a]"/> {new Date(booking.event_date).toLocaleDateString()}</div>
-               <div className="flex items-center gap-2 text-zinc-300 mt-1"><Clock className="h-4 w-4 text-[#e6398a]"/> {booking.event_time}</div>
+               <div className="flex items-center gap-2 text-[#b8b8c2]"><Calendar className="h-4 w-4 text-[#e6398a]"/> {new Date(booking.event_date).toLocaleDateString()}</div>
+               <div className="flex items-center gap-2 text-[#b8b8c2] mt-1"><Clock className="h-4 w-4 text-[#e6398a]"/> {booking.event_time}</div>
             </div>
         </div>
-         <div className="mt-3 pt-3 border-t border-zinc-700 flex flex-wrap items-center gap-x-4 gap-y-1 text-zinc-400 text-sm">
+         <div className="mt-3 pt-3 border-t border-[#2a2a35] flex flex-wrap items-center gap-x-4 gap-y-1 text-[#b8b8c2] text-sm">
            <span className="flex items-center gap-2"><User className="h-4 w-4 text-[#e6398a]" /> Client: {booking.client_name}</span>
            <span className="flex items-center gap-2"><Users className="h-4 w-4 text-[#e6398a]" /> Guests: {booking.number_of_guests}</span>
         </div>
@@ -143,7 +143,7 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
              <button 
                 onClick={() => onOpenChat(booking)}
-                className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-600 hover:border-zinc-500 font-semibold py-1.5 px-3 rounded flex items-center gap-2 transition-colors"
+                className="text-xs bg-[#1a1a22] hover:bg-[#2a2a35] text-white border border-[#2a2a35] hover:border-[#8888a0] font-semibold py-1.5 px-3 rounded flex items-center gap-2 transition-colors"
              >
                 <MessageCircle size={14} />
                 Message Client
@@ -166,7 +166,7 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
                   </button>
                 )}
                 {booking.status === 'in_progress' && (
-                  <button onClick={() => handleStatusUpdate('completed')} disabled={!!isLoading} className="text-xs bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center gap-1.5 transition-colors">
+                  <button onClick={() => handleStatusUpdate('completed')} disabled={!!isLoading} className="text-xs bg-[#2a2a35] hover:bg-[#2a2a35] text-white font-bold py-1.5 px-3 rounded-md flex items-center gap-1.5 transition-colors">
                     {isLoading === 'update_status' ? <LoaderCircle size={14} className="animate-spin" /> : <><CheckCircle size={14}/> Complete Job</>}
                   </button>
                 )}
@@ -174,20 +174,20 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
         </div>
 
          {isPending && (
-            <div className="mt-4 pt-4 border-t border-zinc-700/50 flex flex-col sm:flex-row items-center gap-3">
-                <p className="text-xs font-semibold text-zinc-300 mr-2 flex-shrink-0">
+            <div className="mt-4 pt-4 border-t border-[#2a2a35]/50 flex flex-col sm:flex-row items-center gap-3">
+                <p className="text-xs font-semibold text-[#b8b8c2] mr-2 flex-shrink-0">
                     {booking.status === 'pending_performer_acceptance' ? 'Action Required:' : 'Update ETA:'}
                 </p>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                    <div className="relative flex-grow group">
-                      <Timer className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none group-focus-within:text-[#e6398a] transition-colors" />
+                      <Timer className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#b8b8c2] pointer-events-none group-focus-within:text-[#e6398a] transition-colors" />
                       <input
                         type="number"
                         placeholder="ETA (mins)"
                         title="Estimated time of arrival in minutes"
                         value={etaValue}
                         onChange={(e) => onEtaChange(booking.id, e.target.value)}
-                        className="bg-zinc-800 border border-zinc-600 text-white text-xs rounded-md focus:ring-1 focus:ring-[#e6398a] focus:border-[#e6398a] block w-full pl-8 pr-2 py-1.5 transition-all"
+                        className="bg-[#1a1a22] border border-[#2a2a35] text-white text-xs rounded-md focus:ring-1 focus:ring-[#e6398a] focus:border-[#e6398a] block w-full pl-8 pr-2 py-1.5 transition-all"
                         disabled={!!isLoading}
                       />
                    </div>
@@ -279,8 +279,8 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
           <h1 className="text-4xl font-bold text-white tracking-tight">Performer Dashboard</h1>
           <div className="flex items-center gap-2 mt-1">
              <p className="text-xl text-[#e6398a]">Welcome, {performer.name}</p>
-             <span className="h-1.5 w-1.5 rounded-full bg-zinc-600"></span>
-             <p className="text-sm text-zinc-500">ID: #{performer.id}</p>
+             <span className="h-1.5 w-1.5 rounded-full bg-[#2a2a35]"></span>
+             <p className="text-sm text-[#8888a0]">ID: #{performer.id}</p>
           </div>
         </div>
         <button 
@@ -299,9 +299,9 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                <Smartphone className="h-5 w-5 text-[#e6398a]" />
                <h2 className="text-2xl font-semibold text-white">Availability Status</h2>
             </div>
-            <p className="text-sm text-zinc-400 mb-6">Clients see your live status in the gallery.</p>
+            <p className="text-sm text-[#b8b8c2] mb-6">Clients see your live status in the gallery.</p>
             
-            <div className="flex p-1.5 bg-zinc-950 rounded-xl border border-zinc-800 gap-1.5">
+            <div className="flex p-1.5 bg-[#0f0f12] rounded-xl border border-[#2a2a35] gap-1.5">
               {(['available', 'busy', 'offline'] as PerformerStatus[]).map((status) => {
                 const Config = statusConfig[status];
                 const isActive = performer.status === status;
@@ -315,7 +315,7 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                     className={`flex-1 flex flex-col items-center justify-center py-3 px-2 rounded-lg transition-all duration-300 gap-1.5 border ${
                       isActive 
                         ? `${Config.activeColor} border-transparent shadow-lg shadow-black/50 scale-[1.02]` 
-                        : `bg-transparent border-transparent text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50`
+                        : `bg-transparent border-transparent text-[#8888a0] hover:text-[#b8b8c2] hover:bg-[#1a1a22]/50`
                     }`}
                   >
                     {isUpdating ? (
@@ -351,15 +351,15 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
              {systemCommunications.length > 0 ? (
                 <div className="space-y-3 max-h-60 overflow-y-auto pr-2 -mr-2">
                   {systemCommunications.map(comm => (
-                    <div key={comm.id} className="bg-zinc-900/70 p-3 rounded-md text-sm border border-zinc-700/50">
-                        <p className="text-zinc-200">{comm.message}</p>
-                        <p className="text-xs text-zinc-500 mt-1">From: <span className="text-[#e6398a] font-semibold">{comm.sender}</span> &bull; {new Date(comm.created_at).toLocaleDateString()}</p>
+                    <div key={comm.id} className="bg-[#13131a]/70 p-3 rounded-md text-sm border border-[#2a2a35]/50">
+                        <p className="text-white">{comm.message}</p>
+                        <p className="text-xs text-[#8888a0] mt-1">From: <span className="text-[#e6398a] font-semibold">{comm.sender}</span> &bull; {new Date(comm.created_at).toLocaleDateString()}</p>
                     </div>
                   ))}
                 </div>
              ) : (
-                <div className="text-center py-8 text-zinc-500">
-                   <Inbox className="h-12 w-12 mx-auto mb-2 text-zinc-600" />
+                <div className="text-center py-8 text-[#8888a0]">
+                   <Inbox className="h-12 w-12 mx-auto mb-2 text-[#8888a0]" />
                    <p>No new system notifications.</p>
                 </div>
              )}
@@ -376,7 +376,7 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
              
              <div className="space-y-8">
                 <div>
-                  <h3 className="text-lg font-semibold text-[#e6398a] mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-[#e6398a] mb-4 border-b border-[#2a2a35] pb-2 flex justify-between items-center">
                     <span>Pending Actions</span>
                     <span className="bg-[#e6398a]/20 text-[#e6398a] px-2 py-0.5 rounded text-xs">{pendingBookings.length}</span>
                   </h3>
@@ -396,13 +396,13 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                           ))}
                       </div>
                   ) : (
-                      <div className="bg-zinc-950/30 border border-dashed border-zinc-800 rounded-lg py-8 text-center">
-                        <p className="text-zinc-500 text-sm">No pending booking requests at this time.</p>
+                      <div className="bg-[#0f0f12]/30 border border-dashed border-[#2a2a35] rounded-lg py-8 text-center">
+                        <p className="text-[#8888a0] text-sm">No pending booking requests at this time.</p>
                       </div>
                   )}
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-green-400 mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-green-400 mb-4 border-b border-[#2a2a35] pb-2 flex justify-between items-center">
                     <span>Confirmed Bookings</span>
                     <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded text-xs">{confirmedBookings.length}</span>
                   </h3>
@@ -422,8 +422,8 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                          ))}
                       </div>
                   ) : (
-                      <div className="bg-zinc-950/30 border border-dashed border-zinc-800 rounded-lg py-8 text-center">
-                        <p className="text-zinc-500 text-sm">You have no confirmed upcoming bookings.</p>
+                      <div className="bg-[#0f0f12]/30 border border-dashed border-[#2a2a35] rounded-lg py-8 text-center">
+                        <p className="text-[#8888a0] text-sm">You have no confirmed upcoming bookings.</p>
                       </div>
                   )}
                 </div>
@@ -437,21 +437,21 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                 <History className="h-6 w-6 text-[#e6398a]" />
                 Recent Activity
              </h2>
-             <p className="text-xs text-zinc-500 mb-6">Real-time audit log of your platform actions.</p>
+             <p className="text-xs text-[#8888a0] mb-6">Real-time audit log of your platform actions.</p>
              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                 {auditLogs.length > 0 ? (
                   auditLogs.map(log => (
-                    <div key={log.id} className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50 flex flex-col gap-2 hover:border-zinc-700 transition-colors group">
+                    <div key={log.id} className="bg-[#13131a]/50 p-4 rounded-xl border border-[#2a2a35]/50 flex flex-col gap-2 hover:border-[#2a2a35] transition-colors group">
                       <div className="flex justify-between items-start">
                         <span className="text-[10px] font-bold text-[#e6398a] uppercase tracking-widest">{log.action.replace(/_/g, ' ')}</span>
-                        <span className="text-[10px] text-zinc-600 group-hover:text-zinc-400 transition-colors">
+                        <span className="text-[10px] text-[#8888a0] group-hover:text-[#b8b8c2] transition-colors">
                           {/* Fix: Use createdAt instead of timestamp to match the interface. */}
                           {typeof log.createdAt === 'string' ? new Date(log.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : log.createdAt && 'seconds' in log.createdAt ? new Date(log.createdAt.seconds * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                         </span>
                       </div>
-                      <p className="text-xs text-zinc-300 leading-snug">
+                      <p className="text-xs text-[#b8b8c2] leading-snug">
                         {log.action === 'PERFORMER_STATUS_CHANGE' ? (
-                          <>Changed status from <span className="text-zinc-500 font-semibold">{String(log.details.oldStatus ?? '')}</span> to <span className="text-white font-bold">{String(log.details.newStatus ?? '')}</span></>
+                          <>Changed status from <span className="text-[#8888a0] font-semibold">{String(log.details.oldStatus ?? '')}</span> to <span className="text-white font-bold">{String(log.details.newStatus ?? '')}</span></>
                         ) : (
                           <span>Performed administrative action.</span>
                         )}
@@ -460,8 +460,8 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                   ))
                 ) : (
                   <div className="text-center py-12">
-                     <Clock className="h-10 w-10 text-zinc-800 mx-auto mb-2" />
-                     <p className="text-sm text-zinc-600">No recent activity found.</p>
+                     <Clock className="h-10 w-10 text-[#2a2a35] mx-auto mb-2" />
+                     <p className="text-sm text-[#8888a0]">No recent activity found.</p>
                   </div>
                 )}
              </div>

@@ -175,17 +175,17 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-            <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl shadow-2xl shadow-black/50 animate-fade-in">
+            <div className="bg-[#13131a] border border-[#2a2a35] rounded-2xl w-full max-w-2xl shadow-2xl shadow-black/50 animate-fade-in">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-zinc-800">
+                <div className="flex items-center justify-between p-6 border-b border-[#2a2a35]">
                     <div>
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             <Play className="h-5 w-5 text-[#e6398a]" />
                             Demo Scenarios
                         </h2>
-                        <p className="text-sm text-zinc-400 mt-1">Click a scenario to see how the system responds</p>
+                        <p className="text-sm text-[#b8b8c2] mt-1">Click a scenario to see how the system responds</p>
                     </div>
-                    <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors p-2">
+                    <button onClick={onClose} className="text-[#b8b8c2] hover:text-white transition-colors p-2">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
@@ -198,14 +198,14 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             onClick={() => handleSelectScenario(scenario)}
                             className={`text-left p-4 rounded-xl border transition-all duration-200 ${activeScenario?.id === scenario.id
                                     ? `border-${scenario.color}-500 bg-${scenario.color}-500/10`
-                                    : 'border-zinc-700 bg-zinc-800/50 hover:border-zinc-500 hover:bg-zinc-800'
+                                    : 'border-[#2a2a35] bg-[#1a1a22]/50 hover:border-[#8888a0] hover:bg-[#1a1a22]'
                                 }`}
                         >
                             <div className={`flex items-center gap-2 mb-2 text-${scenario.color}-400`}>
                                 {scenario.icon}
                                 <span className="font-bold text-sm text-white">{scenario.label}</span>
                             </div>
-                            <p className="text-xs text-zinc-400">{scenario.description}</p>
+                            <p className="text-xs text-[#b8b8c2]">{scenario.description}</p>
                         </button>
                     ))}
                 </div>
@@ -213,7 +213,7 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 {/* Result Panel */}
                 <div className={`mx-6 mb-6 transition-all duration-300 ${isAnimating ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
                     {activeScenario ? (
-                        <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-5 space-y-4">
+                        <div className="bg-[#1a1a22]/50 border border-[#2a2a35] rounded-xl p-5 space-y-4">
                             <div className="flex items-center justify-between">
                                 <h3 className="font-bold text-white">{activeScenario.label} — System Response</h3>
                                 <RiskBadge score={activeScenario.riskScore} level={activeScenario.riskLevel} />
@@ -221,11 +221,11 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
                             {/* Risk Bar */}
                             <div>
-                                <div className="flex justify-between text-xs text-zinc-400 mb-1">
+                                <div className="flex justify-between text-xs text-[#b8b8c2] mb-1">
                                     <span>Risk Score</span>
                                     <span>{activeScenario.riskScore}/100</span>
                                 </div>
-                                <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
+                                <div className="h-2 bg-[#2a2a35] rounded-full overflow-hidden">
                                     <div
                                         className={`h-full rounded-full transition-all duration-700 ${activeScenario.riskLevel === 'SAFE' ? 'bg-emerald-500' :
                                                 activeScenario.riskLevel === 'REVIEW' ? 'bg-amber-500' : 'bg-red-500'
@@ -233,7 +233,7 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                                         style={{ width: `${activeScenario.riskScore}%` }}
                                     />
                                 </div>
-                                <div className="flex justify-between text-xs text-zinc-500 mt-1">
+                                <div className="flex justify-between text-xs text-[#8888a0] mt-1">
                                     <span>0 — Safe</span>
                                     <span>30</span>
                                     <span>60</span>
@@ -242,12 +242,12 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             </div>
 
                             {/* Outcome */}
-                            <div className="bg-zinc-900 rounded-lg p-3">
-                                <p className="text-sm font-semibold text-zinc-200">Automated Decision:</p>
-                                <p className="text-sm text-zinc-300 mt-1">{activeScenario.outcome}</p>
+                            <div className="bg-[#13131a] rounded-lg p-3">
+                                <p className="text-sm font-semibold text-white">Automated Decision:</p>
+                                <p className="text-sm text-[#b8b8c2] mt-1">{activeScenario.outcome}</p>
                             </div>
 
-                            <p className="text-xs text-zinc-500 leading-relaxed">
+                            <p className="text-xs text-[#8888a0] leading-relaxed">
                                 {activeScenario.id === 'safe' && 'Identity confirmed via Didit. No DNS matches. Score below threshold — booking auto-approved and moved to payment step.'}
                                 {activeScenario.id === 'suspicious' && 'Identity confirmed but 4 booking attempts across 3 performers in 24h detected. System flags for manual review. Admin receives WhatsApp alert.'}
                                 {activeScenario.id === 'blocked' && 'Phone hash matched a HIGH-risk DNS entry. Client receives a generic "not available" response. Performer and admin are silently notified.'}
@@ -255,9 +255,9 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             </p>
                         </div>
                     ) : (
-                        <div className="bg-zinc-800/30 border border-zinc-700/50 rounded-xl p-5 text-center">
-                            <BarChart3 className="h-8 w-8 text-zinc-600 mx-auto mb-2" />
-                            <p className="text-sm text-zinc-500">Select a scenario above to see a simulated system response</p>
+                        <div className="bg-[#1a1a22]/30 border border-[#2a2a35]/50 rounded-xl p-5 text-center">
+                            <BarChart3 className="h-8 w-8 text-[#8888a0] mx-auto mb-2" />
+                            <p className="text-sm text-[#8888a0]">Select a scenario above to see a simulated system response</p>
                         </div>
                     )}
                 </div>
@@ -327,11 +327,11 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
             {/* Floating Walkthrough Panel */}
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4 pointer-events-none">
                 <div
-                    className={`pointer-events-auto bg-zinc-900/95 backdrop-blur-xl border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 transition-all duration-200 ${isTransitioning ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
+                    className={`pointer-events-auto bg-[#13131a]/95 backdrop-blur-xl border border-[#2a2a35] rounded-2xl shadow-2xl shadow-black/60 transition-all duration-200 ${isTransitioning ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
                         }`}
                 >
                     {/* Progress bar */}
-                    <div className="h-1 bg-zinc-800 rounded-t-2xl overflow-hidden">
+                    <div className="h-1 bg-[#1a1a22] rounded-t-2xl overflow-hidden">
                         <div
                             className="h-full bg-[#e6398a] transition-all duration-500"
                             style={{ width: `${((currentStep + 1) / total) * 100}%` }}
@@ -350,7 +350,7 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
                                         {step.role} View
                                     </span>
                                 )}
-                                <span className="text-xs text-zinc-500">{currentStep + 1} of {total}</span>
+                                <span className="text-xs text-[#8888a0]">{currentStep + 1} of {total}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -360,7 +360,7 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
                                     <Play className="h-3 w-3" />
                                     Scenarios
                                 </button>
-                                <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors p-1">
+                                <button onClick={onClose} className="text-[#8888a0] hover:text-white transition-colors p-1">
                                     <X className="h-4 w-4" />
                                 </button>
                             </div>
@@ -368,22 +368,22 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
 
                         {/* Content */}
                         <h3 className="text-base font-bold text-white mb-2">{step.title}</h3>
-                        <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">{step.body}</p>
+                        <p className="text-sm text-[#b8b8c2] leading-relaxed whitespace-pre-line">{step.body}</p>
 
                         {/* Safety Note */}
                         {step.safetyNote && (
                             <div className="mt-3 flex items-start gap-2 bg-[#e6398a]/5 border border-[#e6398a]/20 rounded-lg p-3">
                                 <Shield className="h-4 w-4 text-[#e6398a] mt-0.5 flex-shrink-0" />
-                                <p className="text-xs text-zinc-400">{step.safetyNote}</p>
+                                <p className="text-xs text-[#b8b8c2]">{step.safetyNote}</p>
                             </div>
                         )}
 
                         {/* Navigation */}
-                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-zinc-800">
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#2a2a35]">
                             <button
                                 onClick={goPrev}
                                 disabled={currentStep === 0}
-                                className="flex items-center gap-1 text-sm text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                className="flex items-center gap-1 text-sm text-[#b8b8c2] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                             >
                                 <ChevronLeft className="h-4 w-4" />
                                 Back
@@ -395,7 +395,7 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
                                     <button
                                         key={i}
                                         onClick={() => setCurrentStep(i)}
-                                        className={`h-1.5 rounded-full transition-all duration-300 ${i === currentStep ? 'w-4 bg-[#e6398a]' : 'w-1.5 bg-zinc-700 hover:bg-zinc-500'
+                                        className={`h-1.5 rounded-full transition-all duration-300 ${i === currentStep ? 'w-4 bg-[#e6398a]' : 'w-1.5 bg-[#2a2a35] hover:bg-[#2a2a35]'
                                             }`}
                                     />
                                 ))}

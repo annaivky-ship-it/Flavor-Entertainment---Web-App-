@@ -41,8 +41,8 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
         return (
           <div className="flex flex-col items-center justify-center text-center h-[450px]">
             <LoaderCircle className="h-16 w-16 animate-spin text-[#e6398a]" />
-            <p className="mt-4 text-zinc-300 font-semibold text-lg">Submitting Confirmation...</p>
-            <p className="text-zinc-500 text-sm mt-2">Notifying admin of your PayID transfer...</p>
+            <p className="mt-4 text-[#b8b8c2] font-semibold text-lg">Submitting Confirmation...</p>
+            <p className="text-[#8888a0] text-sm mt-2">Notifying admin of your PayID transfer...</p>
           </div>
         );
       case 'success':
@@ -51,8 +51,8 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
             <div className="bg-green-500/20 p-4 rounded-full mb-4">
                 <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
-            <p className="mt-4 text-zinc-100 font-bold text-2xl">Confirmation Sent!</p>
-            <p className="text-zinc-400 mt-2 max-w-xs">Your booking status has been updated. Admin will verify the transfer shortly.</p>
+            <p className="mt-4 text-white font-bold text-2xl">Confirmation Sent!</p>
+            <p className="text-[#b8b8c2] mt-2 max-w-xs">Your booking status has been updated. Admin will verify the transfer shortly.</p>
           </div>
         );
       case 'idle':
@@ -60,34 +60,34 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
         return (
           <>
             <div className="mb-6">
-                <h3 className="text-lg font-bold text-white border-b border-zinc-800 pb-3 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-white border-b border-[#2a2a35] pb-3 flex items-center gap-2">
                     <Shield className="h-5 w-5 text-[#e6398a]" />
                     Secure Deposit Payment
                 </h3>
-                <div className="mt-4 bg-zinc-950/50 rounded-xl p-4 space-y-3 border border-zinc-800/50 text-sm">
+                <div className="mt-4 bg-[#0f0f12]/50 rounded-xl p-4 space-y-3 border border-[#2a2a35]/50 text-sm">
                     <div className="flex justify-between items-start">
-                        <span className="text-zinc-500 flex items-center gap-1.5 min-w-[100px]"><User size={14}/> Performer:</span>
-                        <span className="text-zinc-200 font-semibold text-right">{performerNames}</span>
+                        <span className="text-[#8888a0] flex items-center gap-1.5 min-w-[100px]"><User size={14}/> Performer:</span>
+                        <span className="text-white font-semibold text-right">{performerNames}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                        <span className="text-zinc-500 flex items-center gap-1.5 min-w-[100px]"><PartyPopper size={14}/> Event:</span>
-                        <span className="text-zinc-200 font-semibold">{eventType}</span>
+                        <span className="text-[#8888a0] flex items-center gap-1.5 min-w-[100px]"><PartyPopper size={14}/> Event:</span>
+                        <span className="text-white font-semibold">{eventType}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                        <span className="text-zinc-500 flex items-center gap-1.5 min-w-[100px]"><Calendar size={14}/> Date:</span>
-                        <span className="text-zinc-200 font-semibold">{new Date(eventDate).toLocaleDateString()}</span>
+                        <span className="text-[#8888a0] flex items-center gap-1.5 min-w-[100px]"><Calendar size={14}/> Date:</span>
+                        <span className="text-white font-semibold">{new Date(eventDate).toLocaleDateString()}</span>
                     </div>
                     <div className="flex justify-between items-start">
-                        <span className="text-zinc-500 flex items-center gap-1.5 min-w-[100px]"><MapPin size={14}/> Location:</span>
-                        <span className="text-zinc-200 font-semibold text-right truncate max-w-[180px]">{eventAddress}</span>
+                        <span className="text-[#8888a0] flex items-center gap-1.5 min-w-[100px]"><MapPin size={14}/> Location:</span>
+                        <span className="text-white font-semibold text-right truncate max-w-[180px]">{eventAddress}</span>
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-zinc-800/40 p-3 rounded-lg border border-zinc-800">
-                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Total Value</p>
-                    <p className="text-lg font-bold text-zinc-300">${(totalAmount || 0).toFixed(2)}</p>
+                <div className="bg-[#1a1a22]/40 p-3 rounded-lg border border-[#2a2a35]">
+                    <p className="text-[10px] text-[#8888a0] uppercase font-bold tracking-wider">Total Value</p>
+                    <p className="text-lg font-bold text-[#b8b8c2]">${(totalAmount || 0).toFixed(2)}</p>
                 </div>
                 <div className="bg-[#e6398a]/10 p-3 rounded-lg border border-[#e6398a]/20">
                     <p className="text-[10px] text-[#e6398a]/70 uppercase font-bold tracking-wider">Deposit Due</p>
@@ -96,8 +96,8 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
             </div>
 
             <div className="mb-8">
-                <p className="text-xs text-zinc-500 mb-2 uppercase tracking-widest font-bold">Transfer To (PayID)</p>
-                <div className="bg-zinc-950 p-4 rounded-xl border border-[#e6398a]/20 flex items-center gap-4 relative overflow-hidden group">
+                <p className="text-xs text-[#8888a0] mb-2 uppercase tracking-widest font-bold">Transfer To (PayID)</p>
+                <div className="bg-[#0f0f12] p-4 rounded-xl border border-[#e6398a]/20 flex items-center gap-4 relative overflow-hidden group">
                     <div className="absolute inset-0 bg-[#e6398a]/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="w-12 h-12 bg-[#e6398a] text-white rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#e6398a]/20">
                         <Building2 className="h-6 w-6" />
@@ -117,9 +117,9 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
               Confirm Payment Sent
             </button>
             
-            <div className="mt-6 p-3 rounded-lg bg-zinc-800/30 flex items-start gap-2 border border-zinc-800">
-                <Shield size={14} className="text-zinc-500 mt-0.5 flex-shrink-0" />
-                <p className="text-[10px] text-zinc-500 leading-relaxed italic">
+            <div className="mt-6 p-3 rounded-lg bg-[#1a1a22]/30 flex items-start gap-2 border border-[#2a2a35]">
+                <Shield size={14} className="text-[#8888a0] mt-0.5 flex-shrink-0" />
+                <p className="text-[10px] text-[#8888a0] leading-relaxed italic">
                   Your booking will be confirmed once the admin verifies the receipt of your PayID transfer.
                 </p>
             </div>
@@ -130,8 +130,8 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 animate-fade-in">
-      <div className="card-base !p-8 !bg-[#0f0f11] max-w-md w-full relative shadow-[0_0_50px_rgba(0,0,0,0.5)] border-zinc-800">
-        <button onClick={onClose} disabled={status === 'processing'} className="absolute top-4 right-4 text-zinc-600 hover:text-white transition-colors p-2">
+      <div className="card-base !p-8 !bg-[#0f0f11] max-w-md w-full relative shadow-[0_0_50px_rgba(0,0,0,0.5)] border-[#2a2a35]">
+        <button onClick={onClose} disabled={status === 'processing'} className="absolute top-4 right-4 text-[#8888a0] hover:text-white transition-colors p-2">
             <X className="h-6 w-6" />
         </button>
         <Content />

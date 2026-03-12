@@ -27,10 +27,10 @@ const DidItVerification: React.FC<DidItVerificationProps> = ({ onSuccess, onCanc
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
+      <div className="bg-[#13131a] border border-[#2a2a35] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
         <button
           onClick={onCancel}
-          className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors"
+          className="absolute top-4 right-4 text-[#b8b8c2] hover:text-white transition-colors"
           disabled={step === 'scanning' || step === 'processing' || step === 'success'}
         >
           <X size={20} />
@@ -49,7 +49,7 @@ const DidItVerification: React.FC<DidItVerificationProps> = ({ onSuccess, onCanc
 
           {step === 'intro' && (
             <div className="animate-fade-in">
-              <p className="text-zinc-400 mb-8">
+              <p className="text-[#b8b8c2] mb-8">
                 Hi {clientName}, we use Didit to securely verify your identity. You will need your government-issued ID ready for a quick scan.
               </p>
               <button
@@ -59,7 +59,7 @@ const DidItVerification: React.FC<DidItVerificationProps> = ({ onSuccess, onCanc
                 <Fingerprint size={20} />
                 Start Didit Verification
               </button>
-              <p className="text-xs text-zinc-500 mt-4">
+              <p className="text-xs text-[#8888a0] mt-4">
                 By proceeding, you agree to Didit's{' '}
                 <a href="https://didit.me" target="_blank" rel="noreferrer" className="text-violet-400 underline">
                   Terms of Service and Privacy Policy
@@ -72,7 +72,7 @@ const DidItVerification: React.FC<DidItVerificationProps> = ({ onSuccess, onCanc
             <div className="animate-fade-in py-8">
               <ScanFace className="h-12 w-12 text-violet-400 animate-pulse mx-auto mb-4" />
               <p className="text-lg font-medium text-white mb-2">Connecting to Didit...</p>
-              <p className="text-sm text-zinc-400">Preparing secure biometric environment</p>
+              <p className="text-sm text-[#b8b8c2]">Preparing secure biometric environment</p>
             </div>
           )}
 
@@ -83,7 +83,7 @@ const DidItVerification: React.FC<DidItVerificationProps> = ({ onSuccess, onCanc
                 <Fingerprint className="h-6 w-6 text-violet-400 absolute inset-0 m-auto animate-pulse" />
               </div>
               <p className="text-lg font-medium text-white mb-2">Verifying Identity...</p>
-              <p className="text-sm text-zinc-400">Didit is checking your documents securely</p>
+              <p className="text-sm text-[#b8b8c2]">Didit is checking your documents securely</p>
             </div>
           )}
 
@@ -91,7 +91,7 @@ const DidItVerification: React.FC<DidItVerificationProps> = ({ onSuccess, onCanc
             <div className="animate-fade-in py-8">
               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <p className="text-xl font-bold text-white mb-2">Verification Complete</p>
-              <p className="text-sm text-zinc-400">Your identity has been successfully verified by Didit.</p>
+              <p className="text-sm text-[#b8b8c2]">Your identity has been successfully verified by Didit.</p>
             </div>
           )}
 
@@ -99,10 +99,10 @@ const DidItVerification: React.FC<DidItVerificationProps> = ({ onSuccess, onCanc
             <div className="animate-fade-in py-8">
               <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
               <p className="text-xl font-bold text-white mb-2">Verification Failed</p>
-              <p className="text-sm text-zinc-400 mb-6">We could not verify your identity at this time. Please try again.</p>
+              <p className="text-sm text-[#b8b8c2] mb-6">We could not verify your identity at this time. Please try again.</p>
               <button
                 onClick={() => setStep('intro')}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-xl transition-colors"
+                className="w-full bg-[#1a1a22] hover:bg-[#2a2a35] text-white font-bold py-3 px-4 rounded-xl transition-colors"
               >
                 Try Again
               </button>
@@ -110,9 +110,9 @@ const DidItVerification: React.FC<DidItVerificationProps> = ({ onSuccess, onCanc
           )}
         </div>
 
-        <div className="bg-zinc-950 px-6 py-4 border-t border-zinc-800 flex items-center justify-center gap-2">
+        <div className="bg-[#0f0f12] px-6 py-4 border-t border-[#2a2a35] flex items-center justify-center gap-2">
           <ShieldCheck className="h-4 w-4 text-violet-500" />
-          <span className="text-xs text-zinc-500 font-medium">Secured by</span>
+          <span className="text-xs text-[#8888a0] font-medium">Secured by</span>
           <span className="text-xs text-violet-400 font-bold tracking-wide">Didit</span>
         </div>
       </div>

@@ -84,23 +84,23 @@ const FileUploadField: React.FC<FileUploadFieldProps> = ({ file, setFile, id, la
 
     return (
         <div className="flex-1 min-w-[280px]">
-            <label htmlFor={id} className="block text-sm font-semibold text-zinc-300 mb-2">{label}</label>
-            <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 transition-all duration-300 ${displayError ? 'border-red-500 bg-red-900/10' : file ? 'border-green-500 bg-green-900/10' : 'border-zinc-700 bg-zinc-900/50 hover:border-[#e6398a] hover:bg-zinc-800/50'}`}>
+            <label htmlFor={id} className="block text-sm font-semibold text-[#b8b8c2] mb-2">{label}</label>
+            <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 transition-all duration-300 ${displayError ? 'border-red-500 bg-red-900/10' : file ? 'border-green-500 bg-green-900/10' : 'border-[#2a2a35] bg-[#13131a]/50 hover:border-[#e6398a] hover:bg-[#1a1a22]/50'}`}>
                 {file ? (
                   <div className="text-center animate-fade-in">
                     <CheckCircle className="mx-auto h-10 w-10 text-green-500 mb-2" />
                     <p className="text-sm font-bold text-white truncate max-w-[200px]">{file.name}</p>
-                    <button onClick={() => setFile(null)} className="text-xs text-zinc-500 hover:text-red-400 mt-2 underline">Remove</button>
+                    <button onClick={() => setFile(null)} className="text-xs text-[#8888a0] hover:text-red-400 mt-2 underline">Remove</button>
                   </div>
                 ) : (
                   <div className="text-center">
-                      {icon || <UploadCloud className={`mx-auto h-10 w-10 ${displayError ? 'text-red-400' : 'text-zinc-500'}`} />}
-                      <div className="mt-3 flex flex-col text-sm leading-6 text-zinc-400">
+                      {icon || <UploadCloud className={`mx-auto h-10 w-10 ${displayError ? 'text-red-400' : 'text-[#8888a0]'}`} />}
+                      <div className="mt-3 flex flex-col text-sm leading-6 text-[#b8b8c2]">
                           <label htmlFor={id} className="relative cursor-pointer rounded-md font-semibold text-[#e6398a] hover:text-[#e6398a] transition-colors">
                               <span>Upload Photo</span>
                               <input id={id} name={id} type="file" className="sr-only" onChange={handleFileChange} accept={accept} />
                           </label>
-                          <p className="text-xs text-zinc-500">JPG, PNG up to 10MB</p>
+                          <p className="text-xs text-[#8888a0]">JPG, PNG up to 10MB</p>
                       </div>
                   </div>
                 )}
@@ -133,7 +133,7 @@ const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children
     <div className="bg-black/40 backdrop-blur-md p-8 sm:p-12 rounded-2xl border border-white/10 shadow-2xl max-w-2xl w-full">
         <Icon className={`mx-auto h-20 w-20 mb-6 ${Icon === LoaderCircle ? 'animate-spin text-[#e6398a]' : 'text-[#e6398a]'}`} />
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">{title}</h2>
-        <div className="text-zinc-300 mt-2 mb-8 max-w-lg mx-auto leading-relaxed">
+        <div className="text-[#b8b8c2] mt-2 mb-8 max-w-lg mx-auto leading-relaxed">
           {children}
         </div>
         <button onClick={onButtonClick} className="btn-primary px-8 py-3 text-lg">
@@ -159,8 +159,8 @@ const ProgressIndicator: React.FC<{ currentStep: number }> = ({ currentStep }) =
 
                 return (
                     <li key={step.name} className="md:flex-1">
-                        <div className={`group flex flex-col border-l-4 py-2 pl-4 transition-colors md:border-l-0 md:border-t-4 md:pl-0 md:pt-4 md:pb-0 ${isCompleted ? 'border-[#e6398a]' : isCurrent ? 'border-[#e6398a]' : 'border-zinc-700'}`}>
-                            <span className={`text-sm font-medium transition-colors ${isCompleted ? 'text-[#e6398a]' : isCurrent ? 'text-[#e6398a]' : 'text-zinc-400'}`}>
+                        <div className={`group flex flex-col border-l-4 py-2 pl-4 transition-colors md:border-l-0 md:border-t-4 md:pl-0 md:pt-4 md:pb-0 ${isCompleted ? 'border-[#e6398a]' : isCurrent ? 'border-[#e6398a]' : 'border-[#2a2a35]'}`}>
+                            <span className={`text-sm font-medium transition-colors ${isCompleted ? 'text-[#e6398a]' : isCurrent ? 'text-[#e6398a]' : 'text-[#b8b8c2]'}`}>
                                 Step {step.id}
                             </span>
                             <span className="text-sm font-medium text-white">{step.name}</span>
@@ -449,11 +449,11 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     return (
         <div className="animate-fade-in max-w-4xl mx-auto pb-12">
             <div className="mb-8 flex items-center justify-between px-2">
-                <button onClick={handleBack} className="text-zinc-400 hover:text-white flex items-center gap-2 transition-colors">
+                <button onClick={handleBack} className="text-[#b8b8c2] hover:text-white flex items-center gap-2 transition-colors">
                     <ArrowLeft size={20} /> Back
                 </button>
                 <div className="text-right">
-                    <p className="text-sm text-zinc-500 uppercase font-bold">Booking Request</p>
+                    <p className="text-sm text-[#8888a0] uppercase font-bold">Booking Request</p>
                     <p className="text-[#e6398a] font-bold">{performers.map(p => p.name).join(' & ')}</p>
                 </div>
             </div>
@@ -462,7 +462,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
-                    <div className="card-base !p-6 sm:!p-10 shadow-2xl border-zinc-800/50">
+                    <div className="card-base !p-6 sm:!p-10 shadow-2xl border-[#2a2a35]/50">
                         <ErrorDisplay message={error} />
                         
                         {currentStep === 1 && (
@@ -488,26 +488,26 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                     <InputField icon={<Calendar />} label="Event Date" type="date" name="eventDate" min={todayStr} value={form.eventDate} onChange={handleChange} required error={fieldErrors.eventDate} />
                                     <InputField icon={<Clock />} label="Start Time" type="time" name="eventTime" value={form.eventTime} onChange={handleChange} required error={fieldErrors.eventTime} />
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-400 mb-1">Duration (Hours)</label>
+                                        <label className="block text-sm font-medium text-[#b8b8c2] mb-1">Duration (Hours)</label>
                                         <div className="relative">
                                             <select name="duration" value={form.duration} onChange={handleChange} className="input-base !pl-12 appearance-none">
                                                 {[1, 1.5, 2, 2.5, 3, 4, 5, 6].map(h => <option key={h} value={h}>{h} Hour{h !== 1 ? 's' : ''}</option>)}
                                             </select>
-                                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
-                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0] pointer-events-none" />
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0] pointer-events-none" />
                                         </div>
                                     </div>
                                     <InputField icon={<UsersIcon />} label="Guest Count" type="number" name="numberOfGuests" value={form.numberOfGuests} onChange={handleChange} required error={fieldErrors.numberOfGuests} />
                                     <InputField icon={<MapPin />} label="Event Address" name="eventAddress" value={form.eventAddress} onChange={handleChange} required error={fieldErrors.eventAddress} />
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-400 mb-1">Event Type</label>
+                                        <label className="block text-sm font-medium text-[#b8b8c2] mb-1">Event Type</label>
                                         <div className="relative">
                                             <select name="eventType" value={form.eventType} onChange={handleChange} className="input-base !pl-12 appearance-none">
                                                 <option value="" disabled>Select event type</option>
                                                 {eventTypes.map(type => <option key={type} value={type}>{type}</option>)}
                                             </select>
-                                            <PartyPopper className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
-                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                            <PartyPopper className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0] pointer-events-none" />
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0] pointer-events-none" />
                                         </div>
                                     </div>
                                 </div>
@@ -525,15 +525,15 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                                 {services.map(service => {
                                                     const isSelected = form.selectedServices.includes(service.id);
                                                     return (
-                                                        <div key={service.id} onClick={() => handleServiceChange(service.id)} className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center group ${isSelected ? 'bg-[#e6398a]/10 border-[#e6398a]' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'}`}>
+                                                        <div key={service.id} onClick={() => handleServiceChange(service.id)} className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center group ${isSelected ? 'bg-[#e6398a]/10 border-[#e6398a]' : 'bg-[#13131a] border-[#2a2a35] hover:border-[#2a2a35]'}`}>
                                                             <div className="flex-1">
-                                                                <p className={`font-bold ${isSelected ? 'text-[#e6398a]' : 'text-zinc-200'}`}>{service.name}</p>
-                                                                <p className="text-xs text-zinc-500">{service.description}</p>
+                                                                <p className={`font-bold ${isSelected ? 'text-[#e6398a]' : 'text-white'}`}>{service.name}</p>
+                                                                <p className="text-xs text-[#8888a0]">{service.description}</p>
                                                             </div>
                                                             <div className="ml-4 text-right flex flex-col items-end gap-1">
-                                                                 <span className="text-sm font-bold block text-zinc-300">${service.rate}{service.rate_type === 'per_hour' ? '/hr' : ''}</span>
+                                                                 <span className="text-sm font-bold block text-[#b8b8c2]">${service.rate}{service.rate_type === 'per_hour' ? '/hr' : ''}</span>
                                                                  {(service.duration_minutes || service.min_duration_hours) && (
-                                                                   <span className="text-xs text-zinc-500 font-medium">
+                                                                   <span className="text-xs text-[#8888a0] font-medium">
                                                                      {service.duration_minutes ? `${service.duration_minutes} mins` : `Min ${service.min_duration_hours} hr${service.min_duration_hours! > 1 ? 's' : ''}`}
                                                                    </span>
                                                                  )}
@@ -546,13 +546,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                         </div>
                                      ))}
                                 </div>
-                                <div className="mt-8"><label className="block text-sm font-medium text-zinc-400 mb-2">Special Notes (Optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-24 resize-none" /></div>
+                                <div className="mt-8"><label className="block text-sm font-medium text-[#b8b8c2] mb-2">Special Notes (Optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-24 resize-none" /></div>
                             </div>
                         )}
 
                         {currentStep === 3 && (
                             <div className="space-y-8 animate-fade-in">
-                                <div className="mb-6"><h2 className="text-2xl font-bold text-white mb-2">Safety Verification</h2><p className="text-zinc-400">To protect our performers, we require all new clients to verify their identity.</p></div>
+                                <div className="mb-6"><h2 className="text-2xl font-bold text-white mb-2">Safety Verification</h2><p className="text-[#b8b8c2]">To protect our performers, we require all new clients to verify their identity.</p></div>
                                 {isVerifiedBooker ? (
                                    <div className="p-8 bg-green-900/20 border border-green-500/50 rounded-2xl text-center space-y-4"><CheckCircle className="h-16 w-16 text-green-500 mx-auto" /><h3 className="text-2xl font-bold text-white">Verified Trust Status</h3><p className="text-green-200">You are pre-cleared for this booking. Proceed to confirmation.</p></div>
                                 ) : (
@@ -567,16 +567,16 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                             </div>
                                         </div>
                                         
-                                        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-zinc-700 rounded-2xl bg-zinc-900/50">
+                                        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#2a2a35] rounded-2xl bg-[#13131a]/50">
                                             {isDidItVerified ? (
                                                 <div className="text-center animate-fade-in">
                                                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                                                     <h3 className="text-xl font-bold text-white mb-2">Identity Verified</h3>
-                                                    <p className="text-zinc-400">Your identity has been successfully verified via Didit.</p>
+                                                    <p className="text-[#b8b8c2]">Your identity has been successfully verified via Didit.</p>
                                                 </div>
                                             ) : (
                                                 <div className="text-center">
-                                                    <ShieldCheck className="h-16 w-16 text-zinc-600 mx-auto mb-4" />
+                                                    <ShieldCheck className="h-16 w-16 text-[#8888a0] mx-auto mb-4" />
                                                     <h3 className="text-xl font-bold text-white mb-4">Verify Your Identity</h3>
                                                     <button
                                                         onClick={() => setShowDidItModal(true)}
@@ -594,10 +594,10 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                             )}
                                         </div>
 
-                                        <div className="space-y-4 pt-6 border-t border-zinc-800">
-                                             <label className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-700 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors">
-                                                <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-6 w-6 rounded border-zinc-700 bg-zinc-900 text-[#e6398a] focus:ring-[#e6398a]" />
-                                                <span className="text-sm text-zinc-300">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-[#e6398a] underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-[#e6398a] underline">Privacy Policy</a>. I am 18+.</span>
+                                        <div className="space-y-4 pt-6 border-t border-[#2a2a35]">
+                                             <label className="flex items-center gap-4 p-4 bg-[#13131a] border border-[#2a2a35] rounded-xl cursor-pointer hover:bg-[#1a1a22] transition-colors">
+                                                <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-6 w-6 rounded border-[#2a2a35] bg-[#13131a] text-[#e6398a] focus:ring-[#e6398a]" />
+                                                <span className="text-sm text-[#b8b8c2]">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-[#e6398a] underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-[#e6398a] underline">Privacy Policy</a>. I am 18+.</span>
                                             </label>
                                             {fieldErrors.agreedTerms && <p className="text-xs text-red-400 font-medium pl-1">Agreement required.</p>}
                                         </div>
@@ -606,10 +606,10 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                             </div>
                         )}
 
-                        <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                        <div className="mt-12 pt-8 border-t border-[#2a2a35] flex flex-col sm:flex-row gap-4 items-center justify-between">
                             <div className="text-sm text-[#8888a0]">Step {currentStep} of 3</div>
                             <div className="flex gap-4 w-full sm:w-auto">
-                                <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-lg transition-colors">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
+                                <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-[#1a1a22] hover:bg-[#2a2a35] text-white font-semibold rounded-lg transition-colors">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
                                 <button onClick={handleNext} disabled={isSubmitting} className="flex-1 sm:flex-none btn-primary px-8 py-3 flex items-center justify-center gap-2">
                                     {isSubmitting ? <LoaderCircle className="animate-spin" /> : currentStep === 3 ? <Send size={18} /> : null}
                                     {isSubmitting ? 'Processing...' : currentStep === 3 ? 'Review & Submit' : 'Continue'}
@@ -629,39 +629,39 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         />
                         
                         {currentStep > 1 && (
-                            <div className="card-base mt-6 !p-6 !bg-zinc-900/50 border-zinc-800/50 animate-fade-in">
+                            <div className="card-base mt-6 !p-6 !bg-[#13131a]/50 border-[#2a2a35]/50 animate-fade-in">
                                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                                     <Info size={18} className="text-[#e6398a]" /> Booking Summary
                                 </h3>
                                 <div className="space-y-3 text-sm">
                                     {form.eventDate && (
                                         <div className="flex justify-between">
-                                            <span className="text-zinc-500">Date:</span>
-                                            <span className="text-zinc-200">{new Date(form.eventDate).toLocaleDateString()}</span>
+                                            <span className="text-[#8888a0]">Date:</span>
+                                            <span className="text-white">{new Date(form.eventDate).toLocaleDateString()}</span>
                                         </div>
                                     )}
                                     {form.eventTime && (
                                         <div className="flex justify-between">
-                                            <span className="text-zinc-500">Time:</span>
-                                            <span className="text-zinc-200">{form.eventTime}</span>
+                                            <span className="text-[#8888a0]">Time:</span>
+                                            <span className="text-white">{form.eventTime}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between">
-                                        <span className="text-zinc-500">Duration:</span>
-                                        <span className="text-zinc-200">{form.duration} Hours</span>
+                                        <span className="text-[#8888a0]">Duration:</span>
+                                        <span className="text-white">{form.duration} Hours</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-zinc-500">Performers:</span>
-                                        <span className="text-zinc-200">{performers.length}</span>
+                                        <span className="text-[#8888a0]">Performers:</span>
+                                        <span className="text-white">{performers.length}</span>
                                     </div>
                                     {form.selectedServices.length > 0 && (
-                                        <div className="pt-2 border-t border-zinc-800">
-                                            <span className="text-zinc-500 block mb-1">Services:</span>
+                                        <div className="pt-2 border-t border-[#2a2a35]">
+                                            <span className="text-[#8888a0] block mb-1">Services:</span>
                                             <div className="flex flex-wrap gap-1">
                                                 {form.selectedServices.map(id => {
                                                     const s = allServices.find(srv => srv.id === id);
                                                     return s ? (
-                                                        <span key={id} className="px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded text-[10px] border border-zinc-700">
+                                                        <span key={id} className="px-2 py-0.5 bg-[#1a1a22] text-[#b8b8c2] rounded text-[10px] border border-[#2a2a35]">
                                                             {s.name}
                                                         </span>
                                                     ) : null;

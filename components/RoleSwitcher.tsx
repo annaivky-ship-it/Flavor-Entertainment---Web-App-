@@ -13,7 +13,7 @@ interface RoleSwitcherProps {
 const SelectWrapper: React.FC<{children: React.ReactNode}> = ({ children }) => (
     <div className="relative">
         {children}
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 sm:pr-3 text-zinc-400">
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 sm:pr-3 text-[#b8b8c2]">
           <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
         </div>
     </div>
@@ -26,7 +26,7 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ currentRole, onRoleChange, 
     { id: 'admin', name: 'Admin', icon: <Shield className="h-4 w-4 mr-2" /> },
   ];
   
-  const selectClass = "bg-zinc-800 border border-zinc-700 text-white text-[10px] sm:text-sm rounded-md focus:ring-[#e6398a] focus:border-[#e6398a] block w-full pl-2 sm:pl-3 pr-6 sm:pr-10 py-1.5 sm:py-2 appearance-none transition-colors hover:bg-zinc-700";
+  const selectClass = "bg-[#1a1a22] border border-[#2a2a35] text-white text-[10px] sm:text-sm rounded-md focus:ring-[#e6398a] focus:border-[#e6398a] block w-full pl-2 sm:pl-3 pr-6 sm:pr-10 py-1.5 sm:py-2 appearance-none transition-colors hover:bg-[#2a2a35]";
 
   return (
     <div className="flex items-center gap-1 sm:gap-2">

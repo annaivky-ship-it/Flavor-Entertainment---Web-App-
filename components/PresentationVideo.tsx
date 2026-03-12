@@ -22,7 +22,7 @@ const scenes = [
     vo: "You're stuck managing logistics instead of growing your business. What if you could automate the chaos and focus on what matters?",
     visuals: () => (
       <div className="flex items-center gap-8">
-        <div className="text-zinc-500 text-center"><p>Old Way</p><BarChartHorizontal size={80} /></div>
+        <div className="text-[#8888a0] text-center"><p>Old Way</p><BarChartHorizontal size={80} /></div>
         <FastForward size={40} className="text-[#e6398a]" />
         <div className="text-green-400 text-center"><p>New Way</p><BarChartHorizontal size={80} className="transform -scale-y-100"/></div>
       </div>
@@ -73,7 +73,7 @@ const scenes = [
             <span className="text-6xl mx-[-0.15em] relative" style={{top: "-0.05em"}}>🍑</span>
             <span className="font-logo-main text-6xl tracking-wider">R</span>
         </div>
-        <span className="font-logo-sub text-3xl text-zinc-400 -mt-2 ml-1 tracking-wide">entertainers</span>
+        <span className="font-logo-sub text-3xl text-[#b8b8c2] -mt-2 ml-1 tracking-wide">entertainers</span>
       </div>
     ),
   },
@@ -140,7 +140,7 @@ const PresentationVideo: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 flex flex-col p-4 sm:p-8 animate-fade-in">
       <div className="absolute top-4 right-4 flex items-center gap-2">
-        <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors p-2 rounded-full bg-black/30">
+        <button onClick={onClose} className="text-[#b8b8c2] hover:text-white transition-colors p-2 rounded-full bg-black/30">
           <X size={24} />
         </button>
       </div>
@@ -150,23 +150,23 @@ const PresentationVideo: React.FC<{ onClose: () => void }> = ({ onClose }) => {
            <div key={index} className={`absolute inset-0 flex flex-col items-center justify-center gap-8 p-4 transition-opacity duration-700 ${index === sceneIndex ? 'opacity-100' : 'opacity-0'}`}>
               <h2 className="text-2xl sm:text-3xl font-bold text-[#e6398a]">{scene.title}</h2>
               <div className="min-h-[128px] flex items-center justify-center">{scene.visuals()}</div>
-              <p className="max-w-3xl text-lg sm:text-xl text-zinc-200 leading-relaxed">{scene.vo}</p>
+              <p className="max-w-3xl text-lg sm:text-xl text-white leading-relaxed">{scene.vo}</p>
            </div>
         ))}
       </div>
 
       <div className="flex-shrink-0 mt-8">
-        <div className="w-full bg-zinc-700 rounded-full h-2.5">
+        <div className="w-full bg-[#2a2a35] rounded-full h-2.5">
           <div className="bg-[#e6398a] h-2.5 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.1s linear' }}></div>
         </div>
         <div className="flex items-center justify-center gap-6 mt-4">
-          <button onClick={handleRestart} className="text-zinc-300 hover:text-white transition-colors">
+          <button onClick={handleRestart} className="text-[#b8b8c2] hover:text-white transition-colors">
             <RefreshCcw size={28} />
           </button>
           <button onClick={() => setIsPlaying(!isPlaying)} className="text-white p-3 bg-[#e6398a] hover:bg-[#d42d7b] rounded-full">
             {isPlaying ? <Pause size={32} className="ml-0.5" /> : <Play size={32} className="ml-1" />}
           </button>
-          <div className="text-zinc-300 font-mono w-16 text-left">
+          <div className="text-[#b8b8c2] font-mono w-16 text-left">
              {Math.floor((progress / 100) * TOTAL_DURATION).toFixed(0).padStart(2, '0')}:{TOTAL_DURATION}
           </div>
         </div>

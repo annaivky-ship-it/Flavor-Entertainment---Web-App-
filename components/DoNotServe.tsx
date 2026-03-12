@@ -72,20 +72,20 @@ const DoNotServe: React.FC<DoNotServeProps> = ({ role, currentPerformer, doNotSe
     const statusClasses: Record<DoNotServeEntry['status'], string> = {
       pending: 'bg-yellow-500/20 text-yellow-300',
       approved: 'bg-red-500/20 text-red-300',
-      rejected: 'bg-zinc-500/20 text-zinc-400'
+      rejected: 'bg-[#2a2a35]/20 text-[#b8b8c2]'
     };
 
 
     return (
         <div className="animate-fade-in space-y-8">
-            <button onClick={onBack} className="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors duration-300 flex items-center gap-2">
+            <button onClick={onBack} className="bg-[#1a1a22] hover:bg-[#2a2a35] text-white font-semibold px-6 py-2 rounded-lg transition-colors duration-300 flex items-center gap-2">
                 <ArrowLeft className="h-5 w-5" />
                 Back to Dashboard
             </button>
             
             <div className="text-center">
                  <h1 className="text-3xl sm:text-4xl font-bold text-white">'Do Not Serve' List</h1>
-                 <p className="text-zinc-400 mt-2 max-w-2xl mx-auto">A shared resource for performer safety. Submissions are reviewed by an admin before being made public to performers.</p>
+                 <p className="text-[#b8b8c2] mt-2 max-w-2xl mx-auto">A shared resource for performer safety. Submissions are reviewed by an admin before being made public to performers.</p>
             </div>
             
             {role !== 'user' && (
@@ -97,7 +97,7 @@ const DoNotServe: React.FC<DoNotServeProps> = ({ role, currentPerformer, doNotSe
                          <InputField icon={<Mail />} name="client_email" type="email" placeholder="Client Email" value={form.client_email} onChange={handleChange} />
                          <InputField icon={<Phone />} name="client_phone" type="tel" placeholder="Client Phone" value={form.client_phone} onChange={handleChange} />
                          <div className="relative">
-                            <FileText className="absolute left-4 top-4 h-5 w-5 text-zinc-500" />
+                            <FileText className="absolute left-4 top-4 h-5 w-5 text-[#8888a0]" />
                             <textarea
                                 name="reason"
                                 placeholder="Reason for submission (required)"
@@ -123,28 +123,28 @@ const DoNotServe: React.FC<DoNotServeProps> = ({ role, currentPerformer, doNotSe
                  <div className="space-y-4">
                      {filteredList.length > 0 ? (
                         filteredList.map(entry => (
-                           <div key={entry.id} className="bg-zinc-900/70 p-4 rounded-lg border border-zinc-700/50">
+                           <div key={entry.id} className="bg-[#13131a]/70 p-4 rounded-lg border border-[#2a2a35]/50">
                                 <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2">
                                     <div>
                                         <p className="font-bold text-lg text-white">{entry.client_name}</p>
-                                        <p className="text-sm text-zinc-400">Email: {entry.client_email || 'N/A'}</p>
-                                        <p className="text-sm text-zinc-400">Phone: {entry.client_phone || 'N/A'}</p>
+                                        <p className="text-sm text-[#b8b8c2]">Email: {entry.client_email || 'N/A'}</p>
+                                        <p className="text-sm text-[#b8b8c2]">Phone: {entry.client_phone || 'N/A'}</p>
                                     </div>
                                     <div className="flex-shrink-0 flex items-center gap-4">
                                         {role === 'admin' && (
                                             <span className={`capitalize text-xs font-semibold px-3 py-1 rounded-full ${statusClasses[entry.status]}`}>{entry.status}</span>
                                         )}
-                                        <div className="text-sm text-zinc-500 text-right">
+                                        <div className="text-sm text-[#8888a0] text-right">
                                             <p>Submitted by: {entry.performer?.name || 'Admin'}</p>
                                             <p>{new Date(entry.created_at).toLocaleDateString()}</p>
                                         </div>
                                     </div>
                                 </div>
-                                <p className="mt-3 pt-3 border-t border-zinc-800 text-zinc-300 italic">"{entry.reason}"</p>
+                                <p className="mt-3 pt-3 border-t border-[#2a2a35] text-[#b8b8c2] italic">"{entry.reason}"</p>
                            </div>
                         ))
                      ) : (
-                        <p className="text-center text-zinc-500 py-8">No entries found.</p>
+                        <p className="text-center text-[#8888a0] py-8">No entries found.</p>
                      )}
                  </div>
             </div>

@@ -14,9 +14,9 @@ const InputField: React.FC<InputFieldProps> = ({ icon, label, error, className =
 
     return (
         <div className="w-full">
-            {label && <label htmlFor={inputId} className="block text-sm font-medium text-zinc-400 mb-1">{label}</label>}
+            {label && <label htmlFor={inputId} className="block text-sm font-medium text-[#b8b8c2] mb-1">{label}</label>}
             <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true">{icon}</div>
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0]" aria-hidden="true">{icon}</div>
                 <input
                     id={inputId}
                     aria-label={!label ? (props.placeholder || props.name) : undefined}

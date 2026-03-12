@@ -29,9 +29,9 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-black flex items-center justify-center p-4">
           <div className="card-base max-w-lg w-full text-center p-8">
             <h1 className="text-3xl font-bold text-red-500 mb-4">Something went wrong</h1>
-            <p className="text-zinc-400 mb-6">An unexpected error occurred. Our team has been notified.</p>
+            <p className="text-[#b8b8c2] mb-6">An unexpected error occurred. Our team has been notified.</p>
             {this.state.error && (
-              <pre className="text-left bg-zinc-900 p-4 rounded-lg text-sm text-red-400 overflow-auto mb-6">
+              <pre className="text-left bg-[#13131a] p-4 rounded-lg text-sm text-red-400 overflow-auto mb-6">
                 {this.state.error.message}
               </pre>
             )}

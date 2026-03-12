@@ -8,10 +8,10 @@ interface PrivacyPolicyProps {
 const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="card-base !p-0 !bg-zinc-900 max-w-3xl w-full flex flex-col max-h-[90vh] shadow-2xl shadow-black/50">
-        <div className="flex-shrink-0 p-6 flex justify-between items-center border-b border-zinc-800">
+      <div className="card-base !p-0 !bg-[#13131a] max-w-3xl w-full flex flex-col max-h-[90vh] shadow-2xl shadow-black/50">
+        <div className="flex-shrink-0 p-6 flex justify-between items-center border-b border-[#2a2a35]">
           <h2 className="text-2xl font-bold text-white">Privacy Policy</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-[#8888a0] hover:text-white transition-colors">
             <X className="h-6 w-6" />
           </button>
         </div>
@@ -59,7 +59,7 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onClose }) => {
           <h3>9. Contact Us</h3>
           <p>If you have any questions about this Privacy Policy, please contact us through our official communication channels.</p>
         </div>
-        <div className="flex-shrink-0 p-4 bg-zinc-950/50 border-t border-zinc-800 text-right">
+        <div className="flex-shrink-0 p-4 bg-[#0f0f12]/50 border-t border-[#2a2a35] text-right">
             <button onClick={onClose} className="btn-primary px-6 py-2">
                 Close
             </button>

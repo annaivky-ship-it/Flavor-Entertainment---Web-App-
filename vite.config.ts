@@ -21,8 +21,8 @@ export default defineConfig(({ mode }) => {
             name: 'Flavor Entertainers',
             short_name: 'Flavor',
             description: 'Premium Entertainment Booking',
-            theme_color: '#F97316',
-            background_color: '#0A0A0A',
+            theme_color: '#e6398a',
+            background_color: '#0f0f12',
             display: 'standalone',
             icons: [
               {

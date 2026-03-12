@@ -33,10 +33,10 @@ const DemoPhone: React.FC<DemoPhoneProps> = ({ message, onClose }) => {
 
   return (
     <div
-      className={`fixed bottom-4 right-4 w-80 h-[500px] bg-black rounded-[40px] border-[10px] border-zinc-800 shadow-2xl z-50 overflow-hidden phone-popup-transition ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}
+      className={`fixed bottom-4 right-4 w-80 h-[500px] bg-black rounded-[40px] border-[10px] border-[#2a2a35] shadow-2xl z-50 overflow-hidden phone-popup-transition ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}
     >
       {/* Notch */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-zinc-800 rounded-b-xl"></div>
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a22] rounded-b-xl"></div>
       
       {/* Status Bar */}
       <div className="absolute top-0 left-0 right-0 h-8 px-4 flex justify-between items-center text-white text-xs z-10">
@@ -48,9 +48,9 @@ const DemoPhone: React.FC<DemoPhoneProps> = ({ message, onClose }) => {
       </div>
       
       {/* App Content */}
-      <div className="mt-8 bg-zinc-900 h-[calc(100%-32px)] flex flex-col">
+      <div className="mt-8 bg-[#13131a] h-[calc(100%-32px)] flex flex-col">
         {/* Header */}
-        <div className="bg-zinc-800/80 backdrop-blur-sm p-3 flex items-center justify-between border-b border-zinc-700 flex-shrink-0">
+        <div className="bg-[#1a1a22]/80 backdrop-blur-sm p-3 flex items-center justify-between border-b border-[#2a2a35] flex-shrink-0">
           <div className="flex items-center gap-2">
              <div className="w-8 h-8 rounded-full bg-[#e6398a] flex items-center justify-center font-bold text-white">
                 {message.for.charAt(0)}
@@ -60,7 +60,7 @@ const DemoPhone: React.FC<DemoPhoneProps> = ({ message, onClose }) => {
                 <p className="text-xs text-green-400">via Flavor Messaging</p>
              </div>
           </div>
-          <button onClick={handleClose} className="text-zinc-400 hover:text-white">
+          <button onClick={handleClose} className="text-[#b8b8c2] hover:text-white">
             <X size={20} />
           </button>
         </div>
@@ -80,7 +80,7 @@ const DemoPhone: React.FC<DemoPhoneProps> = ({ message, onClose }) => {
                 <button
                   key={index}
                   onClick={() => handleActionClick(action.onClick)}
-                  className={`w-full text-center rounded-lg p-2.5 text-sm font-semibold transition-colors ${action.style === 'secondary' ? 'bg-zinc-600 text-white hover:bg-zinc-500' : 'bg-blue-500 text-white hover:bg-blue-400'}`}
+                  className={`w-full text-center rounded-lg p-2.5 text-sm font-semibold transition-colors ${action.style === 'secondary' ? 'bg-[#2a2a35] text-white hover:bg-[#2a2a35]' : 'bg-blue-500 text-white hover:bg-blue-400'}`}
                 >
                   {action.label}
                 </button>
@@ -91,7 +91,7 @@ const DemoPhone: React.FC<DemoPhoneProps> = ({ message, onClose }) => {
         
         {/* Home Bar */}
         <div className="p-2 flex-shrink-0">
-          <div className="w-32 h-1.5 bg-zinc-600 rounded-full mx-auto"></div>
+          <div className="w-32 h-1.5 bg-[#2a2a35] rounded-full mx-auto"></div>
         </div>
       </div>
     </div>

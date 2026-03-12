@@ -24,7 +24,7 @@ const ServicesGallery: React.FC<ServicesGalleryProps> = ({ onBookService }) => {
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-4 tracking-tight">
           Our Services
         </h1>
-        <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
+        <p className="text-lg text-[#b8b8c2] max-w-2xl mx-auto">
           Explore our range of professional services. Click 'Book Now' to find performers who offer your desired experience.
         </p>
       </div>
@@ -50,13 +50,13 @@ const ServicesGallery: React.FC<ServicesGalleryProps> = ({ onBookService }) => {
                              {service.rate_type === 'per_hour' ? '/hr' : ''}
                          </span>
                          {(service.duration_minutes || service.min_duration_hours) && (
-                           <span className="text-xs text-zinc-400 font-medium">
+                           <span className="text-xs text-[#b8b8c2] font-medium">
                              {service.duration_minutes ? `${service.duration_minutes} mins` : `Min ${service.min_duration_hours} hr${service.min_duration_hours! > 1 ? 's' : ''}`}
                            </span>
                          )}
                        </div>
                     </div>
-                    <p className="text-zinc-400 text-sm mb-4">
+                    <p className="text-[#b8b8c2] text-sm mb-4">
                       {service.description}
                     </p>
                   </div>

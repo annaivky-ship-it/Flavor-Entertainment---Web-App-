@@ -28,16 +28,16 @@ const FAQItem: React.FC<{ question: string; answer: string }> = ({ question, ans
   const [isOpen, setIsOpen] = React.useState(false);
 
   return (
-    <div className="border-b border-zinc-800 last:border-0">
+    <div className="border-b border-[#2a2a35] last:border-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full py-6 flex items-center justify-between text-left hover:text-[#e6398a] transition-colors"
       >
         <span className="text-lg font-semibold text-white">{question}</span>
-        {isOpen ? <ChevronUp className="text-zinc-500" /> : <ChevronDown className="text-zinc-500" />}
+        {isOpen ? <ChevronUp className="text-[#8888a0]" /> : <ChevronDown className="text-[#8888a0]" />}
       </button>
       {isOpen && (
-        <div className="pb-6 text-zinc-400 leading-relaxed animate-fade-in">
+        <div className="pb-6 text-[#b8b8c2] leading-relaxed animate-fade-in">
           {answer}
         </div>
       )}
@@ -54,7 +54,7 @@ const FAQ: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
         <div>
           <h1 className="text-4xl font-bold text-white">Frequently Asked Questions</h1>
-          <p className="text-zinc-400 mt-1">Everything you need to know about Flavor Entertainers.</p>
+          <p className="text-[#b8b8c2] mt-1">Everything you need to know about Flavor Entertainers.</p>
         </div>
       </div>
 
@@ -67,7 +67,7 @@ const FAQ: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       </div>
 
       <div className="mt-12 text-center">
-        <p className="text-zinc-500 mb-6">Still have questions?</p>
+        <p className="text-[#8888a0] mb-6">Still have questions?</p>
         <button
           onClick={onBack}
           className="btn-primary"

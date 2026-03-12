@@ -32,31 +32,31 @@ const BookingConfirmationDialog: React.FC<BookingConfirmationDialogProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="card-base !p-0 !bg-zinc-900 max-w-2xl w-full flex flex-col max-h-[90vh] shadow-2xl shadow-black/50">
-        <div className="flex-shrink-0 p-6 flex justify-between items-center border-b border-zinc-800">
+      <div className="card-base !p-0 !bg-[#13131a] max-w-2xl w-full flex flex-col max-h-[90vh] shadow-2xl shadow-black/50">
+        <div className="flex-shrink-0 p-6 flex justify-between items-center border-b border-[#2a2a35]">
           <h2 className="text-2xl font-bold text-white">Please Confirm Your Booking</h2>
-          <button onClick={onClose} disabled={isLoading} className="text-zinc-500 hover:text-white transition-colors">
+          <button onClick={onClose} disabled={isLoading} className="text-[#8888a0] hover:text-white transition-colors">
             <X className="h-6 w-6" />
           </button>
         </div>
 
         <div className="flex-grow p-6 sm:p-8 overflow-y-auto space-y-6">
-            <p className="text-zinc-300">Please review the details below before submitting your request. This is your final chance to make changes.</p>
+            <p className="text-[#b8b8c2]">Please review the details below before submitting your request. This is your final chance to make changes.</p>
 
             <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-[#e6398a] border-b border-zinc-700 pb-2">Booking Summary</h3>
+                <h3 className="text-lg font-semibold text-[#e6398a] border-b border-[#2a2a35] pb-2">Booking Summary</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                    <div><strong className="text-zinc-400 block">Performer(s):</strong> <span className="text-white">{bookingDetails.performers.map(p => p.name).join(', ')}</span></div>
-                    <div><strong className="text-zinc-400 block">Date & Time:</strong> <span className="text-white">{new Date(bookingDetails.eventDate).toLocaleDateString()} at {bookingDetails.eventTime}</span></div>
-                    <div className="col-span-full"><strong className="text-zinc-400 block">Address:</strong> <span className="text-white">{bookingDetails.eventAddress}</span></div>
-                    <div className="col-span-full"><strong className="text-zinc-400 block">Services:</strong> <span className="text-white">{bookingDetails.selectedServices.join(', ')}</span></div>
-                     <div><strong className="text-zinc-400 block">Est. Total Duration:</strong> <span className="text-white">{bookingDetails.eventDuration}</span></div>
+                    <div><strong className="text-[#b8b8c2] block">Performer(s):</strong> <span className="text-white">{bookingDetails.performers.map(p => p.name).join(', ')}</span></div>
+                    <div><strong className="text-[#b8b8c2] block">Date & Time:</strong> <span className="text-white">{new Date(bookingDetails.eventDate).toLocaleDateString()} at {bookingDetails.eventTime}</span></div>
+                    <div className="col-span-full"><strong className="text-[#b8b8c2] block">Address:</strong> <span className="text-white">{bookingDetails.eventAddress}</span></div>
+                    <div className="col-span-full"><strong className="text-[#b8b8c2] block">Services:</strong> <span className="text-white">{bookingDetails.selectedServices.join(', ')}</span></div>
+                     <div><strong className="text-[#b8b8c2] block">Est. Total Duration:</strong> <span className="text-white">{bookingDetails.eventDuration}</span></div>
                 </div>
             </div>
 
             <div className="space-y-4">
-                 <h3 className="text-lg font-semibold text-[#e6398a] border-b border-zinc-700 pb-2">Cost Summary</h3>
-                 <div className="space-y-2 text-zinc-300">
+                 <h3 className="text-lg font-semibold text-[#e6398a] border-b border-[#2a2a35] pb-2">Cost Summary</h3>
+                 <div className="space-y-2 text-[#b8b8c2]">
                     <div className="flex justify-between items-center">
                         <span>Total Booking Cost:</span>
                         <span className="font-bold text-2xl text-white">${(bookingDetails.totalCost || 0).toFixed(2)}</span>
@@ -77,8 +77,8 @@ const BookingConfirmationDialog: React.FC<BookingConfirmationDialogProps> = ({
             </div>
         </div>
 
-        <div className="flex-shrink-0 p-4 bg-zinc-950/50 border-t border-zinc-800 flex flex-col sm:flex-row justify-end items-center gap-4">
-            <button onClick={onClose} disabled={isLoading} className="bg-zinc-700 hover:bg-zinc-600 text-white font-semibold px-6 py-2 rounded-lg transition-colors w-full sm:w-auto">
+        <div className="flex-shrink-0 p-4 bg-[#0f0f12]/50 border-t border-[#2a2a35] flex flex-col sm:flex-row justify-end items-center gap-4">
+            <button onClick={onClose} disabled={isLoading} className="bg-[#2a2a35] hover:bg-[#2a2a35] text-white font-semibold px-6 py-2 rounded-lg transition-colors w-full sm:w-auto">
                 Cancel
             </button>
             <button
