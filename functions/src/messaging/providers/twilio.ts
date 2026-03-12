@@ -1,6 +1,6 @@
 import { Twilio } from 'twilio';
 
-export async function sendTwilioMessage(to: string, body: string, channel: 'sms' | 'whatsapp', config: any): Promise<{ providerMessageId: string }> {
+export async function sendTwilioMessage(to: string, body: string, channel: 'sms' | 'whatsapp', config: Record<string, string | undefined>): Promise<{ providerMessageId: string }> {
   const accountSid = config.twilio_account_sid || process.env.TWILIO_ACCOUNT_SID;
   const authToken = config.twilio_auth_token || process.env.TWILIO_AUTH_TOKEN;
   const fromSms = config.twilio_from_number || process.env.TWILIO_FROM_NUMBER;

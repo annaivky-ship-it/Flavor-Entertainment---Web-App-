@@ -292,7 +292,7 @@ export async function processKycResult(webhookData: DiditWebhookPayload): Promis
 
 // --- Helper ---
 
-async function logAudit(actorUid: string, actorRole: string, action: string, bookingId: string, details: any = {}) {
+async function logAudit(actorUid: string, actorRole: string, action: string, bookingId: string, details: Record<string, unknown> = {}) {
     await getDb().collection('audit_log').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: actorUid,

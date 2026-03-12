@@ -1,4 +1,4 @@
-export async function sendClickSendSms(to: string, body: string, config: any): Promise<{ providerMessageId: string }> {
+export async function sendClickSendSms(to: string, body: string, config: Record<string, string | undefined>): Promise<{ providerMessageId: string }> {
   const username = config.clicksend_username || process.env.CLICKSEND_USERNAME;
   const apiKey = config.clicksend_api_key || process.env.CLICKSEND_API_KEY;
   
