@@ -107,7 +107,7 @@ export const api = {
       fetchCollection('bookings', query(collection(db, 'bookings'), orderBy('created_at', 'desc'))),
       fetchCollection('do_not_serve', query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc'))),
       fetchCollection('communications', query(collection(db, 'communications'), orderBy('created_at', 'desc'))),
-      fetchCollection('audit_logs', query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50))),
+      fetchCollection('audit_log', query(collection(db, 'audit_log'), orderBy('createdAt', 'desc'), limit(50))),
     ]);
 
     return {
@@ -165,20 +165,20 @@ export const api = {
 
   subscribeToAuditLogs(callback: (logs: AuditLog[]) => void) {
     if (!db) return () => { };
-    const q = query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50));
+    const q = query(collection(db, 'audit_log'), orderBy('createdAt', 'desc'), limit(50));
     return onSnapshot(q, (snap) => {
       const logs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as AuditLog[];
       callback(logs);
     }, (err) => {
-      console.error("Error subscribing to audit_logs:", err);
+      console.error("Error subscribing to audit_log:", err);
     });
   },
 
-  // Fix: Added createAuditLog to allow manual logging of actions to the audit_logs collection.
+  // Fix: Added createAuditLog to allow manual logging of actions to the audit_log collection.
   async createAuditLog(action: string, actorUid: string, details: any = {}, actorRole: 'client' | 'admin' | 'system' = 'system') {
     if (!db) return { id: null, error: new Error('Firebase not initialized') };
     try {
-      const docRef = await addDoc(collection(db, 'audit_logs'), {
+      const docRef = await addDoc(collection(db, 'audit_log'), {
         action,
         actorUid,
         actorRole,
