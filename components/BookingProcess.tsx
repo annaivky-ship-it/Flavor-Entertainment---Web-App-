@@ -9,7 +9,7 @@ import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
-import FrankieOneVerification from './FrankieOneVerification';
+import DidItVerification from './DidItVerification';
 import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, UploadCloud, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, FileText, LoaderCircle, Users as UsersIcon, Shield, Camera, Wallet, Briefcase } from 'lucide-react';
 
 export interface BookingFormState {
@@ -180,8 +180,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [agreedTerms, setAgreedTerms] = useState(false);
     const [isVerifiedBooker, setIsVerifiedBooker] = useState(false);
-    const [isFrankieOneVerified, setIsFrankieOneVerified] = useState(false);
-    const [showFrankieOneModal, setShowFrankieOneModal] = useState(false);
+    const [isDidItVerified, setIsDidItVerified] = useState(false);
+    const [showDidItModal, setShowDidItModal] = useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
     const [isPayIdModalOpen, setIsPayIdModalOpen] = useState(false);
 
@@ -325,7 +325,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 break;
             case 4:
                 if (!isVerifiedBooker) {
-                    if (!isFrankieOneVerified) errors.frankieOne = "Identity verification is required.";
+                    if (!isDidItVerified) errors.didit = "Identity verification is required.";
                     if (!agreedTerms) errors.agreedTerms = "Agreement required.";
                 }
                 break;
@@ -551,32 +551,32 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                             <div>
                                                 <h4 className="font-bold text-blue-300">Identity Verification Required</h4>
                                                 <p className="text-sm text-blue-200/80 leading-relaxed mt-1">
-                                                    We use FrankieOne to securely verify your identity. This process is quick and ensures the safety of our performers.
+                                                    We use Didit to securely verify your identity. This process is quick and ensures the safety of our performers.
                                                 </p>
                                             </div>
                                         </div>
                                         
                                         <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-zinc-700 rounded-2xl bg-zinc-900/50">
-                                            {isFrankieOneVerified ? (
+                                            {isDidItVerified ? (
                                                 <div className="text-center animate-fade-in">
                                                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                                                     <h3 className="text-xl font-bold text-white mb-2">Identity Verified</h3>
-                                                    <p className="text-zinc-400">Your identity has been successfully verified via FrankieOne.</p>
+                                                    <p className="text-zinc-400">Your identity has been successfully verified via Didit.</p>
                                                 </div>
                                             ) : (
                                                 <div className="text-center">
                                                     <ShieldCheck className="h-16 w-16 text-zinc-600 mx-auto mb-4" />
                                                     <h3 className="text-xl font-bold text-white mb-4">Verify Your Identity</h3>
                                                     <button
-                                                        onClick={() => setShowFrankieOneModal(true)}
+                                                        onClick={() => setShowDidItModal(true)}
                                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2 mx-auto"
                                                     >
                                                         <Shield size={20} />
-                                                        Verify with FrankieOne
+                                                        Verify with Didit
                                                     </button>
-                                                    {fieldErrors.frankieOne && (
+                                                    {fieldErrors.didit && (
                                                         <p className="text-red-400 text-sm mt-4 font-medium animate-slide-in-up">
-                                                            {fieldErrors.frankieOne}
+                                                            {fieldErrors.didit}
                                                         </p>
                                                     )}
                                                 </div>
@@ -667,19 +667,19 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
             <BookingConfirmationDialog isOpen={isConfirmDialogOpen} onClose={() => setIsConfirmDialogOpen(false)} onConfirm={handleFinalSubmission} isLoading={isSubmitting} bookingDetails={{ performers, eventDate: form.eventDate, eventTime: form.eventTime, eventAddress: form.eventAddress, selectedServices: form.selectedServices.map(id => allServices.find(s => s.id === id)?.name || id), eventDuration: formattedTotalDuration, totalCost, depositAmount }} />
             
-            {showFrankieOneModal && (
-                <FrankieOneVerification 
+            {showDidItModal && (
+                <DidItVerification 
                     clientName={form.fullName || 'Guest'}
                     onSuccess={() => {
-                        setIsFrankieOneVerified(true);
-                        setShowFrankieOneModal(false);
+                        setIsDidItVerified(true);
+                        setShowDidItModal(false);
                         setFieldErrors(prev => {
                             const newErrors = { ...prev };
-                            delete newErrors.frankieOne;
+                            delete newErrors.didit;
                             return newErrors;
                         });
                     }}
-                    onCancel={() => setShowFrankieOneModal(false)}
+                    onCancel={() => setShowDidItModal(false)}
                 />
             )}
         </div>
