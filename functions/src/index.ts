@@ -11,6 +11,7 @@ import { calculateRiskScore, shouldSkipKyc } from './risk/scoring';
 import { createIncidentReport, approveIncidentReport, rejectIncidentReport } from './incidents/reporting';
 import { recordConsent, CONSENT_TEXT } from './consent';
 import { checkRateLimit, cleanupRateLimits } from './utils/rateLimit';
+import { logger } from './utils/logger';
 
 admin.initializeApp();
 const db = getFirestore('default');
@@ -50,7 +51,7 @@ export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: an
 
     return JSON.parse(response.text?.trim() || "{}");
   } catch (error) {
-    console.error("Gemini Vetting Error:", error);
+    logger.error("Gemini vetting analysis failed", { error: String(error) });
     throw new fns.https.HttpsError('internal', 'Failed to analyze risk.');
   }
 });
@@ -58,7 +59,7 @@ export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: an
 /**
  * Helper: Write Audit Log
  */
-async function writeAuditLog(actorUid: string, actorRole: 'client' | 'admin' | 'system', action: string, applicationId: string, details: any = {}) {
+async function writeAuditLog(actorUid: string, actorRole: 'client' | 'admin' | 'system', action: string, applicationId: string, details: Record<string, unknown> = {}) {
   await db.collection('audit_logs').add({
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     actorUid,
@@ -212,7 +213,7 @@ export const scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').o
     await writeAuditLog('system', 'system', 'FILES_DELETED', doc.id);
   }
 
-  console.log(`Cleaned up documents for ${toCleanup.length} applications.`);
+  logger.info("Retention cleanup completed", { cleanedCount: toCleanup.length });
 });
 
 /**
@@ -281,7 +282,7 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
       throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
     }
 
-    const newBookings: any[] = [];
+    const newBookings: Array<{ id: string; [key: string]: unknown }> = [];
     for (const pId of performerIds) {
       const slotId = `${pId}_${formState.eventDate}_${formState.eventTime}`;
 
@@ -500,7 +501,7 @@ export const diditKycWebhook = fns.https.onRequest(async (req: any, res: any) =>
   const rawBody = JSON.stringify(req.body);
 
   if (!verifyWebhookSignature(rawBody, signature, timestamp)) {
-    console.error('Invalid Didit webhook signature');
+    logger.error('Invalid Didit webhook signature', { ip: req.ip });
     res.status(403).send('Invalid signature');
     return;
   }
@@ -513,7 +514,7 @@ export const diditKycWebhook = fns.https.onRequest(async (req: any, res: any) =>
       (webhookData.status === 'Approved' || webhookData.status === 'Declined')) {
 
       const result = await processKycResult(webhookData);
-      console.log(`KYC ${result.kycResult} for booking ${result.bookingId} → ${result.newStatus}`);
+      logger.info("KYC result processed", { kycResult: result.kycResult, bookingId: result.bookingId, newStatus: result.newStatus });
 
       // Send notification to client
       const bookingDoc = await db.collection('bookings').doc(result.bookingId).get();
@@ -541,7 +542,7 @@ export const diditKycWebhook = fns.https.onRequest(async (req: any, res: any) =>
 
     res.status(200).json({ received: true });
   } catch (error: any) {
-    console.error('Error processing Didit webhook:', error);
+    logger.error('Error processing Didit webhook', { error: error.message });
     res.status(500).json({ error: 'Internal error processing webhook' });
   }
 });
@@ -764,7 +765,7 @@ export const assessBookingRisk = fns.https.onCall(async (data: any, context: any
 export const scheduledRateLimitCleanup = fns.pubsub.schedule('every 1 hours').onRun(async () => {
   const cleaned = await cleanupRateLimits();
   if (cleaned > 0) {
-    console.log(`Cleaned up ${cleaned} expired rate limit entries.`);
+    logger.info("Rate limit cleanup completed", { cleanedCount: cleaned });
   }
 });
 
@@ -799,6 +800,6 @@ export const scheduledSlotCleanup = fns.pubsub.schedule('every 6 hours').onRun(a
   }
 
   if (cleaned > 0) {
-    console.log(`Released ${cleaned} expired booking slot locks.`);
+    logger.info("Expired slot cleanup completed", { releasedCount: cleaned });
   }
 });

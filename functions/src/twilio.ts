@@ -35,7 +35,7 @@ export const sendSms = async (to: string, body: string) => {
   });
 };
 
-export const verifyTwilioSignature = (req: any) => {
+export const verifyTwilioSignature = (req: { headers: Record<string, string>; get: (name: string) => string; originalUrl: string; body: Record<string, string> }) => {
   const authToken = process.env.TWILIO_TOKEN;
   if (!authToken) {
     console.error('TWILIO_TOKEN not configured — rejecting signature verification');

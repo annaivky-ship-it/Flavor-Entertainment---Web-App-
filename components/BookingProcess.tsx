@@ -61,10 +61,16 @@ interface FileUploadFieldProps {
 const FileUploadField: React.FC<FileUploadFieldProps> = ({ file, setFile, id, label, accept, error, icon }) => {
     const [internalError, setInternalError] = useState('');
     
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            if (selectedFile.size > 10 * 1024 * 1024) { // 10MB limit
+            if (!ALLOWED_MIME_TYPES.includes(selectedFile.type)) {
+                setInternalError('Only image files are allowed (JPG, PNG, WebP, HEIC).');
+                setFile(null);
+            } else if (selectedFile.size > MAX_FILE_SIZE) {
                 setInternalError('File size must be under 10MB.');
                 setFile(null);
             } else {

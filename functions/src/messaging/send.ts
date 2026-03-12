@@ -31,7 +31,7 @@ export async function sendMessage(params: SendMessageParams): Promise<void> {
   const channel = params.channel || 'sms';
 
   const logRef = db.collection('message_logs').doc();
-  const logData: any = {
+  const logData: Record<string, unknown> = {
     bookingId: params.bookingId,
     to: normalizedTo,
     templateKey: params.templateKey,

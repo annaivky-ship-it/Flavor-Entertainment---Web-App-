@@ -29,7 +29,7 @@ export function sha256(value: string): string {
   return crypto.createHash('sha256').update(value + getDnsHashPepper()).digest('hex');
 }
 
-async function writeAuditLog(actorUid: string, actorRole: string, action: string, bookingId: string, details: any = {}) {
+async function writeAuditLog(actorUid: string, actorRole: string, action: string, bookingId: string, details: Record<string, unknown> = {}) {
   await getDb().collection('audit_log').add({
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
     actor_id: actorUid,
@@ -89,7 +89,7 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
 
   if (isBlocked) {
     const amount_total_due = amount_deposit + amount_kyc_fee;
-    const bookingData: any = {
+    const bookingData: Record<string, unknown> = {
       client_name,
       client_email,
       client_phone,
@@ -136,7 +136,7 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
   const final_kyc_status = isPreviousBooker ? 'BYPASSED' : 'NOT_STARTED';
   const amount_total_due = amount_deposit + final_amount_kyc_fee;
 
-  const bookingData: any = {
+  const bookingData: Record<string, unknown> = {
     client_name,
     client_email,
     client_phone,
@@ -250,7 +250,7 @@ export const handleKycWebhookOrResult = fns.https.onCall(async (data: any, conte
   if (!doc.exists) throw new fns.https.HttpsError('not-found', 'Booking not found');
   const booking = doc.data()!;
 
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     kyc_status: kycResult,
     kyc_provider_ref: providerRef || null
   };
@@ -310,7 +310,7 @@ export const runDnsMigration = fns.https.onCall(async (data: any, context: any) 
 
   for (const doc of snapshot.docs) {
     const entry = doc.data();
-    const updates: any = {};
+    const updates: Record<string, unknown> = {};
 
     // 1. Convert status 'approved' -> 'ACTIVE'
     if (entry.status === 'approved') {

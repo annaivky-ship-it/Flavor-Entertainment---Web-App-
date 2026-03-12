@@ -19,8 +19,8 @@ export interface IncidentReport {
     status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'ESCALATED';
     admin_notes?: string;
     reviewed_by?: string;
-    reviewed_at?: any;
-    created_at?: any;
+    reviewed_at?: FirebaseFirestore.Timestamp;
+    created_at?: FirebaseFirestore.Timestamp;
 }
 
 // --- Create Incident Report ---
