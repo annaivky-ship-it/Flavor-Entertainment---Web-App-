@@ -50,6 +50,7 @@ const scoring_1 = require("./risk/scoring");
 const reporting_1 = require("./incidents/reporting");
 const consent_1 = require("./consent");
 const rateLimit_1 = require("./utils/rateLimit");
+const logger_1 = require("./utils/logger");
 admin.initializeApp();
 const db = (0, firestore_1.getFirestore)('default');
 const fns = functions;
@@ -85,7 +86,7 @@ exports.analyzeVettingRisk = fns.https.onCall(async (data, context) => {
         return JSON.parse(((_a = response.text) === null || _a === void 0 ? void 0 : _a.trim()) || "{}");
     }
     catch (error) {
-        console.error("Gemini Vetting Error:", error);
+        logger_1.logger.error("Gemini vetting analysis failed", { error: String(error) });
         throw new fns.https.HttpsError('internal', 'Failed to analyze risk.');
     }
 });
@@ -215,7 +216,7 @@ exports.scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').onRun(
         });
         await writeAuditLog('system', 'system', 'FILES_DELETED', doc.id);
     }
-    console.log(`Cleaned up documents for ${toCleanup.length} applications.`);
+    logger_1.logger.info("Retention cleanup completed", { cleanedCount: toCleanup.length });
 });
 /**
  * Legacy Booking Transaction (Retained for functionality)
@@ -467,12 +468,17 @@ exports.diditKycWebhook = fns.https.onRequest(async (req, res) => {
         res.status(405).send('Method not allowed');
         return;
     }
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('application/json')) {
+        res.status(415).send('Content-Type must be application/json');
+        return;
+    }
     // Verify webhook signature
     const signature = req.headers['x-signature'] || '';
     const timestamp = req.headers['x-timestamp'] || '';
     const rawBody = JSON.stringify(req.body);
     if (!(0, didit_1.verifyWebhookSignature)(rawBody, signature, timestamp)) {
-        console.error('Invalid Didit webhook signature');
+        logger_1.logger.error('Invalid Didit webhook signature', { ip: req.ip });
         res.status(403).send('Invalid signature');
         return;
     }
@@ -482,7 +488,7 @@ exports.diditKycWebhook = fns.https.onRequest(async (req, res) => {
         if (eventType === 'status.updated' &&
             (webhookData.status === 'Approved' || webhookData.status === 'Declined')) {
             const result = await (0, didit_1.processKycResult)(webhookData);
-            console.log(`KYC ${result.kycResult} for booking ${result.bookingId} → ${result.newStatus}`);
+            logger_1.logger.info("KYC result processed", { kycResult: result.kycResult, bookingId: result.bookingId, newStatus: result.newStatus });
             // Send notification to client
             const bookingDoc = await db.collection('bookings').doc(result.bookingId).get();
             const booking = bookingDoc.data();
@@ -509,7 +515,7 @@ exports.diditKycWebhook = fns.https.onRequest(async (req, res) => {
         res.status(200).json({ received: true });
     }
     catch (error) {
-        console.error('Error processing Didit webhook:', error);
+        logger_1.logger.error('Error processing Didit webhook', { error: error.message });
         res.status(500).json({ error: 'Internal error processing webhook' });
     }
 });
@@ -704,7 +710,7 @@ exports.assessBookingRisk = fns.https.onCall(async (data, context) => {
 exports.scheduledRateLimitCleanup = fns.pubsub.schedule('every 1 hours').onRun(async () => {
     const cleaned = await (0, rateLimit_1.cleanupRateLimits)();
     if (cleaned > 0) {
-        console.log(`Cleaned up ${cleaned} expired rate limit entries.`);
+        logger_1.logger.info("Rate limit cleanup completed", { cleanedCount: cleaned });
     }
 });
 /**
@@ -736,7 +742,7 @@ exports.scheduledSlotCleanup = fns.pubsub.schedule('every 6 hours').onRun(async 
         cleaned++;
     }
     if (cleaned > 0) {
-        console.log(`Released ${cleaned} expired booking slot locks.`);
+        logger_1.logger.info("Expired slot cleanup completed", { releasedCount: cleaned });
     }
 });
 //# sourceMappingURL=index.js.map
