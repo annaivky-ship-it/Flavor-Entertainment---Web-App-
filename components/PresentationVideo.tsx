@@ -23,7 +23,7 @@ const scenes = [
     visuals: () => (
       <div className="flex items-center gap-8">
         <div className="text-zinc-500 text-center"><p>Old Way</p><BarChartHorizontal size={80} /></div>
-        <FastForward size={40} className="text-orange-500" />
+        <FastForward size={40} className="text-[#e6398a]" />
         <div className="text-green-400 text-center"><p>New Way</p><BarChartHorizontal size={80} className="transform -scale-y-100"/></div>
       </div>
     ),
@@ -33,7 +33,7 @@ const scenes = [
     title: 'The Solution: Competitive Advantage',
     vo: "This isn't just a booking site; it's a complete business management system with an unmatched safety system, a robust vetting process, and a VIP workflow that fast-tracks your best customers.",
     visuals: () => (
-      <div className="flex gap-8 text-orange-400">
+      <div className="flex gap-8 text-[#e6398a]">
         <div className="flex flex-col items-center gap-2"><ShieldCheck size={64} /><p className="text-sm font-semibold">Automated Safety</p></div>
         <div className="flex flex-col items-center gap-2"><SearchCheck size={64} /><p className="text-sm font-semibold">Robust Vetting</p></div>
         <div className="flex flex-col items-center gap-2"><FastForward size={64} /><p className="text-sm font-semibold">VIP Workflow</p></div>
@@ -148,7 +148,7 @@ const PresentationVideo: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className="flex-grow flex flex-col items-center justify-center text-center text-white relative overflow-hidden">
         {scenes.map((scene, index) => (
            <div key={index} className={`absolute inset-0 flex flex-col items-center justify-center gap-8 p-4 transition-opacity duration-700 ${index === sceneIndex ? 'opacity-100' : 'opacity-0'}`}>
-              <h2 className="text-2xl sm:text-3xl font-bold text-orange-400">{scene.title}</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#e6398a]">{scene.title}</h2>
               <div className="min-h-[128px] flex items-center justify-center">{scene.visuals()}</div>
               <p className="max-w-3xl text-lg sm:text-xl text-zinc-200 leading-relaxed">{scene.vo}</p>
            </div>
@@ -157,13 +157,13 @@ const PresentationVideo: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
       <div className="flex-shrink-0 mt-8">
         <div className="w-full bg-zinc-700 rounded-full h-2.5">
-          <div className="bg-orange-500 h-2.5 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.1s linear' }}></div>
+          <div className="bg-[#e6398a] h-2.5 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.1s linear' }}></div>
         </div>
         <div className="flex items-center justify-center gap-6 mt-4">
           <button onClick={handleRestart} className="text-zinc-300 hover:text-white transition-colors">
             <RefreshCcw size={28} />
           </button>
-          <button onClick={() => setIsPlaying(!isPlaying)} className="text-white p-3 bg-orange-500 hover:bg-orange-600 rounded-full">
+          <button onClick={() => setIsPlaying(!isPlaying)} className="text-white p-3 bg-[#e6398a] hover:bg-[#d42d7b] rounded-full">
             {isPlaying ? <Pause size={32} className="ml-0.5" /> : <Play size={32} className="ml-1" />}
           </button>
           <div className="text-zinc-300 font-mono w-16 text-left">

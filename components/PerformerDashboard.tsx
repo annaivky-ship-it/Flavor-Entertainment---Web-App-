@@ -62,7 +62,7 @@ const statusConfig: Record<PerformerStatus, { color: string; label: string; icon
 const bookingStatusClasses: Record<Booking['status'], string> = {
   confirmed: 'text-green-400',
   pending_deposit_confirmation: 'text-blue-400',
-  deposit_pending: 'text-orange-400',
+  deposit_pending: 'text-[#e6398a]',
   pending_vetting: 'text-yellow-400',
   pending_performer_acceptance: 'text-purple-400',
   en_route: 'text-blue-400',
@@ -131,13 +131,13 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
                 <p className={`text-sm font-semibold capitalize ${bookingStatusClasses[booking.status]}`}>{booking.status.replace(/_/g, ' ')}</p>
             </div>
             <div className="text-left sm:text-right text-sm">
-               <div className="flex items-center gap-2 text-zinc-300"><Calendar className="h-4 w-4 text-orange-400"/> {new Date(booking.event_date).toLocaleDateString()}</div>
-               <div className="flex items-center gap-2 text-zinc-300 mt-1"><Clock className="h-4 w-4 text-orange-400"/> {booking.event_time}</div>
+               <div className="flex items-center gap-2 text-zinc-300"><Calendar className="h-4 w-4 text-[#e6398a]"/> {new Date(booking.event_date).toLocaleDateString()}</div>
+               <div className="flex items-center gap-2 text-zinc-300 mt-1"><Clock className="h-4 w-4 text-[#e6398a]"/> {booking.event_time}</div>
             </div>
         </div>
          <div className="mt-3 pt-3 border-t border-zinc-700 flex flex-wrap items-center gap-x-4 gap-y-1 text-zinc-400 text-sm">
-           <span className="flex items-center gap-2"><User className="h-4 w-4 text-orange-400" /> Client: {booking.client_name}</span>
-           <span className="flex items-center gap-2"><Users className="h-4 w-4 text-orange-400" /> Guests: {booking.number_of_guests}</span>
+           <span className="flex items-center gap-2"><User className="h-4 w-4 text-[#e6398a]" /> Client: {booking.client_name}</span>
+           <span className="flex items-center gap-2"><Users className="h-4 w-4 text-[#e6398a]" /> Guests: {booking.number_of_guests}</span>
         </div>
         
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -180,14 +180,14 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
                 </p>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                    <div className="relative flex-grow group">
-                      <Timer className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none group-focus-within:text-orange-400 transition-colors" />
+                      <Timer className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none group-focus-within:text-[#e6398a] transition-colors" />
                       <input
                         type="number"
                         placeholder="ETA (mins)"
                         title="Estimated time of arrival in minutes"
                         value={etaValue}
                         onChange={(e) => onEtaChange(booking.id, e.target.value)}
-                        className="bg-zinc-800 border border-zinc-600 text-white text-xs rounded-md focus:ring-1 focus:ring-orange-500 focus:border-orange-500 block w-full pl-8 pr-2 py-1.5 transition-all"
+                        className="bg-zinc-800 border border-zinc-600 text-white text-xs rounded-md focus:ring-1 focus:ring-[#e6398a] focus:border-[#e6398a] block w-full pl-8 pr-2 py-1.5 transition-all"
                         disabled={!!isLoading}
                       />
                    </div>
@@ -201,7 +201,7 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
                            </button>
                        </>
                    ) : (
-                       <button onClick={handleUpdateEta} disabled={!!isLoading || !etaValue} className="text-xs bg-orange-600 hover:bg-orange-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-md flex-shrink-0 w-24 disabled:opacity-50 disabled:cursor-not-allowed">
+                       <button onClick={handleUpdateEta} disabled={!!isLoading || !etaValue} className="text-xs bg-[#d42d7b] hover:bg-[#c0306f] text-white font-bold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-md flex-shrink-0 w-24 disabled:opacity-50 disabled:cursor-not-allowed">
                           {isLoading === 'update_eta' ? <LoaderCircle size={14} className="animate-spin" /> : <><Timer size={14}/> Update</>}
                        </button>
                    )}
@@ -278,7 +278,7 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
         <div>
           <h1 className="text-4xl font-bold text-white tracking-tight">Performer Dashboard</h1>
           <div className="flex items-center gap-2 mt-1">
-             <p className="text-xl text-orange-400">Welcome, {performer.name}</p>
+             <p className="text-xl text-[#e6398a]">Welcome, {performer.name}</p>
              <span className="h-1.5 w-1.5 rounded-full bg-zinc-600"></span>
              <p className="text-sm text-zinc-500">ID: #{performer.id}</p>
           </div>
@@ -296,7 +296,7 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
         <div className="card-base !p-6 lg:col-span-1 flex flex-col h-full">
           <div>
             <div className="flex items-center gap-2 mb-2">
-               <Smartphone className="h-5 w-5 text-orange-400" />
+               <Smartphone className="h-5 w-5 text-[#e6398a]" />
                <h2 className="text-2xl font-semibold text-white">Availability Status</h2>
             </div>
             <p className="text-sm text-zinc-400 mb-6">Clients see your live status in the gallery.</p>
@@ -353,7 +353,7 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                   {systemCommunications.map(comm => (
                     <div key={comm.id} className="bg-zinc-900/70 p-3 rounded-md text-sm border border-zinc-700/50">
                         <p className="text-zinc-200">{comm.message}</p>
-                        <p className="text-xs text-zinc-500 mt-1">From: <span className="text-orange-400 font-semibold">{comm.sender}</span> &bull; {new Date(comm.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-zinc-500 mt-1">From: <span className="text-[#e6398a] font-semibold">{comm.sender}</span> &bull; {new Date(comm.created_at).toLocaleDateString()}</p>
                     </div>
                   ))}
                 </div>
@@ -370,15 +370,15 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
         <div className="lg:col-span-2 space-y-8">
           <div className="card-base !p-6">
              <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Calendar className="h-6 w-6 text-orange-400" />
+                <Calendar className="h-6 w-6 text-[#e6398a]" />
                 Your Bookings
              </h2>
              
              <div className="space-y-8">
                 <div>
-                  <h3 className="text-lg font-semibold text-orange-400 mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-[#e6398a] mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
                     <span>Pending Actions</span>
-                    <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-xs">{pendingBookings.length}</span>
+                    <span className="bg-[#e6398a]/20 text-[#e6398a] px-2 py-0.5 rounded text-xs">{pendingBookings.length}</span>
                   </h3>
                   {pendingBookings.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -434,7 +434,7 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
         <div className="lg:col-span-1">
           <div className="card-base !p-6 h-full">
             <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
-                <History className="h-6 w-6 text-orange-400" />
+                <History className="h-6 w-6 text-[#e6398a]" />
                 Recent Activity
              </h2>
              <p className="text-xs text-zinc-500 mb-6">Real-time audit log of your platform actions.</p>
@@ -443,7 +443,7 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                   auditLogs.map(log => (
                     <div key={log.id} className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50 flex flex-col gap-2 hover:border-zinc-700 transition-colors group">
                       <div className="flex justify-between items-start">
-                        <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">{log.action.replace(/_/g, ' ')}</span>
+                        <span className="text-[10px] font-bold text-[#e6398a] uppercase tracking-widest">{log.action.replace(/_/g, ' ')}</span>
                         <span className="text-[10px] text-zinc-600 group-hover:text-zinc-400 transition-colors">
                           {/* Fix: Use createdAt instead of timestamp to match the interface. */}
                           {typeof log.createdAt === 'string' ? new Date(log.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : log.createdAt && 'seconds' in log.createdAt ? new Date(log.createdAt.seconds * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}

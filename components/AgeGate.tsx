@@ -19,7 +19,7 @@ interface CustomCheckboxProps {
 const CustomCheckbox: React.FC<CustomCheckboxProps> = ({ id, checked, onChange, children }) => (
    <label htmlFor={id} className="flex items-center p-4 bg-zinc-800/50 border border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-700/70 hover:border-zinc-600 transition-all duration-200">
       <div className="relative h-6 w-6 flex-shrink-0">
-        <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="appearance-none h-6 w-6 rounded-md border-2 border-zinc-600 bg-zinc-900 checked:bg-orange-500 checked:border-orange-500 transition-all" />
+        <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="appearance-none h-6 w-6 rounded-md border-2 border-zinc-600 bg-zinc-900 checked:bg-[#e6398a] checked:border-[#e6398a] transition-all" />
         {checked && <Check className="h-4 w-4 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white pointer-events-none" />}
       </div>
       <span className="ml-4 text-zinc-200">{children}</span>
@@ -100,7 +100,7 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
                     <select 
                         value={dob.day} 
                         onChange={(e) => { setDob(prev => ({ ...prev, day: e.target.value })); setError(null); }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-[#e6398a] outline-none transition-all appearance-none"
                     >
                         <option value="">DD</option>
                         {days.map(d => <option key={d} value={d}>{d}</option>)}
@@ -111,7 +111,7 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
                     <select 
                         value={dob.month} 
                         onChange={(e) => { setDob(prev => ({ ...prev, month: e.target.value })); setError(null); }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-[#e6398a] outline-none transition-all appearance-none"
                     >
                         <option value="">MM</option>
                         {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -122,7 +122,7 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
                     <select 
                         value={dob.year} 
                         onChange={(e) => { setDob(prev => ({ ...prev, year: e.target.value })); setError(null); }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-[#e6398a] outline-none transition-all appearance-none"
                     >
                         <option value="">YYYY</option>
                         {years.map(y => <option key={y} value={y}>{y}</option>)}
@@ -133,9 +133,9 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
             <CustomCheckbox id="terms-check" checked={agreedTerms} onChange={(checked) => { setAgreedTerms(checked); setError(null); }}>
                 <span className="text-xs leading-relaxed">
                   I agree to the{' '}
-                  <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="underline text-orange-400 hover:text-orange-300">Terms</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="underline text-[#e6398a] hover:text-[#f06aaa]">Terms</a>
                   {' & '}
-                  <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="underline text-orange-400 hover:text-orange-300">Privacy Policy</a>.
+                  <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="underline text-[#e6398a] hover:text-[#f06aaa]">Privacy Policy</a>.
                 </span>
             </CustomCheckbox>
 
@@ -149,7 +149,7 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
         <button
           onClick={handleVerify}
           disabled={!agreedTerms}
-          className="btn-primary w-full py-4 text-lg font-bold shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none transition-all"
+          className="btn-primary w-full py-4 text-lg font-bold shadow-lg shadow-[#e6398a]/20 disabled:opacity-50 disabled:shadow-none transition-all"
         >
           Confirm & Enter
         </button>

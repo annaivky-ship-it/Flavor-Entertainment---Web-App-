@@ -152,7 +152,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
             </button>
         </form>
         <div className="mt-6 text-center text-sm text-zinc-400">
-          Want to join the team? <button onClick={() => { onClose(); onNavigateToOnboarding?.(); }} className="text-orange-400 hover:text-orange-300 font-semibold underline">Apply to be a Performer</button>
+          Want to join the team? <button onClick={() => { onClose(); onNavigateToOnboarding?.(); }} className="text-[#e6398a] hover:text-[#f06aaa] font-semibold underline">Apply to be a Performer</button>
         </div>
       </div>
     </div>

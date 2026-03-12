@@ -52,7 +52,7 @@ const DemoPhone: React.FC<DemoPhoneProps> = ({ message, onClose }) => {
         {/* Header */}
         <div className="bg-zinc-800/80 backdrop-blur-sm p-3 flex items-center justify-between border-b border-zinc-700 flex-shrink-0">
           <div className="flex items-center gap-2">
-             <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center font-bold text-white">
+             <div className="w-8 h-8 rounded-full bg-[#e6398a] flex items-center justify-center font-bold text-white">
                 {message.for.charAt(0)}
              </div>
              <div>
@@ -68,7 +68,7 @@ const DemoPhone: React.FC<DemoPhoneProps> = ({ message, onClose }) => {
         {/* Message Area */}
         <div className="p-4 flex-grow overflow-y-auto flex flex-col justify-end">
           <div className="flex mb-2">
-            <div className="bg-orange-500 text-white p-3 rounded-2xl rounded-bl-lg max-w-[90%] animate-slide-in-up">
+            <div className="bg-[#e6398a] text-white p-3 rounded-2xl rounded-bl-lg max-w-[90%] animate-slide-in-up">
               <div className="text-sm leading-snug">
                 {message.content}
               </div>

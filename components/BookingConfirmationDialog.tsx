@@ -44,7 +44,7 @@ const BookingConfirmationDialog: React.FC<BookingConfirmationDialogProps> = ({
             <p className="text-zinc-300">Please review the details below before submitting your request. This is your final chance to make changes.</p>
 
             <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-orange-400 border-b border-zinc-700 pb-2">Booking Summary</h3>
+                <h3 className="text-lg font-semibold text-[#e6398a] border-b border-zinc-700 pb-2">Booking Summary</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
                     <div><strong className="text-zinc-400 block">Performer(s):</strong> <span className="text-white">{bookingDetails.performers.map(p => p.name).join(', ')}</span></div>
                     <div><strong className="text-zinc-400 block">Date & Time:</strong> <span className="text-white">{new Date(bookingDetails.eventDate).toLocaleDateString()} at {bookingDetails.eventTime}</span></div>
@@ -55,7 +55,7 @@ const BookingConfirmationDialog: React.FC<BookingConfirmationDialogProps> = ({
             </div>
 
             <div className="space-y-4">
-                 <h3 className="text-lg font-semibold text-orange-400 border-b border-zinc-700 pb-2">Cost Summary</h3>
+                 <h3 className="text-lg font-semibold text-[#e6398a] border-b border-zinc-700 pb-2">Cost Summary</h3>
                  <div className="space-y-2 text-zinc-300">
                     <div className="flex justify-between items-center">
                         <span>Total Booking Cost:</span>
@@ -63,7 +63,7 @@ const BookingConfirmationDialog: React.FC<BookingConfirmationDialogProps> = ({
                     </div>
                     <div className="flex justify-between items-center">
                         <span>Deposit Due ({DEPOSIT_PERCENTAGE * 100}%):</span>
-                        <span className="font-semibold text-xl text-orange-400">${(bookingDetails.depositAmount || 0).toFixed(2)}</span>
+                        <span className="font-semibold text-xl text-[#e6398a]">${(bookingDetails.depositAmount || 0).toFixed(2)}</span>
                     </div>
                  </div>
             </div>

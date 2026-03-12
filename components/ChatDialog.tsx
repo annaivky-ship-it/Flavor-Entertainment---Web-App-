@@ -73,7 +73,7 @@ const ChatDialog: React.FC<ChatDialogProps> = ({ isOpen, onClose, booking, curre
                     }
                 </h2>
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500">
-                    <span className="text-orange-500/80">{booking.event_type}</span>
+                    <span className="text-[#e6398a]/80">{booking.event_type}</span>
                     <span>&bull;</span>
                     <span>{new Date(booking.event_date).toLocaleDateString()}</span>
                 </div>
@@ -113,13 +113,13 @@ const ChatDialog: React.FC<ChatDialogProps> = ({ isOpen, onClose, booking, curre
                                <div className={`max-w-[85%] relative flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                    <div className={`px-4 py-2.5 rounded-2xl shadow-lg relative ${
                                        isMe 
-                                       ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-tr-none' 
+                                       ? 'bg-gradient-to-br from-[#e6398a] to-[#d42d7b] text-white rounded-tr-none' 
                                        : 'bg-zinc-800/80 text-zinc-200 rounded-tl-none border border-zinc-700/50 backdrop-blur-sm'
                                    }`}>
                                        {/* Message Tail */}
                                        <div className={`absolute top-0 w-3 h-3 ${
                                            isMe 
-                                           ? 'right-[-6px] text-orange-500' 
+                                           ? 'right-[-6px] text-[#e6398a]' 
                                            : 'left-[-6px] text-zinc-800/80'
                                        }`}>
                                            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
@@ -134,10 +134,10 @@ const ChatDialog: React.FC<ChatDialogProps> = ({ isOpen, onClose, booking, curre
                                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.message}</p>
                                        
                                        <div className={`flex items-center gap-1.5 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                           <span className={`text-[9px] font-medium ${isMe ? 'text-orange-100/70' : 'text-zinc-500'}`}>
+                                           <span className={`text-[9px] font-medium ${isMe ? 'text-[#e6398a]/70' : 'text-zinc-500'}`}>
                                                {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}).toLowerCase()}
                                            </span>
-                                           {isMe && <CheckCheck size={10} className="text-orange-200/60" />}
+                                           {isMe && <CheckCheck size={10} className="text-[#f06aaa]/60" />}
                                        </div>
                                    </div>
                                </div>
@@ -164,7 +164,7 @@ const ChatDialog: React.FC<ChatDialogProps> = ({ isOpen, onClose, booking, curre
                   }}
                   placeholder="Type a message..."
                   rows={1}
-                  className="w-full bg-zinc-800/50 text-white border border-zinc-700 rounded-2xl px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 placeholder-zinc-500 text-sm resize-none overflow-hidden min-h-[46px] max-h-[120px] transition-all"
+                  className="w-full bg-zinc-800/50 text-white border border-zinc-700 rounded-2xl px-4 py-3 focus:outline-none focus:border-[#e6398a] focus:ring-1 focus:ring-[#e6398a] placeholder-zinc-500 text-sm resize-none overflow-hidden min-h-[46px] max-h-[120px] transition-all"
                   style={{ height: 'auto' }}
                   onInput={(e) => {
                       const target = e.target as HTMLTextAreaElement;
@@ -176,7 +176,7 @@ const ChatDialog: React.FC<ChatDialogProps> = ({ isOpen, onClose, booking, curre
             <button 
               type="submit" 
               disabled={isSending || !newMessage.trim()}
-              className="bg-orange-500 hover:bg-orange-600 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed text-white p-3 rounded-xl transition-all duration-300 flex-shrink-0 shadow-lg shadow-orange-500/10 active:scale-95"
+              className="bg-[#e6398a] hover:bg-[#d42d7b] disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed text-white p-3 rounded-xl transition-all duration-300 flex-shrink-0 shadow-lg shadow-[#e6398a]/10 active:scale-95"
             >
               {isSending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 ml-0.5" />}
             </button>

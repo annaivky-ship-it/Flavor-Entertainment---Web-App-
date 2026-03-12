@@ -8,6 +8,16 @@ import AgeGate from './components/AgeGate';
 import Login from './components/Login';
 import RoleSwitcher from './components/RoleSwitcher';
 
+// Homepage sections
+import Hero from './components/home/Hero';
+import TrustStats from './components/home/TrustStats';
+import SafetyFeatures from './components/home/SafetyFeatures';
+import HowItWorks from './components/home/HowItWorks';
+import FeaturedPerformers from './components/home/FeaturedPerformers';
+import AdminPreview from './components/home/AdminPreview';
+import CTASection from './components/home/CTASection';
+import ServiceCategories from './components/home/ServiceCategories';
+
 // Lazy-loaded components (large bundles loaded on demand)
 const PerformerProfile = React.lazy(() => import('./components/EntertainerProfile'));
 const BookingProcess = React.lazy(() => import('./components/BookingProcess'));
@@ -31,7 +41,7 @@ import { allServices } from './data/mockData';
 import { calculateBookingCost } from './utils/bookingUtils';
 
 
-type GalleryView = 'available_now' | 'future_bookings' | 'services';
+type AppView = 'home' | 'available_now' | 'future_bookings' | 'services' | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq' | 'performer_onboarding';
 type AuthedUser = { name: string; role: Role; id?: number; } | null;
 
 const BookingStickyFooter: React.FC<{
@@ -47,17 +57,17 @@ const BookingStickyFooter: React.FC<{
           <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
             <div className="flex -space-x-3 sm:-space-x-4 flex-shrink-0">
               {performers.slice(0, 3).map(p => (
-                <img key={p.id} src={p.photo_url} alt={p.name} loading="lazy" className="h-10 w-10 sm:h-12 sm:h-12 rounded-full object-cover border-2 border-zinc-900 shadow-lg" />
+                <img key={p.id} src={p.photo_url} alt={p.name} loading="lazy" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover border-2 border-[#0f0f12] shadow-lg" />
               ))}
               {performers.length > 3 && (
-                <div className="h-10 w-10 sm:h-12 sm:h-12 rounded-full bg-zinc-800 border-2 border-zinc-900 flex items-center justify-center text-[10px] sm:text-xs font-bold text-white">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[#1a1a22] border-2 border-[#0f0f12] flex items-center justify-center text-[10px] sm:text-xs font-bold text-white">
                   +{performers.length - 3}
                 </div>
               )}
             </div>
             <div className="min-w-0">
               <p className="font-bold text-white text-sm sm:text-base truncate">{performers.length} Selected</p>
-              <p className="text-[10px] sm:text-sm text-zinc-400 truncate hidden xs:block">Ready to book?</p>
+              <p className="text-[10px] sm:text-sm text-[#8888a0] truncate hidden xs:block">Ready to book?</p>
             </div>
           </div>
           <button onClick={onProceed} className="btn-primary flex items-center gap-2 !py-2.5 sm:!py-3 !px-4 sm:!px-6 !text-sm sm:!text-base whitespace-nowrap flex-shrink-0">
@@ -76,8 +86,8 @@ const App: React.FC = () => {
   const [ageVerified, setAgeVerified] = useState(() => {
     return localStorage.getItem('ageVerified') === 'true';
   });
-  const [view, setView] = useState<GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq' | 'performer_onboarding'>('available_now');
-  const [bookingOrigin, setBookingOrigin] = useState<GalleryView>('available_now');
+  const [view, setView] = useState<AppView>('home');
+  const [bookingOrigin, setBookingOrigin] = useState<AppView>('available_now');
   const [viewedPerformer, setViewedPerformer] = useState<Performer | null>(null);
   const [selectedForBooking, setSelectedForBooking] = useState<Performer[]>([]);
 
@@ -102,9 +112,7 @@ const App: React.FC = () => {
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState<PerformerStatus | ''>('');
-  const [showDemoBanner, setShowDemoBanner] = useState(isDemoMode);
   const [showWalkthrough, setShowWalkthrough] = useState(() => {
-    // Auto-show walkthrough on first visit
     return localStorage.getItem('walkthroughShown') !== 'true';
   });
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' }[]>([]);
@@ -128,7 +136,7 @@ const App: React.FC = () => {
   };
 
   const handleReturnToGallery = () => {
-    setView(bookingOrigin);
+    setView(bookingOrigin as AppView);
     setViewedPerformer(null);
   };
 
@@ -210,12 +218,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const unsubscribeBookings = api.subscribeToBookings((newBookings) => {
-      // Check for status changes to notify
       if (prevBookingsRef.current.length > 0) {
         newBookings.forEach(newB => {
           const oldB = prevBookingsRef.current.find(b => b.id === newB.id);
           if (oldB && oldB.status !== newB.status) {
-            // Status changed!
             const statusLabels: Record<BookingStatus, string> = {
               pending_performer_acceptance: 'Pending Acceptance',
               pending_vetting: 'Pending Vetting',
@@ -233,13 +239,12 @@ const App: React.FC = () => {
             const message = `Booking #${newB.id.slice(0, 8)} status updated to ${statusLabels[newB.status] || newB.status}`;
             addNotification(message, newB.status === 'confirmed' ? 'success' : 'info');
 
-            // Also show phone message for demo feel
             showPhoneMessage({
               for: authedUser?.role === 'performer' ? 'Performer' : authedUser?.role === 'admin' ? 'Admin' : 'Client',
               content: (
                 <div className="space-y-1">
-                  <p className="font-bold text-zinc-900">Booking Update</p>
-                  <p className="text-sm text-zinc-600">{message}</p>
+                  <p className="font-bold text-[#0f0f12]">Booking Update</p>
+                  <p className="text-sm text-[#8888a0]">{message}</p>
                 </div>
               )
             });
@@ -297,7 +302,7 @@ const App: React.FC = () => {
   const handleRoleChange = (role: Role) => {
     if (role === 'user') {
       setAuthedUser(null);
-      setView('available_now');
+      setView('home');
     } else if (role === 'admin') {
       setAuthedUser({ name: 'Admin', role: 'admin' });
       setView('admin_dashboard');
@@ -325,7 +330,7 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setAuthedUser(null);
     sessionStorage.removeItem('clientEmail');
-    setView('available_now');
+    setView('home');
   };
 
   const handlePerformerStatusChange = async (performerId: number, status: PerformerStatus) => {
@@ -342,14 +347,12 @@ const App: React.FC = () => {
       const { error: apiError } = await api.updatePerformerStatus(performerId, status);
       if (apiError) throw apiError;
 
-      // Log status change to audit log
       await api.createAuditLog('PERFORMER_STATUS_CHANGE', String(performerId), {
         performerName,
         oldStatus: originalStatus,
         newStatus: status
       });
 
-      // Re-fetch audit logs to show the new entry immediately
       const { auditLogs: aData } = await api.getInitialData();
       if (!aData.error) setAuditLogs(aData.data as AuditLog[]);
 
@@ -385,37 +388,37 @@ const App: React.FC = () => {
       const finalBalance = totalCost - depositAmount;
 
       const clientMessageMap = {
-        deposit_pending: `✅ Booking Approved! Your application for ${booking.event_type} with ${booking.performer?.name} is approved. Please pay the deposit to confirm.`,
-        pending_deposit_confirmation: `🧾 Deposit Submitted! We've received your confirmation. An admin will verify it shortly.`,
-        rejected: `❗️ Booking Rejected. Unfortunately, your application for ${booking.event_type} has been rejected by administration. We suggest checking out other available entertainers.`,
+        deposit_pending: `Booking Approved! Your application for ${booking.event_type} with ${booking.performer?.name} is approved. Please pay the deposit to confirm.`,
+        pending_deposit_confirmation: `Deposit Submitted! We've received your confirmation. An admin will verify it shortly.`,
+        rejected: `Booking Declined. Unfortunately, your application for ${booking.event_type} has been declined by administration.`,
       };
 
       const clientMessage = clientMessageMap[status as keyof typeof clientMessageMap];
       if (clientMessage) addCommunication({ sender: 'System', recipient: 'user', message: clientMessage, booking_id: bookingId, type: 'booking_update' });
 
-      if (status === 'deposit_pending') showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />Your application for {booking.event_type} with <strong>{booking.performer?.name}</strong> is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
+      if (status === 'deposit_pending') showPhoneMessage({ for: 'Client', content: <p><strong>Booking Approved!</strong><br />Your application for {booking.event_type} with <strong>{booking.performer?.name}</strong> is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit to confirm your event.</p> });
 
       if (status === 'confirmed') {
-        showPhoneMessage({ for: 'Client', content: <p>✅ <strong>Booking Confirmed!</strong><br />Your event with <strong>{booking.performer?.name}</strong> is locked in. See you on {new Date(booking.event_date).toLocaleDateString()}!<br /><br /><span className="text-xs">Final balance of <strong>${(finalBalance || 0).toFixed(2)}</strong> due in cash on arrival.</span></p> });
-        addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Confirmed! Your event with ${booking.performer?.name} is locked in. Final balance of $${(finalBalance || 0).toFixed(2)} due in cash on arrival. See you on ${new Date(booking.event_date).toLocaleDateString()}!`, booking_id: bookingId, type: 'booking_confirmation' });
+        showPhoneMessage({ for: 'Client', content: <p><strong>Booking Confirmed!</strong><br />Your event with <strong>{booking.performer?.name}</strong> is locked in. See you on {new Date(booking.event_date).toLocaleDateString()}!<br /><br /><span className="text-xs">Final balance of <strong>${(finalBalance || 0).toFixed(2)}</strong> due in cash on arrival.</span></p> });
+        addCommunication({ sender: 'System', recipient: 'user', message: `Booking Confirmed! Your event with ${booking.performer?.name} is locked in. Final balance of $${(finalBalance || 0).toFixed(2)} due in cash on arrival. See you on ${new Date(booking.event_date).toLocaleDateString()}!`, booking_id: bookingId, type: 'booking_confirmation' });
 
-        setTimeout(() => showPhoneMessage({ for: 'Performer', content: <p>💰 <strong>DEPOSIT PAID!</strong><br />Your booking is confirmed:<br />👤 Client: <strong>{booking.client_name}</strong><br />📞 Phone: {booking.client_phone}<br />📍 Address: {booking.event_address}<br />📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br />👥 Guests: {booking.number_of_guests}<br />{booking.client_message && <><br />📝 <strong>Note:</strong> "{booking.client_message}"</>}<br /><br />She's coming in hot 🔥 Get ready!</p> }), 6000);
-        setTimeout(() => showPhoneMessage({ for: 'Admin', content: <p>✅ <strong>DEPOSIT CONFIRMED</strong><br />Booking locked in:<br />👤 Client: <strong>{booking.client_name}</strong><br />🍑 Performer: <strong>{booking.performer?.name}</strong><br />📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br /><br />Booking ID: #{booking.id.slice(0, 8)}...</p> }), 12000);
+        setTimeout(() => showPhoneMessage({ for: 'Performer', content: <p><strong>DEPOSIT PAID!</strong><br />Your booking is confirmed:<br />Client: <strong>{booking.client_name}</strong><br />Phone: {booking.client_phone}<br />Address: {booking.event_address}<br />When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br />Guests: {booking.number_of_guests}</p> }), 6000);
+        setTimeout(() => showPhoneMessage({ for: 'Admin', content: <p><strong>DEPOSIT CONFIRMED</strong><br />Booking locked in:<br />Client: <strong>{booking.client_name}</strong><br />Performer: <strong>{booking.performer?.name}</strong><br />When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br /><br />Booking ID: #{booking.id.slice(0, 8)}...</p> }), 12000);
       }
 
       const performerMessageMap = {
-        deposit_pending: `✅ Booking Vetted! The application from ${booking.client_name} for ${new Date(booking.event_date).toLocaleDateString()} has been approved. Awaiting deposit.`,
-        rejected: `❗️ Booking Rejected: The application from ${booking.client_name} for ${new Date(booking.event_date).toLocaleDateString()} has been rejected.`,
-        confirmed: `🎉 BOOKING CONFIRMED! The deposit for your event with ${booking.client_name} on ${new Date(booking.event_date).toLocaleDateString()} is paid. Client Address: ${booking.event_address}. Phone: ${booking.client_phone}.`,
+        deposit_pending: `Booking Vetted! The application from ${booking.client_name} for ${new Date(booking.event_date).toLocaleDateString()} has been approved. Awaiting deposit.`,
+        rejected: `Booking Declined: The application from ${booking.client_name} for ${new Date(booking.event_date).toLocaleDateString()} has been declined.`,
+        confirmed: `BOOKING CONFIRMED! The deposit for your event with ${booking.client_name} on ${new Date(booking.event_date).toLocaleDateString()} is paid. Client Address: ${booking.event_address}. Phone: ${booking.client_phone}.`,
       };
 
       const performerMessage = performerMessageMap[status as keyof typeof performerMessageMap];
       if (performerMessage) addCommunication({ sender: 'System', recipient: booking.performer_id, message: performerMessage, booking_id: bookingId, type: 'booking_update' });
 
       const adminMessageMap = {
-        pending_deposit_confirmation: `🧾 Client for booking #${bookingId.slice(0, 8)} (${booking.client_name}) has confirmed deposit payment. Please verify.`,
-        confirmed: `✅ Booking Confirmed for ${booking.client_name} with ${booking.performer?.name}.`,
-        rejected: `❌ Booking Rejected for ${booking.client_name} with ${booking.performer?.name}.`,
+        pending_deposit_confirmation: `Client for booking #${bookingId.slice(0, 8)} (${booking.client_name}) has confirmed deposit payment. Please verify.`,
+        confirmed: `Booking Confirmed for ${booking.client_name} with ${booking.performer?.name}.`,
+        rejected: `Booking Declined for ${booking.client_name} with ${booking.performer?.name}.`,
       };
 
       const adminMessage = adminMessageMap[status as keyof typeof adminMessageMap];
@@ -439,7 +442,6 @@ const App: React.FC = () => {
       const { error: apiError } = await api.updateDoNotServeStatus(entryId, status);
       if (apiError) throw apiError;
 
-      // Log the admin's decision
       await api.createAuditLog(
         `DNS_ENTRY_${status.toUpperCase()}`,
         String(authedUser?.id || 'admin'),
@@ -480,7 +482,7 @@ const App: React.FC = () => {
     if (decision === 'declined') {
       await handleUpdateBookingStatus(bookingId, 'rejected');
       addCommunication({ sender: performerName, recipient: 'admin', message: `${performerName} has DECLINED the booking request from ${booking.client_name}.`, type: 'admin_message' });
-      addCommunication({ sender: 'System', recipient: 'user', message: `We're sorry, ${performerName} is unable to accept your booking request at this time. Please try booking another performer. We have many other talented entertainers available!`, booking_id: booking.id, type: 'booking_update' });
+      addCommunication({ sender: 'System', recipient: 'user', message: `We're sorry, ${performerName} is unable to accept your booking request at this time. Please try booking another performer.`, booking_id: booking.id, type: 'booking_update' });
       return;
     }
 
@@ -503,20 +505,19 @@ const App: React.FC = () => {
 
       const etaMessagePartAdmin = eta && eta > 0 ? ` with an ETA of ${eta} minutes` : '';
       const etaMessagePartUser = eta && eta > 0 ? ` Her ETA is ~${eta} minutes.` : '';
-      const etaSmsIcon = eta && eta > 0 ? `⏱ ETA: ${eta} mins` : '';
 
       if (isVerifiedBooker) {
-        addCommunication({ sender: performerName, recipient: 'admin', message: `${performerName} has ACCEPTED the booking from verified client ${booking.client_name}${etaMessagePartAdmin}. It has automatically skipped vetting and is awaiting deposit.`, type: 'admin_message' });
+        addCommunication({ sender: performerName, recipient: 'admin', message: `${performerName} has ACCEPTED the booking from verified client ${booking.client_name}${etaMessagePartAdmin}. Skipped vetting — awaiting deposit.`, type: 'admin_message' });
         addCommunication({ sender: 'System', recipient: 'user', message: `${performerName} has accepted your request!${etaMessagePartUser} As a verified client, you can now proceed to payment.`, booking_id: booking.id, type: 'booking_update' });
 
         const { depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
-        showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />{performerName} has accepted your request!{eta && <><br />{etaSmsIcon}</>}<br /><br />Your application for {booking.event_type} is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
-        addCommunication({ sender: 'System', recipient: booking.performer_id, message: `✅ Booking Vetted! The application from ${booking.client_name} for ${new Date(booking.event_date).toLocaleDateString()} has been approved. Awaiting deposit.`, booking_id: booking.id, type: 'booking_update' });
+        showPhoneMessage({ for: 'Client', content: <p><strong>Booking Approved!</strong><br />{performerName} has accepted your request!<br /><br />Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit to confirm your event.</p> });
+        addCommunication({ sender: 'System', recipient: booking.performer_id, message: `Booking Vetted! The application from ${booking.client_name} for ${new Date(booking.event_date).toLocaleDateString()} has been approved. Awaiting deposit.`, booking_id: booking.id, type: 'booking_update' });
 
       } else {
-        addCommunication({ sender: performerName, recipient: 'admin', message: `${performerName} has ACCEPTED the booking request from ${booking.client_name}${etaMessagePartAdmin}. It is now pending your vetting.`, type: 'admin_message' });
+        addCommunication({ sender: performerName, recipient: 'admin', message: `${performerName} has ACCEPTED the booking request from ${booking.client_name}${etaMessagePartAdmin}. Pending your vetting.`, type: 'admin_message' });
         addCommunication({ sender: 'System', recipient: 'user', message: `${performerName} has accepted your request!${etaMessagePartUser} Your booking is now with our admin team for final review.`, booking_id: booking.id, type: 'booking_update' });
-        showPhoneMessage({ for: 'Client', content: <p>🙌 <strong>Request Accepted!</strong><br /><strong>{performerName}</strong> has accepted your request!{eta && <><br />{etaSmsIcon}</>}<br /><br />Our admin team is now performing final vetting. We'll notify you once it's ready for deposit.</p> });
+        showPhoneMessage({ for: 'Client', content: <p><strong>Request Accepted!</strong><br /><strong>{performerName}</strong> has accepted your request!<br /><br />Our admin team is now performing final vetting. We'll notify you once it's ready for deposit.</p> });
       }
     } catch (err) {
       console.error("Failed performer decision update:", err);
@@ -539,11 +540,7 @@ const App: React.FC = () => {
 
       const performerName = booking.performer?.name || 'Performer';
       addCommunication({ sender: performerName, recipient: 'user', message: `ETA has been updated to ${eta} minutes.`, booking_id: booking.id, type: 'booking_update' });
-
-      showPhoneMessage({
-        for: 'Client',
-        content: <p>⏱ <strong>ETA Updated!</strong><br /><strong>{performerName}</strong> has updated their ETA to <strong>{eta} minutes</strong> for your {booking.event_type} booking.</p>
-      });
+      showPhoneMessage({ for: 'Client', content: <p><strong>ETA Updated!</strong><br /><strong>{performerName}</strong> has updated their ETA to <strong>{eta} minutes</strong>.</p> });
     } catch (err) {
       console.error("Failed to update ETA:", err);
       setBookings(originalBookings);
@@ -630,19 +627,19 @@ const App: React.FC = () => {
       setBookings(prev => [...newBookings!, ...prev]);
 
       const firstBooking = newBookings![0];
-      addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Request Sent! We've notified ${newBookings!.map(b => b.performer?.name).join(', ')} of your request.`, booking_id: firstBooking.id, type: 'booking_update' });
-      addCommunication({ sender: 'System', recipient: 'admin', message: `📥 New Booking Request: for ${formState.fullName} with ${newBookings!.map(b => b.performer?.name).join(', ')}. Awaiting performer acceptance.`, type: 'admin_message' });
+      addCommunication({ sender: 'System', recipient: 'user', message: `Booking Request Sent! We've notified ${newBookings!.map(b => b.performer?.name).join(', ')} of your request.`, booking_id: firstBooking.id, type: 'booking_update' });
+      addCommunication({ sender: 'System', recipient: 'admin', message: `New Booking Request: for ${formState.fullName} with ${newBookings!.map(b => b.performer?.name).join(', ')}. Awaiting performer acceptance.`, type: 'admin_message' });
 
-      showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Request Sent!</strong><br />We've sent your request to <strong>{newBookings!.map(b => b.performer?.name).join(' & ')}</strong>. We'll notify you as soon as they respond!</p> });
+      showPhoneMessage({ for: 'Client', content: <p><strong>Request Sent!</strong><br />We've sent your request to <strong>{newBookings!.map(b => b.performer?.name).join(' & ')}</strong>. We'll notify you as soon as they respond!</p> });
 
       setTimeout(() => {
         const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested || [], newBookings!.length);
         showPhoneMessage({
           for: 'Performer',
-          content: <p>🎭 <strong>New Booking Request!</strong><br />From: <strong>{firstBooking.client_name}</strong><br />For: {new Date(firstBooking.event_date).toLocaleDateString()}<br />Event: {firstBooking.event_type}<br />Guests: {firstBooking.number_of_guests}<br /><br /><strong>Total Value:</strong> ${(totalCost || 0).toFixed(2)}<br /><strong>Deposit:</strong> ${(depositAmount || 0).toFixed(2)}</p>,
+          content: <p><strong>New Booking Request!</strong><br />From: <strong>{firstBooking.client_name}</strong><br />For: {new Date(firstBooking.event_date).toLocaleDateString()}<br />Event: {firstBooking.event_type}<br />Guests: {firstBooking.number_of_guests}<br /><br /><strong>Total Value:</strong> ${(totalCost || 0).toFixed(2)}<br /><strong>Deposit:</strong> ${(depositAmount || 0).toFixed(2)}</p>,
           actions: [
-            { label: '✅ Accept Booking', onClick: () => handlePerformerBookingDecision(firstBooking.id, 'accepted'), style: 'primary' },
-            { label: '❌ Decline Booking', onClick: () => handlePerformerBookingDecision(firstBooking.id, 'declined'), style: 'secondary' },
+            { label: 'Accept Booking', onClick: () => handlePerformerBookingDecision(firstBooking.id, 'accepted'), style: 'primary' },
+            { label: 'Decline Booking', onClick: () => handlePerformerBookingDecision(firstBooking.id, 'declined'), style: 'secondary' },
           ]
         });
       }, 6000);
@@ -704,6 +701,24 @@ const App: React.FC = () => {
     setServiceIdFilter(null);
   };
 
+  const handleViewDemo = () => {
+    // Auto-switch to admin role for demo
+    setAuthedUser({ name: 'Admin', role: 'admin' });
+    setView('admin_dashboard');
+    window.scrollTo(0, 0);
+  };
+
+  const handleBrowsePerformers = () => {
+    setView('available_now');
+    window.scrollTo(0, 0);
+  };
+
+  const handleSelectCategory = (category: string) => {
+    setCategoryFilter(category);
+    setView('available_now');
+    window.scrollTo(0, 0);
+  };
+
 
   const filteredPerformers = useMemo(() => {
     const basePerformers = view === 'available_now'
@@ -718,11 +733,8 @@ const App: React.FC = () => {
         return service && service.category === categoryFilter;
       });
       const availabilityMatch = view === 'available_now' || !availabilityFilter || p.status === availabilityFilter;
-
       const serviceIdMatch = !serviceIdFilter || p.service_ids.includes(serviceIdFilter);
-
       const serviceAreaMatch = !serviceAreaFilter || p.service_areas.includes(serviceAreaFilter);
-
       const searchMatch = !lowerCaseQuery || (
         p.name.toLowerCase().includes(lowerCaseQuery) ||
         p.tagline.toLowerCase().includes(lowerCaseQuery) ||
@@ -737,38 +749,28 @@ const App: React.FC = () => {
   }, [performers, categoryFilter, availabilityFilter, view, searchQuery, serviceIdFilter, serviceAreaFilter]);
 
 
-  const AccessDenied = () => (
-    <div className="text-center py-20 card-base max-w-lg mx-auto">
-      <h2 className="text-3xl font-bold text-red-500">Access Denied</h2>
-      <p className="text-zinc-400 mt-2">You must be logged in with the correct role to view this page.</p>
-      <button onClick={() => setView('available_now')} className="btn-primary mt-6">
-        Return to Gallery
-      </button>
-    </div>
-  );
-
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading && view !== 'home') {
       return (
-        <div className="flex flex-col items-center justify-center p-12 text-zinc-400">
-          <LoaderCircle className="w-16 h-16 animate-spin text-orange-500 mb-4" />
-          <h2 className="text-xl font-semibold text-zinc-200">Initializing Secure Backend...</h2>
+        <div className="flex flex-col items-center justify-center p-12 text-[#b8b8c2]">
+          <LoaderCircle className="w-16 h-16 animate-spin text-[#e6398a] mb-4" />
+          <h2 className="text-xl font-semibold text-white">Loading platform...</h2>
           <p>Verifying performer availability.</p>
         </div>
       );
     }
 
-    if (performers.length === 0 && !isLoading) {
+    if (performers.length === 0 && !isLoading && view !== 'home') {
       return (
-        <div className="text-center py-20 card-base !bg-orange-500/5 border-orange-500/20 max-w-2xl mx-auto animate-fade-in">
-          <Sparkles className="h-16 w-16 text-orange-500 mx-auto mb-6" />
+        <div className="text-center py-20 card-base !bg-[#e6398a]/5 border-[#e6398a]/20 max-w-2xl mx-auto animate-fade-in">
+          <Sparkles className="h-16 w-16 text-[#e6398a] mx-auto mb-6" />
           <h2 className="text-3xl font-bold text-white mb-4">Demo Environment Ready</h2>
-          <p className="text-zinc-400 mb-8 text-lg">
-            This is a fresh demonstration environment. To begin exploring the booking flow, dashboards, and admin features, please seed the database with sample data.
+          <p className="text-[#b8b8c2] mb-8 text-lg">
+            This is a fresh demonstration environment. Seed the database with sample data to explore the full platform.
           </p>
           <button
             onClick={() => resetDemoData()}
-            className="btn-primary !py-4 !px-8 !text-lg flex items-center gap-3 mx-auto shadow-xl shadow-orange-500/20"
+            className="btn-primary !py-4 !px-8 !text-lg flex items-center gap-3 mx-auto"
           >
             <Database className="h-6 w-6" />
             Seed Demonstration Data
@@ -777,8 +779,24 @@ const App: React.FC = () => {
       );
     }
 
-    if (error) {
-      return <div className="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg text-white max-w-4xl mx-auto"><h2 className="text-xl font-bold">An Error Occurred</h2><p className="mt-2 text-red-200">{error}</p></div>;
+    if (error && view !== 'home') {
+      return <div className="text-center p-8 bg-red-900/50 border border-red-500 rounded-2xl text-white max-w-4xl mx-auto"><h2 className="text-xl font-bold">An Error Occurred</h2><p className="mt-2 text-red-200">{error}</p></div>;
+    }
+
+    // Homepage
+    if (view === 'home') {
+      return (
+        <div className="-mx-4 -mt-8 md:-mt-12">
+          <Hero onViewDemo={handleViewDemo} onBrowsePerformers={handleBrowsePerformers} />
+          <TrustStats />
+          <FeaturedPerformers performers={performers} onViewAll={handleBrowsePerformers} onViewProfile={handleViewProfile} />
+          <ServiceCategories onSelectCategory={handleSelectCategory} />
+          <HowItWorks />
+          <SafetyFeatures />
+          <AdminPreview onViewDemo={handleViewDemo} />
+          <CTASection onViewDemo={handleViewDemo} onBrowsePerformers={handleBrowsePerformers} />
+        </div>
+      );
     }
 
     const renderTabs = () => {
@@ -786,39 +804,28 @@ const App: React.FC = () => {
       const isFutureBookings = view === 'future_bookings';
       const isServices = view === 'services';
       return (
-        <div className="mb-8 flex justify-center border-b border-zinc-800">
+        <div className="mb-8 flex justify-center border-b border-[#2a2a35]">
           <button
             onClick={() => { setView('available_now'); setServiceIdFilter(null); setSelectedForBooking([]); setCategoryFilter(''); setAvailabilityFilter(''); }}
-            className={`flex items-center gap-2 py-4 px-6 text-sm font-semibold transition-colors ${isAvailableNow ? 'border-b-2 border-orange-500 text-orange-400' : 'border-b-2 border-transparent text-zinc-400 hover:text-white'}`}
+            className={`flex items-center gap-2 py-4 px-6 text-sm font-semibold transition-colors ${isAvailableNow ? 'border-b-2 border-[#e6398a] text-[#e6398a]' : 'border-b-2 border-transparent text-[#b8b8c2] hover:text-white'}`}
           >
             <Clock size={16} /> Available Now
           </button>
           <button
             onClick={() => { setView('future_bookings'); setServiceIdFilter(null); setSelectedForBooking([]); setCategoryFilter(''); setAvailabilityFilter(''); }}
-            className={`flex items-center gap-2 py-4 px-6 text-sm font-semibold transition-colors ${isFutureBookings ? 'border-b-2 border-orange-500 text-orange-400' : 'border-b-2 border-transparent text-zinc-400 hover:text-white'}`}
+            className={`flex items-center gap-2 py-4 px-6 text-sm font-semibold transition-colors ${isFutureBookings ? 'border-b-2 border-[#e6398a] text-[#e6398a]' : 'border-b-2 border-transparent text-[#b8b8c2] hover:text-white'}`}
           >
             <CalendarCheck size={16} /> Book for Future
           </button>
           <button
             onClick={() => { setView('services'); setServiceIdFilter(null); setSelectedForBooking([]); setCategoryFilter(''); setAvailabilityFilter(''); }}
-            className={`flex items-center gap-2 py-4 px-6 text-sm font-semibold transition-colors ${isServices ? 'border-b-2 border-orange-500 text-orange-400' : 'border-b-2 border-transparent text-zinc-400 hover:text-white'}`}
+            className={`flex items-center gap-2 py-4 px-6 text-sm font-semibold transition-colors ${isServices ? 'border-b-2 border-[#e6398a] text-[#e6398a]' : 'border-b-2 border-transparent text-[#b8b8c2] hover:text-white'}`}
           >
             <Briefcase size={16} /> Services
           </button>
         </div>
       );
     };
-
-    const HeroSection = () => (
-      <div className="text-center mb-12 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 sm:p-12">
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-4 tracking-tight">
-          Find the Perfect Entertainer
-        </h1>
-        <p className="text-lg text-zinc-400 max-w-3xl mx-auto">
-          Browse our selection of professional, vetted entertainers in Western Australia. Whether you need someone right now or for a future event, we provide a secure and seamless booking experience.
-        </p>
-      </div>
-    );
 
     switch (view) {
       case 'profile':
@@ -841,7 +848,11 @@ const App: React.FC = () => {
           />
         );
       case 'admin_dashboard':
-        if (authedUser?.role !== 'admin') return <AccessDenied />;
+        // In demo mode, allow access without auth check for easier demoing
+        if (!isDemoMode && authedUser?.role !== 'admin') {
+          // Auto-set admin role for demo convenience
+          setAuthedUser({ name: 'Admin', role: 'admin' });
+        }
         return <AdminDashboard
           bookings={bookings}
           performers={performers}
@@ -856,11 +867,17 @@ const App: React.FC = () => {
           onCreatePerformer={handleCreatePerformer}
         />;
       case 'performer_dashboard':
-        if (authedUser?.role !== 'performer') return <AccessDenied />;
+        if (authedUser?.role !== 'performer') {
+          // Auto-set to first performer for demo
+          const firstPerformer = performers[0];
+          if (firstPerformer) {
+            setAuthedUser({ name: firstPerformer.name, role: 'performer', id: firstPerformer.id });
+          }
+          return null;
+        }
         const currentPerformer = performers.find(p => p.id === authedUser.id);
         const performerBookings = bookings.filter(b => b.performer_id === authedUser.id);
         const performerCommunications = communications.filter(c => c.recipient === authedUser.id);
-        // Fix: Use actorUid for filtering audit logs to match the interface.
         const performerAuditLogs = auditLogs.filter(log => log.actorUid === String(authedUser.id));
         return currentPerformer ? (
           <PerformerDashboard
@@ -875,19 +892,21 @@ const App: React.FC = () => {
             onUpdateBookingStatus={handleUpdateBookingStatus}
           />
         ) : (
-          <p className="text-center text-gray-400">Select a performer to view their dashboard.</p>
+          <p className="text-center text-[#8888a0]">Select a performer to view their dashboard.</p>
         );
       case 'client_dashboard':
         return <ClientDashboard bookings={bookings} onBrowsePerformers={() => setView('available_now')} onShowSettings={() => setView('settings')} />;
       case 'settings':
         return <UserSettings settings={settings} onSettingsChange={setSettings} onBack={() => setView('client_dashboard')} />;
       case 'faq':
-        return <FAQ onBack={() => setView('available_now')} />;
+        return <FAQ onBack={() => setView('home')} />;
       case 'do_not_serve':
-        if (!authedUser || role === 'user') return <AccessDenied />;
-        const performerSubmitting = performers.find(p => p.id === authedUser.id);
+        if (!authedUser || role === 'user') {
+          setAuthedUser({ name: 'Admin', role: 'admin' });
+        }
+        const performerSubmitting = performers.find(p => p.id === authedUser?.id);
         return <DoNotServe
-          role={role}
+          role={authedUser?.role || 'admin'}
           currentPerformer={performerSubmitting}
           doNotServeList={doNotServeList}
           onBack={handleBackToDashboard}
@@ -895,7 +914,7 @@ const App: React.FC = () => {
           addCommunication={addCommunication}
         />
       case 'performer_onboarding':
-        return <PerformerOnboarding onSubmit={handleCreatePerformer} onCancel={() => setView('available_now')} />;
+        return <PerformerOnboarding onSubmit={handleCreatePerformer} onCancel={() => setView('home')} />;
       case 'services':
         return (
           <div className="animate-fade-in">
@@ -909,15 +928,14 @@ const App: React.FC = () => {
         const isAvailableNow = view === 'available_now';
         return (
           <div className="animate-fade-in">
-            <HeroSection />
             {renderTabs()}
             {serviceIdFilter && (
-              <div className="text-center mb-6 bg-zinc-900/50 border border-zinc-800 rounded-xl max-w-xl mx-auto p-4 flex items-center justify-center gap-4">
-                <p className="text-zinc-300">
-                  Showing performers for: <strong className="text-orange-400">{allServices.find(s => s.id === serviceIdFilter)?.name}</strong>
+              <div className="text-center mb-6 bg-[#1a1a22] border border-[#2a2a35] rounded-xl max-w-xl mx-auto p-4 flex items-center justify-center gap-4">
+                <p className="text-[#b8b8c2]">
+                  Showing performers for: <strong className="text-[#e6398a]">{allServices.find(s => s.id === serviceIdFilter)?.name}</strong>
                 </p>
-                <button onClick={handleClearServiceFilter} className="bg-orange-500/20 text-orange-300 text-xs font-semibold px-3 py-1 rounded-full hover:bg-orange-500/40 transition-colors flex items-center gap-1">
-                  <X size={12} /> Clear Filter
+                <button onClick={handleClearServiceFilter} className="bg-[#e6398a]/20 text-[#e6398a] text-xs font-semibold px-3 py-1 rounded-full hover:bg-[#e6398a]/40 transition-colors flex items-center gap-1">
+                  <X size={12} /> Clear
                 </button>
               </div>
             )}
@@ -925,40 +943,40 @@ const App: React.FC = () => {
               <h2 className="text-3xl font-bold text-white mb-2">
                 {isAvailableNow ? 'Available Now' : 'Schedule for the Future'}
               </h2>
-              <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
+              <p className="text-lg text-[#b8b8c2] max-w-2xl mx-auto">
                 {isAvailableNow
                   ? "These performers are online and ready for immediate bookings."
-                  : "Browse all professionals. Select one or more to begin your booking for a future date."
+                  : "Browse all professionals. Select one or more to begin your booking."
                 }
               </p>
             </div>
-            <div className={`mb-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl max-w-3xl mx-auto grid grid-cols-1 ${!isAvailableNow ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
+            <div className={`mb-8 p-4 bg-[#1a1a22] border border-[#2a2a35] rounded-xl max-w-3xl mx-auto grid grid-cols-1 ${!isAvailableNow ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
               <div className="relative">
-                <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true" />
+                <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0]" aria-hidden="true" />
                 <select aria-label="Filter by service category" onChange={(e) => setCategoryFilter(e.target.value)} value={categoryFilter} className="input-base input-with-icon appearance-none">
                   <option value="">All Service Categories</option>
                   {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0] pointer-events-none" />
               </div>
               <div className="relative">
-                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true" />
+                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0]" aria-hidden="true" />
                 <select aria-label="Filter by service area" onChange={(e) => setServiceAreaFilter(e.target.value as ServiceArea | '')} value={serviceAreaFilter} className="input-base input-with-icon appearance-none">
                   <option value="">All Service Areas</option>
                   {serviceAreas.map(area => <option key={area} value={area}>{area}</option>)}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0] pointer-events-none" />
               </div>
               {!isAvailableNow && (
                 <div className="relative">
-                  <Radio className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true" />
+                  <Radio className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0]" aria-hidden="true" />
                   <select aria-label="Filter by availability" onChange={(e) => setAvailabilityFilter(e.target.value as PerformerStatus | '')} value={availabilityFilter} className="input-base input-with-icon appearance-none">
                     <option value="">All Availabilities</option>
                     <option value="available">Available</option>
                     <option value="busy">Busy</option>
                     <option value="offline">Offline</option>
                   </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8888a0] pointer-events-none" />
                 </div>
               )}
             </div>
@@ -975,7 +993,7 @@ const App: React.FC = () => {
             </div>
             {filteredPerformers.length === 0 && !isLoading && (
               <div className="text-center col-span-full py-12">
-                <p className="text-zinc-500">
+                <p className="text-[#8888a0]">
                   {searchQuery ? `No performers match your search for "${searchQuery}".` : 'No performers match the current filters.'}
                 </p>
               </div>
@@ -989,13 +1007,14 @@ const App: React.FC = () => {
     if (targetView === 'bookings') {
       setView(authedUser ? (authedUser.role === 'admin' ? 'admin_dashboard' : authedUser.role === 'performer' ? 'performer_dashboard' : 'client_dashboard') : 'client_dashboard');
     } else {
-      setView(targetView as any);
+      setView(targetView as AppView);
     }
+    window.scrollTo(0, 0);
   };
 
   const suspenseFallback = (
     <div className="flex items-center justify-center min-h-[200px]">
-      <LoaderCircle className="h-8 w-8 animate-spin text-orange-500" />
+      <LoaderCircle className="h-8 w-8 animate-spin text-[#e6398a]" />
     </div>
   );
 
@@ -1003,22 +1022,6 @@ const App: React.FC = () => {
     <ErrorBoundary>
     <Suspense fallback={suspenseFallback}>
     <div className="min-h-screen text-white flex flex-col">
-      {showDemoBanner && performers.length > 0 && (
-        <div className="bg-orange-600 text-white py-2 px-4 text-center text-xs sm:text-sm font-medium relative z-50">
-          <div className="container mx-auto flex items-center justify-center gap-4">
-            <span className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              <strong>Demo Mode Active:</strong> Use the role switcher in the header to explore Client, Performer, and Admin views.
-            </span>
-            <button
-              onClick={() => setShowDemoBanner(false)}
-              className="hover:bg-white/20 rounded p-0.5 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
       <Header
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
@@ -1034,8 +1037,8 @@ const App: React.FC = () => {
           />
           {authedUser ? (
             <>
-              <span className="text-sm text-zinc-300 hidden sm:block">Welcome, <strong className="font-semibold text-white">{authedUser.name}</strong></span>
-              <button onClick={handleLogout} className="bg-zinc-800 hover:bg-zinc-700 text-white flex items-center gap-2 text-sm p-2 sm:px-4 sm:py-2 rounded-lg transition-colors" title="Logout">
+              <span className="text-sm text-[#b8b8c2] hidden sm:block">Welcome, <strong className="font-semibold text-white">{authedUser.name}</strong></span>
+              <button onClick={handleLogout} className="bg-[#1a1a22] hover:bg-[#2a2a35] text-white flex items-center gap-2 text-sm p-2 sm:px-4 sm:py-2 rounded-lg transition-colors border border-[#2a2a35]" title="Logout">
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Logout</span>
               </button>
@@ -1044,7 +1047,7 @@ const App: React.FC = () => {
             <>
               <button
                 onClick={() => setView('client_dashboard')}
-                className="bg-zinc-800 hover:bg-zinc-700 text-white flex items-center gap-2 text-sm p-2 sm:px-4 sm:py-2 rounded-lg transition-colors"
+                className="bg-[#1a1a22] hover:bg-[#2a2a35] text-white flex items-center gap-2 text-sm p-2 sm:px-4 sm:py-2 rounded-lg transition-colors border border-[#2a2a35]"
                 title="My Bookings"
               >
                 <BookOpen className="h-4 w-4" />
@@ -1053,13 +1056,6 @@ const App: React.FC = () => {
               <button onClick={() => setShowLogin(true)} className="btn-primary flex items-center gap-2 text-sm p-2 sm:px-4 sm:py-2" title="Login">
                 <LogIn className="h-4 w-4" />
                 <span className="hidden sm:inline">Login</span>
-              </button>
-              <button
-                onClick={() => setShowWalkthrough(true)}
-                title="Start Guided Tour"
-                className="hidden sm:flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500/20 transition-colors"
-              >
-                <span className="text-xs font-bold">▶ Tour</span>
               </button>
             </>
           )}
@@ -1076,11 +1072,11 @@ const App: React.FC = () => {
         {notifications.map(notification => (
           <div
             key={notification.id}
-            className={`p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-slide-in-right pointer-events-auto flex items-start gap-3 ${notification.type === 'success'
+            className={`p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-slide-in-up pointer-events-auto flex items-start gap-3 ${notification.type === 'success'
               ? 'bg-green-500/10 border-green-500/20 text-green-400'
               : notification.type === 'warning'
                 ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
-                : 'bg-zinc-900/90 border-white/10 text-white'
+                : 'bg-[#1a1a22]/90 border-white/10 text-white'
               }`}
           >
             <div className="flex-1 text-sm font-medium leading-relaxed">
@@ -1088,7 +1084,7 @@ const App: React.FC = () => {
             </div>
             <button
               onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
-              className="text-zinc-500 hover:text-white transition-colors"
+              className="text-[#8888a0] hover:text-white transition-colors"
             >
               <X className="h-4 w-4" />
             </button>

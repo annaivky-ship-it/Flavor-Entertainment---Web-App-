@@ -119,7 +119,7 @@ const PerformerOnboarding: React.FC<PerformerOnboardingProps> = ({ onSubmit, onC
                         setFormData({ ...formData, service_ids: formData.service_ids.filter(id => id !== service) });
                       }
                     }}
-                    className="w-4 h-4 rounded border-zinc-700 text-orange-500 focus:ring-orange-500/20 bg-zinc-800"
+                    className="w-4 h-4 rounded border-zinc-700 text-[#e6398a] focus:ring-[#e6398a]/20 bg-zinc-800"
                   />
                   <span className="text-zinc-300">{service}</span>
                 </label>
@@ -142,7 +142,7 @@ const PerformerOnboarding: React.FC<PerformerOnboardingProps> = ({ onSubmit, onC
                         setFormData({ ...formData, service_areas: formData.service_areas.filter(a => a !== area) });
                       }
                     }}
-                    className="w-4 h-4 rounded border-zinc-700 text-orange-500 focus:ring-orange-500/20 bg-zinc-800"
+                    className="w-4 h-4 rounded border-zinc-700 text-[#e6398a] focus:ring-[#e6398a]/20 bg-zinc-800"
                   />
                   <span className="text-zinc-300">{area}</span>
                 </label>

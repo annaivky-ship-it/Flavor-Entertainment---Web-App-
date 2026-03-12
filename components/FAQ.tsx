@@ -31,7 +31,7 @@ const FAQItem: React.FC<{ question: string; answer: string }> = ({ question, ans
     <div className="border-b border-zinc-800 last:border-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full py-6 flex items-center justify-between text-left hover:text-orange-400 transition-colors"
+        className="w-full py-6 flex items-center justify-between text-left hover:text-[#e6398a] transition-colors"
       >
         <span className="text-lg font-semibold text-white">{question}</span>
         {isOpen ? <ChevronUp className="text-zinc-500" /> : <ChevronDown className="text-zinc-500" />}
@@ -49,8 +49,8 @@ const FAQ: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <div className="max-w-3xl mx-auto py-12 px-4">
       <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 bg-orange-500/10 rounded-2xl">
-          <HelpCircle className="w-8 h-8 text-orange-500" />
+        <div className="p-3 bg-[#e6398a]/10 rounded-2xl">
+          <HelpCircle className="w-8 h-8 text-[#e6398a]" />
         </div>
         <div>
           <h1 className="text-4xl font-bold text-white">Frequently Asked Questions</h1>

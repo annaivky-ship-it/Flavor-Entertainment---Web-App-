@@ -180,7 +180,7 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <div className="flex items-center justify-between p-6 border-b border-zinc-800">
                     <div>
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <Play className="h-5 w-5 text-orange-500" />
+                            <Play className="h-5 w-5 text-[#e6398a]" />
                             Demo Scenarios
                         </h2>
                         <p className="text-sm text-zinc-400 mt-1">Click a scenario to see how the system responds</p>
@@ -333,7 +333,7 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
                     {/* Progress bar */}
                     <div className="h-1 bg-zinc-800 rounded-t-2xl overflow-hidden">
                         <div
-                            className="h-full bg-orange-500 transition-all duration-500"
+                            className="h-full bg-[#e6398a] transition-all duration-500"
                             style={{ width: `${((currentStep + 1) / total) * 100}%` }}
                         />
                     </div>
@@ -345,7 +345,7 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
                                 {step.role && (
                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${step.role === 'Admin' ? 'bg-purple-500/20 text-purple-400' :
                                             step.role === 'Performer' ? 'bg-blue-500/20 text-blue-400' :
-                                                'bg-orange-500/20 text-orange-400'
+                                                'bg-[#e6398a]/20 text-[#e6398a]'
                                         }`}>
                                         {step.role} View
                                     </span>
@@ -355,7 +355,7 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setShowScenarios(true)}
-                                    className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1 transition-colors"
+                                    className="text-xs text-[#e6398a] hover:text-[#f06aaa] flex items-center gap-1 transition-colors"
                                 >
                                     <Play className="h-3 w-3" />
                                     Scenarios
@@ -372,8 +372,8 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
 
                         {/* Safety Note */}
                         {step.safetyNote && (
-                            <div className="mt-3 flex items-start gap-2 bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
-                                <Shield className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                            <div className="mt-3 flex items-start gap-2 bg-[#e6398a]/5 border border-[#e6398a]/20 rounded-lg p-3">
+                                <Shield className="h-4 w-4 text-[#e6398a] mt-0.5 flex-shrink-0" />
                                 <p className="text-xs text-zinc-400">{step.safetyNote}</p>
                             </div>
                         )}
@@ -395,7 +395,7 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
                                     <button
                                         key={i}
                                         onClick={() => setCurrentStep(i)}
-                                        className={`h-1.5 rounded-full transition-all duration-300 ${i === currentStep ? 'w-4 bg-orange-500' : 'w-1.5 bg-zinc-700 hover:bg-zinc-500'
+                                        className={`h-1.5 rounded-full transition-all duration-300 ${i === currentStep ? 'w-4 bg-[#e6398a]' : 'w-1.5 bg-zinc-700 hover:bg-zinc-500'
                                             }`}
                                     />
                                 ))}
@@ -412,7 +412,7 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
                                     <ChevronRight className="h-4 w-4" />
                                 </button>
                             ) : (
-                                <button onClick={goNext} className="flex items-center gap-1 text-sm text-orange-400 hover:text-orange-300 transition-colors font-semibold">
+                                <button onClick={goNext} className="flex items-center gap-1 text-sm text-[#e6398a] hover:text-[#f06aaa] transition-colors font-semibold">
                                     Next
                                     <ChevronRight className="h-4 w-4" />
                                 </button>

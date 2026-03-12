@@ -40,7 +40,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
       case 'processing':
         return (
           <div className="flex flex-col items-center justify-center text-center h-[450px]">
-            <LoaderCircle className="h-16 w-16 animate-spin text-orange-500" />
+            <LoaderCircle className="h-16 w-16 animate-spin text-[#e6398a]" />
             <p className="mt-4 text-zinc-300 font-semibold text-lg">Submitting Confirmation...</p>
             <p className="text-zinc-500 text-sm mt-2">Notifying admin of your PayID transfer...</p>
           </div>
@@ -61,7 +61,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
           <>
             <div className="mb-6">
                 <h3 className="text-lg font-bold text-white border-b border-zinc-800 pb-3 flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-orange-400" />
+                    <Shield className="h-5 w-5 text-[#e6398a]" />
                     Secure Deposit Payment
                 </h3>
                 <div className="mt-4 bg-zinc-950/50 rounded-xl p-4 space-y-3 border border-zinc-800/50 text-sm">
@@ -89,30 +89,30 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
                     <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Total Value</p>
                     <p className="text-lg font-bold text-zinc-300">${(totalAmount || 0).toFixed(2)}</p>
                 </div>
-                <div className="bg-orange-500/10 p-3 rounded-lg border border-orange-500/20">
-                    <p className="text-[10px] text-orange-500/70 uppercase font-bold tracking-wider">Deposit Due</p>
+                <div className="bg-[#e6398a]/10 p-3 rounded-lg border border-[#e6398a]/20">
+                    <p className="text-[10px] text-[#e6398a]/70 uppercase font-bold tracking-wider">Deposit Due</p>
                     <p className="text-2xl font-black text-white">${(amount || 0).toFixed(2)}</p>
                 </div>
             </div>
 
             <div className="mb-8">
                 <p className="text-xs text-zinc-500 mb-2 uppercase tracking-widest font-bold">Transfer To (PayID)</p>
-                <div className="bg-zinc-950 p-4 rounded-xl border border-orange-500/20 flex items-center gap-4 relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-12 h-12 bg-orange-500 text-white rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-500/20">
+                <div className="bg-zinc-950 p-4 rounded-xl border border-[#e6398a]/20 flex items-center gap-4 relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-[#e6398a]/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-12 h-12 bg-[#e6398a] text-white rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#e6398a]/20">
                         <Building2 className="h-6 w-6" />
                     </div>
                     <div className="overflow-hidden relative z-10">
                         <p className="font-black text-white truncate uppercase tracking-tight">{PAY_ID_NAME}</p>
-                        <p className="text-sm font-medium text-orange-400 truncate">{PAY_ID_EMAIL}</p>
+                        <p className="text-sm font-medium text-[#e6398a] truncate">{PAY_ID_EMAIL}</p>
                     </div>
                 </div>
-                <div className="mt-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                    <p className="text-xs text-orange-400 font-medium">Please transfer the deposit amount to the PayID above using your banking app. Once completed, click "Confirm Payment Sent".</p>
+                <div className="mt-4 p-3 rounded-lg bg-[#e6398a]/10 border border-[#e6398a]/20">
+                    <p className="text-xs text-[#e6398a] font-medium">Please transfer the deposit amount to the PayID above using your banking app. Once completed, click "Confirm Payment Sent".</p>
                 </div>
             </div>
 
-            <button onClick={handlePay} className="btn-primary w-full py-4 text-lg font-bold flex items-center justify-center gap-3 shadow-2xl shadow-orange-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all">
+            <button onClick={handlePay} className="btn-primary w-full py-4 text-lg font-bold flex items-center justify-center gap-3 shadow-2xl shadow-[#e6398a]/40 hover:scale-[1.02] active:scale-[0.98] transition-all">
               <CheckCircle className="h-5 w-5" />
               Confirm Payment Sent
             </button>

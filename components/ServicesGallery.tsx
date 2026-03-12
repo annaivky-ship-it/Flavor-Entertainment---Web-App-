@@ -34,18 +34,18 @@ const ServicesGallery: React.FC<ServicesGalleryProps> = ({ onBookService }) => {
         {(Object.entries(servicesByCategory) as [string, Service[]][]).map(([category, services]) => (
           <div key={category}>
             <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
-              <Briefcase className="h-7 w-7 text-orange-500" />
+              <Briefcase className="h-7 w-7 text-[#e6398a]" />
               {category}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Fix: Property 'map' does not exist on type 'unknown' is resolved by the typing of the reduce accumulator above and entries casting. */}
               {services.map(service => (
-                <div key={service.id} className="card-base !p-6 flex flex-col justify-between h-full hover:!border-orange-500/60">
+                <div key={service.id} className="card-base !p-6 flex flex-col justify-between h-full hover:!border-[#e6398a]/60">
                   <div>
                      <div className="flex justify-between items-start gap-4 mb-2">
                        <h3 className="text-xl font-semibold text-white flex-1">{service.name}</h3>
                        <div className="flex flex-col items-end gap-1">
-                         <span className="bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap">
+                         <span className="bg-[#e6398a]/20 text-[#f06aaa] px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap">
                              ${service.rate}
                              {service.rate_type === 'per_hour' ? '/hr' : ''}
                          </span>

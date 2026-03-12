@@ -22,7 +22,7 @@ const Toggle = ({ label, description, enabled, onChange }: { label: string, desc
             <p className="font-semibold text-white">{label}</p>
             <p className="text-sm text-zinc-400">{description}</p>
         </div>
-        <div className={`w-14 h-8 flex items-center rounded-full p-1 transition-colors ${enabled ? 'bg-orange-500' : 'bg-zinc-600'}`}>
+        <div className={`w-14 h-8 flex items-center rounded-full p-1 transition-colors ${enabled ? 'bg-[#e6398a]' : 'bg-zinc-600'}`}>
             <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform ${enabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
         </div>
     </div>

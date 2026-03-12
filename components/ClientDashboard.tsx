@@ -21,7 +21,7 @@ const statusConfig: Record<Booking['status'], {
 }> = {
   pending_performer_acceptance: { color: 'text-purple-400', borderColor: 'border-purple-500', Icon: LoaderCircle, title: "Awaiting Performer", description: "We're waiting for the performer to accept your request." },
   pending_vetting: { color: 'text-yellow-400', borderColor: 'border-yellow-500', Icon: LoaderCircle, title: "Pending Admin Review", description: "The performer accepted! Our admin team is now reviewing your application." },
-  deposit_pending: { color: 'text-orange-400', borderColor: 'border-orange-500', Icon: Wallet, title: "Action Required: Pay Deposit", description: "Your booking is approved! Please pay the deposit to confirm your spot." },
+  deposit_pending: { color: 'text-[#e6398a]', borderColor: 'border-[#e6398a]', Icon: Wallet, title: "Action Required: Pay Deposit", description: "Your booking is approved! Please pay the deposit to confirm your spot." },
   pending_deposit_confirmation: { color: 'text-blue-400', borderColor: 'border-blue-500', Icon: LoaderCircle, title: "Confirming Deposit", description: "We've received your payment confirmation and our team is verifying it." },
   confirmed: { color: 'text-green-400', borderColor: 'border-green-500', Icon: CheckCircle, title: "Booking Confirmed!", description: "You're all set! The performer is booked for your event." },
   en_route: { color: 'text-blue-400', borderColor: 'border-blue-500', Icon: Timer, title: "Performer En Route", description: "The performer is on their way to your location!" },
@@ -176,7 +176,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
     if (bookings.length === 0) return null;
     return (
         <div>
-            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3"><Icon className="text-orange-400" /> {title}</h2>
+            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3"><Icon className="text-[#e6398a]" /> {title}</h2>
             <div className="grid gap-6">
                 {bookings.map(booking => {
                     const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
@@ -185,7 +185,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                       <div key={booking.id} className={`card-base !p-0 overflow-hidden flex flex-col md:flex-row border-l-4 ${config.borderColor}`}>
                          <div className="p-6 flex-grow">
                              <h3 className="text-2xl font-bold text-white">{booking.event_type}</h3>
-                             <p className="text-sm text-zinc-400 mb-4">with <strong className="text-orange-400">{booking.performer?.name}</strong></p>
+                             <p className="text-sm text-zinc-400 mb-4">with <strong className="text-[#e6398a]">{booking.performer?.name}</strong></p>
 
                               <div className={`p-3 rounded-lg flex items-start gap-3 mb-4 bg-zinc-900/50`}>
                                 <config.Icon className={`h-6 w-6 mt-1 flex-shrink-0 ${config.color} ${config.Icon === LoaderCircle ? 'animate-spin' : ''}`} />
@@ -196,14 +196,14 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                               </div>
 
                              <div className="text-zinc-300 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm mt-2 border-t border-zinc-800 pt-4">
-                                <div className="flex items-center gap-2"><Calendar size={16} className="text-orange-500/80"/> {new Date(booking.event_date).toLocaleDateString()} at {booking.event_time}</div>
-                                <div className="flex items-center gap-2"><Clock size={16} className="text-orange-500/80"/> {booking.duration_hours} hour{booking.duration_hours > 1 ? 's' : ''}</div>
+                                <div className="flex items-center gap-2"><Calendar size={16} className="text-[#e6398a]/80"/> {new Date(booking.event_date).toLocaleDateString()} at {booking.event_time}</div>
+                                <div className="flex items-center gap-2"><Clock size={16} className="text-[#e6398a]/80"/> {booking.duration_hours} hour{booking.duration_hours > 1 ? 's' : ''}</div>
                                 {booking.performer_eta_minutes && booking.performer_eta_minutes > 0 && (
-                                  <div className="flex items-center gap-2 text-orange-400 font-semibold animate-pulse">
-                                    <Timer size={16} className="text-orange-400"/> ETA: ~{booking.performer_eta_minutes} mins
+                                  <div className="flex items-center gap-2 text-[#e6398a] font-semibold animate-pulse">
+                                    <Timer size={16} className="text-[#e6398a]"/> ETA: ~{booking.performer_eta_minutes} mins
                                   </div>
                                 )}
-                                <div className="flex items-center gap-2 col-span-full"><MapPin size={16} className="text-orange-500/80"/> {booking.event_address}</div>
+                                <div className="flex items-center gap-2 col-span-full"><MapPin size={16} className="text-[#e6398a]/80"/> {booking.event_address}</div>
                              </div>
                          </div>
                          <div className="bg-zinc-900/50 p-6 flex flex-col justify-between items-center md:items-end md:border-l border-zinc-800 md:min-w-[220px]">

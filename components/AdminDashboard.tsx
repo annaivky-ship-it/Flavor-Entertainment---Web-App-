@@ -33,7 +33,7 @@ const getPaymentStatusWeight = (status?: string) => {
 const statusClasses: Record<BookingStatus, string> = {
     pending_performer_acceptance: 'border-purple-500/50 bg-purple-900/30 text-purple-300',
     pending_vetting: 'border-yellow-500/50 bg-yellow-900/30 text-yellow-300',
-    deposit_pending: 'border-orange-500/50 bg-orange-900/30 text-orange-300',
+    deposit_pending: 'border-[#e6398a]/50 bg-[#e6398a]/30 text-[#f06aaa]',
     pending_deposit_confirmation: 'border-blue-500/50 bg-blue-900/30 text-blue-300',
     confirmed: 'border-green-500/50 bg-green-900/30 text-green-300',
     en_route: 'border-blue-500/50 bg-blue-900/30 text-blue-300',
@@ -298,8 +298,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     <div className="animate-fade-in space-y-8">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-white">Admin Dashboard</h1>
-          <p className="text-xl text-zinc-400 mt-1">Manage bookings and monitor performers.</p>
+          <h1 className="text-4xl font-bold text-white">Agency Control Center</h1>
+          <p className="text-xl text-[#b8b8c2] mt-1">Manage bookings, performers, and agency operations.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {(import.meta.env.DEV || isDemoMode) && (
@@ -311,7 +311,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
               }}
               className="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 border border-zinc-700"
             >
-              <Database className="h-5 w-5 text-orange-500" />
+              <Database className="h-5 w-5 text-[#e6398a]" />
               Seed Database (DEV ONLY)
             </button>
           )}
@@ -326,7 +326,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card-base !p-6 flex items-center gap-4"><BarChart className="w-10 h-10 text-orange-500" /><div><p className="text-zinc-400 text-sm">Total Bookings</p><p className="text-3xl font-bold text-white">{totalBookings}</p></div></div>
+        <div className="card-base !p-6 flex items-center gap-4"><BarChart className="w-10 h-10 text-[#e6398a]" /><div><p className="text-zinc-400 text-sm">Total Bookings</p><p className="text-3xl font-bold text-white">{totalBookings}</p></div></div>
         <div className="card-base !p-6 flex items-center gap-4"><ShieldCheck className="w-10 h-10 text-green-500" /><div><p className="text-zinc-400 text-sm">Confirmed</p><p className="text-3xl font-bold text-white">{confirmedBookingsCount}</p></div></div>
         <div className="card-base !p-6 flex items-center gap-4"><ShieldAlert className="w-10 h-10 text-yellow-500" /><div><p className="text-zinc-400 text-sm">Pending Actions</p><p className="text-3xl font-bold text-white">{pendingDnsEntries.length + pendingBookings}</p></div></div>
       </div>
@@ -336,25 +336,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         <nav className="-mb-px flex space-x-8 min-w-max px-2" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('management')}
-            className={`${activeTab === 'management' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+            className={`${activeTab === 'management' ? 'border-[#e6398a] text-[#e6398a]' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
             <CreditCard size={16}/> Management
           </button>
           <button
             onClick={() => setActiveTab('payments')}
-            className={`${activeTab === 'payments' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+            className={`${activeTab === 'payments' ? 'border-[#e6398a] text-[#e6398a]' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
             <DollarSign size={16}/> Payments
           </button>
           <button
             onClick={() => setActiveTab('performers')}
-            className={`${activeTab === 'performers' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+            className={`${activeTab === 'performers' ? 'border-[#e6398a] text-[#e6398a]' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
             <UserCog size={16}/> Performers
           </button>
           <button
             onClick={() => setActiveTab('dns')}
-            className={`${activeTab === 'dns' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+            className={`${activeTab === 'dns' ? 'border-[#e6398a] text-[#e6398a]' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
             <ShieldAlert size={16}/> DNS
             {pendingDnsEntries.length > 0 && (
@@ -365,7 +365,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           </button>
           <button
             onClick={() => setActiveTab('reporting')}
-            className={`${activeTab === 'reporting' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+            className={`${activeTab === 'reporting' ? 'border-[#e6398a] text-[#e6398a]' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
             <LineChart size={16}/> Reporting
           </button>
@@ -457,7 +457,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           </div>
 
           {(isAddingPerformer || editingPerformer) && (
-            <div className="card-base !p-6 border-orange-500/30 bg-orange-500/5">
+            <div className="card-base !p-6 border-[#e6398a]/30 bg-[#e6398a]/5">
               <h3 className="text-xl font-bold text-white mb-4">
                 {isAddingPerformer ? 'Add New Performer' : `Edit ${editingPerformer?.name}`}
               </h3>
@@ -601,7 +601,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     <div className="flex items-center gap-2">
                       <h4 className="font-bold text-white">{p.name}</h4>
                       <div className="flex items-center gap-1 text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded border border-white/5">
-                        <Star className="w-2.5 h-2.5 text-orange-400 fill-orange-400" />
+                        <Star className="w-2.5 h-2.5 text-[#e6398a] fill-[#e6398a]" />
                         <span className="text-white font-bold">{(p.rating || 0).toFixed(1)}</span>
                       </div>
                     </div>
@@ -622,7 +622,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                             created_at: p.created_at,
                           });
                         }}
-                        className="p-1 text-zinc-400 hover:text-orange-500 transition-colors"
+                        className="p-1 text-zinc-400 hover:text-[#e6398a] transition-colors"
                       >
                         <Edit size={16} />
                       </button>
@@ -666,7 +666,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                         <span className="bg-yellow-500/20 text-yellow-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Pending Review</span>
                       </div>
                       <p className="text-sm text-zinc-400">
-                        Submitted by: <span className="font-semibold text-orange-400">{entry.performer?.name || 'N/A'}</span>
+                        Submitted by: <span className="font-semibold text-[#e6398a]">{entry.performer?.name || 'N/A'}</span>
                         <span className="mx-2 text-zinc-600">|</span>
                         {new Date(entry.created_at).toLocaleDateString()}
                       </p>
@@ -763,7 +763,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><DollarSign className="w-10 h-10 text-green-500" /><div><p className="text-zinc-400 text-sm">Total Revenue</p><p className="text-3xl font-bold text-white">${(reportingMetrics.totalRevenue || 0).toFixed(2)}</p></div></div>
-                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><CreditCard className="w-10 h-10 text-orange-500" /><div><p className="text-zinc-400 text-sm">Total Deposits Paid</p><p className="text-3xl font-bold text-white">${(reportingMetrics.totalDeposits || 0).toFixed(2)}</p></div></div>
+                  <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><CreditCard className="w-10 h-10 text-[#e6398a]" /><div><p className="text-zinc-400 text-sm">Total Deposits Paid</p><p className="text-3xl font-bold text-white">${(reportingMetrics.totalDeposits || 0).toFixed(2)}</p></div></div>
                   <div className="card-base !p-6 flex items-center gap-4 !bg-zinc-950/50"><CheckCircle className="w-10 h-10 text-blue-500" /><div><p className="text-zinc-400 text-sm">Confirmed Bookings</p><p className="text-3xl font-bold text-white">{reportingMetrics.confirmedCount}</p></div></div>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -777,7 +777,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                           <span className="text-zinc-400">{count} booking{count !== 1 ? 's' : ''}</span>
                         </div>
                          <div className="w-full bg-zinc-700/50 rounded-full h-2.5">
-                            <div className="bg-orange-500 h-2.5 rounded-full" style={{ width: `${(count / (reportingMetrics.performerBookings[0][1] || 1)) * 100}%` }}></div>
+                            <div className="bg-[#e6398a] h-2.5 rounded-full" style={{ width: `${(count / (reportingMetrics.performerBookings[0][1] || 1)) * 100}%` }}></div>
                          </div>
                       </div>
                     ))}
@@ -826,17 +826,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-300 mb-2">
                       <div className="flex items-center gap-1.5">
-                        <Calendar size={14} className="text-orange-400"/> 
+                        <Calendar size={14} className="text-[#e6398a]"/> 
                         <span>{new Date(booking.event_date).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Clock size={14} className="text-orange-400"/> 
+                        <Clock size={14} className="text-[#e6398a]"/> 
                         <span>{booking.event_time}</span>
                       </div>
                   </div>
 
                   <div className="text-sm text-zinc-400 flex flex-wrap gap-x-4 mb-2">
-                    <span>Assigned to: <span className="font-semibold text-orange-400">{booking.performer?.name || 'N/A'}</span></span>
+                    <span>Assigned to: <span className="font-semibold text-[#e6398a]">{booking.performer?.name || 'N/A'}</span></span>
                     <span className="flex items-center gap-1.5"><UsersIcon size={14}/> Guests: <span className="font-semibold text-white">{booking.number_of_guests}</span></span>
                     {booking.performer_eta_minutes && booking.performer_eta_minutes > 0 && (
                         <span className="flex items-center gap-1.5"><Clock size={14}/> ETA: <span className="font-semibold text-white">{booking.performer_eta_minutes} mins</span></span>
@@ -954,7 +954,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                                     </td>
                                     <td className="px-3 py-4 sm:px-6">{booking.performer?.name}</td>
                                     <td className="px-3 py-4 sm:px-6">${(totalCost || 0).toFixed(2)}</td>
-                                    <td className="px-3 py-4 sm:px-6 font-bold text-orange-400">${(depositAmount || 0).toFixed(2)}</td>
+                                    <td className="px-3 py-4 sm:px-6 font-bold text-[#e6398a]">${(depositAmount || 0).toFixed(2)}</td>
                                     <td className={`px-3 py-4 sm:px-6 font-semibold ${statusClasses[booking.status]}`}>{paymentStatusText}</td>
                                     <td className="px-3 py-4 sm:px-6">
                                         <div className="flex flex-col gap-2">
@@ -1022,7 +1022,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                       {adminComms.map(comm => (
                         <div key={comm.id} className="bg-zinc-900/70 p-3 rounded-md text-sm border border-zinc-700/50">
                             <p className="text-zinc-200">{comm.message}</p>
-                            <p className="text-xs text-zinc-500 mt-1">From: <span className="text-orange-400 font-semibold">{comm.sender}</span> &bull; {new Date(comm.created_at).toLocaleDateString()}</p>
+                            <p className="text-xs text-zinc-500 mt-1">From: <span className="text-[#e6398a] font-semibold">{comm.sender}</span> &bull; {new Date(comm.created_at).toLocaleDateString()}</p>
                         </div>
                       ))}
                     </div>

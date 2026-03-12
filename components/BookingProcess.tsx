@@ -85,7 +85,7 @@ const FileUploadField: React.FC<FileUploadFieldProps> = ({ file, setFile, id, la
     return (
         <div className="flex-1 min-w-[280px]">
             <label htmlFor={id} className="block text-sm font-semibold text-zinc-300 mb-2">{label}</label>
-            <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 transition-all duration-300 ${displayError ? 'border-red-500 bg-red-900/10' : file ? 'border-green-500 bg-green-900/10' : 'border-zinc-700 bg-zinc-900/50 hover:border-orange-500 hover:bg-zinc-800/50'}`}>
+            <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 transition-all duration-300 ${displayError ? 'border-red-500 bg-red-900/10' : file ? 'border-green-500 bg-green-900/10' : 'border-zinc-700 bg-zinc-900/50 hover:border-[#e6398a] hover:bg-zinc-800/50'}`}>
                 {file ? (
                   <div className="text-center animate-fade-in">
                     <CheckCircle className="mx-auto h-10 w-10 text-green-500 mb-2" />
@@ -96,7 +96,7 @@ const FileUploadField: React.FC<FileUploadFieldProps> = ({ file, setFile, id, la
                   <div className="text-center">
                       {icon || <UploadCloud className={`mx-auto h-10 w-10 ${displayError ? 'text-red-400' : 'text-zinc-500'}`} />}
                       <div className="mt-3 flex flex-col text-sm leading-6 text-zinc-400">
-                          <label htmlFor={id} className="relative cursor-pointer rounded-md font-semibold text-orange-500 hover:text-orange-400 transition-colors">
+                          <label htmlFor={id} className="relative cursor-pointer rounded-md font-semibold text-[#e6398a] hover:text-[#e6398a] transition-colors">
                               <span>Upload Photo</span>
                               <input id={id} name={id} type="file" className="sr-only" onChange={handleFileChange} accept={accept} />
                           </label>
@@ -131,7 +131,7 @@ interface StatusScreenProps {
 const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children, bgColor, buttonText, onButtonClick }) => (
   <div className={`flex flex-col items-center justify-center min-h-[60vh] text-center p-4 animate-fade-in ${bgColor}`}>
     <div className="bg-black/40 backdrop-blur-md p-8 sm:p-12 rounded-2xl border border-white/10 shadow-2xl max-w-2xl w-full">
-        <Icon className={`mx-auto h-20 w-20 mb-6 ${Icon === LoaderCircle ? 'animate-spin text-orange-500' : 'text-orange-400'}`} />
+        <Icon className={`mx-auto h-20 w-20 mb-6 ${Icon === LoaderCircle ? 'animate-spin text-[#e6398a]' : 'text-[#e6398a]'}`} />
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">{title}</h2>
         <div className="text-zinc-300 mt-2 mb-8 max-w-lg mx-auto leading-relaxed">
           {children}
@@ -145,10 +145,9 @@ const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children
 
 
 const wizardSteps = [
-    { id: 1, name: 'Client Details', icon: User },
-    { id: 2, name: 'Event Details', icon: Calendar },
-    { id: 3, name: 'Services', icon: ListChecks },
-    { id: 4, name: 'Identity & Safety', icon: ShieldCheck },
+    { id: 1, name: 'Your Details', icon: User },
+    { id: 2, name: 'Event & Services', icon: Calendar },
+    { id: 3, name: 'Review & Confirm', icon: ShieldCheck },
 ];
 
 const ProgressIndicator: React.FC<{ currentStep: number }> = ({ currentStep }) => (
@@ -160,8 +159,8 @@ const ProgressIndicator: React.FC<{ currentStep: number }> = ({ currentStep }) =
 
                 return (
                     <li key={step.name} className="md:flex-1">
-                        <div className={`group flex flex-col border-l-4 py-2 pl-4 transition-colors md:border-l-0 md:border-t-4 md:pl-0 md:pt-4 md:pb-0 ${isCompleted ? 'border-orange-500' : isCurrent ? 'border-orange-500' : 'border-zinc-700'}`}>
-                            <span className={`text-sm font-medium transition-colors ${isCompleted ? 'text-orange-400' : isCurrent ? 'text-orange-400' : 'text-zinc-400'}`}>
+                        <div className={`group flex flex-col border-l-4 py-2 pl-4 transition-colors md:border-l-0 md:border-t-4 md:pl-0 md:pt-4 md:pb-0 ${isCompleted ? 'border-[#e6398a]' : isCurrent ? 'border-[#e6398a]' : 'border-zinc-700'}`}>
+                            <span className={`text-sm font-medium transition-colors ${isCompleted ? 'text-[#e6398a]' : isCurrent ? 'text-[#e6398a]' : 'text-zinc-400'}`}>
                                 Step {step.id}
                             </span>
                             <span className="text-sm font-medium text-white">{step.name}</span>
@@ -296,9 +295,10 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
     const validateStep = (step: number): boolean => {
         const errors: Record<string, string> = {};
-        
+
         switch (step) {
             case 1:
+                // Client details + event details combined
                 if (!form.fullName.trim()) errors.fullName = "Full name is required.";
                 if (!form.email.trim()) errors.email = "Email address is required.";
                 else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email format.";
@@ -318,18 +318,18 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         errors.dob = "You must be at least 18 years old.";
                     }
                 }
-                break;
-            case 2:
                 if (!form.eventDate) errors.eventDate = "Date required.";
                 if (!form.eventTime) errors.eventTime = "Time required.";
                 if (!form.eventAddress.trim()) errors.eventAddress = "Address required.";
                 if (!form.eventType) errors.eventType = "Event type required.";
                 if (!form.numberOfGuests) errors.numberOfGuests = "Guest count required.";
                 break;
-            case 3:
+            case 2:
+                // Services selection
                 if (form.selectedServices.length === 0) errors.selectedServices = "Select at least one service.";
                 break;
-            case 4:
+            case 3:
+                // Review & confirm (identity + terms)
                 if (!isVerifiedBooker) {
                     if (!isDidItVerified) errors.didit = "Identity verification is required.";
                     if (!agreedTerms) errors.agreedTerms = "Agreement required.";
@@ -343,7 +343,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
     const handleNext = () => {
         if (validateStep(currentStep)) {
-            if (currentStep < 4) {
+            if (currentStep < 3) {
                 setCurrentStep(currentStep + 1);
                 window.scrollTo(0, 0);
             } else {
@@ -419,7 +419,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     }
     if (stage === 'deposit_pending') {
         return (
-            <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)}>
+            <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-[#e6398a]/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)}>
                 Booking approved! Pay <strong>${(depositAmount || 0).toFixed(2)}</strong> to secure your date.
                 {isPayIdModalOpen && (
                     <PayIDSimulationModal 
@@ -454,7 +454,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 </button>
                 <div className="text-right">
                     <p className="text-sm text-zinc-500 uppercase font-bold">Booking Request</p>
-                    <p className="text-orange-400 font-bold">{performers.map(p => p.name).join(' & ')}</p>
+                    <p className="text-[#e6398a] font-bold">{performers.map(p => p.name).join(' & ')}</p>
                 </div>
             </div>
 
@@ -466,21 +466,25 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         <ErrorDisplay message={error} />
                         
                         {currentStep === 1 && (
-                            <div className="space-y-6 animate-fade-in">
-                                <div><h2 className="text-2xl font-bold text-white mb-2">Client Details</h2><p className="text-zinc-400">Match these to your identification documents.</p></div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <InputField icon={<User />} label="Legal Full Name" name="fullName" value={form.fullName} onChange={handleChange} required error={fieldErrors.fullName} />
-                                    <InputField icon={<Mail />} label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} required error={fieldErrors.email} />
-                                    <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} />
-                                    <InputField icon={<Calendar />} label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} required error={fieldErrors.dob} />
-                                </div>
-                                {isVerifiedBooker && <div className="p-4 bg-green-900/20 border border-green-500/50 rounded-lg flex items-center gap-3"><CheckCircle className="text-green-400" /> <p className="text-sm text-green-200">Verified Trusted Client detected. Verification skipped.</p></div>}
-                            </div>
-                        )}
+                            <div className="space-y-8 animate-fade-in">
+                                <div><h2 className="text-2xl font-bold text-white mb-2">Your Details</h2><p className="text-[#b8b8c2]">Tell us about yourself and your event.</p></div>
 
-                        {currentStep === 2 && (
-                            <div className="space-y-6 animate-fade-in">
-                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Client Info */}
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><User size={18} className="text-[#e6398a]" /> Contact Information</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <InputField icon={<User />} label="Legal Full Name" name="fullName" value={form.fullName} onChange={handleChange} required error={fieldErrors.fullName} />
+                                        <InputField icon={<Mail />} label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} required error={fieldErrors.email} />
+                                        <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} />
+                                        <InputField icon={<Calendar />} label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} required error={fieldErrors.dob} />
+                                    </div>
+                                    {isVerifiedBooker && <div className="mt-4 p-4 bg-green-900/20 border border-green-500/50 rounded-lg flex items-center gap-3"><CheckCircle className="text-green-400" /> <p className="text-sm text-green-200">Verified Trusted Client — streamlined checkout.</p></div>}
+                                </div>
+
+                                {/* Event Info */}
+                                <div className="pt-6 border-t border-[#2a2a35]">
+                                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><Calendar size={18} className="text-[#e6398a]" /> Event Details</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField icon={<Calendar />} label="Event Date" type="date" name="eventDate" min={todayStr} value={form.eventDate} onChange={handleChange} required error={fieldErrors.eventDate} />
                                     <InputField icon={<Clock />} label="Start Time" type="time" name="eventTime" value={form.eventTime} onChange={handleChange} required error={fieldErrors.eventTime} />
                                     <div>
@@ -507,22 +511,23 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                         </div>
                                     </div>
                                 </div>
+                                </div>
                             </div>
                         )}
 
-                        {currentStep === 3 && (
+                        {currentStep === 2 && (
                             <div className="space-y-6 animate-fade-in">
                                 <div className="space-y-8">
                                      {(Object.entries(servicesByCategory) as [string, Service[]][]).map(([category, services]) => (
                                         <div key={category}>
-                                            <h3 className="text-lg font-semibold text-orange-400 mb-4 flex items-center gap-2"><Briefcase size={18}/> {category}</h3>
+                                            <h3 className="text-lg font-semibold text-[#e6398a] mb-4 flex items-center gap-2"><Briefcase size={18}/> {category}</h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 {services.map(service => {
                                                     const isSelected = form.selectedServices.includes(service.id);
                                                     return (
-                                                        <div key={service.id} onClick={() => handleServiceChange(service.id)} className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center group ${isSelected ? 'bg-orange-500/10 border-orange-500' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'}`}>
+                                                        <div key={service.id} onClick={() => handleServiceChange(service.id)} className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center group ${isSelected ? 'bg-[#e6398a]/10 border-[#e6398a]' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'}`}>
                                                             <div className="flex-1">
-                                                                <p className={`font-bold ${isSelected ? 'text-orange-400' : 'text-zinc-200'}`}>{service.name}</p>
+                                                                <p className={`font-bold ${isSelected ? 'text-[#e6398a]' : 'text-zinc-200'}`}>{service.name}</p>
                                                                 <p className="text-xs text-zinc-500">{service.description}</p>
                                                             </div>
                                                             <div className="ml-4 text-right flex flex-col items-end gap-1">
@@ -532,7 +537,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                                                      {service.duration_minutes ? `${service.duration_minutes} mins` : `Min ${service.min_duration_hours} hr${service.min_duration_hours! > 1 ? 's' : ''}`}
                                                                    </span>
                                                                  )}
-                                                                 {isSelected && <CheckCircle size={18} className="text-orange-400 inline mt-1" />}
+                                                                 {isSelected && <CheckCircle size={18} className="text-[#e6398a] inline mt-1" />}
                                                             </div>
                                                         </div>
                                                     );
@@ -545,7 +550,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                             </div>
                         )}
 
-                        {currentStep === 4 && (
+                        {currentStep === 3 && (
                             <div className="space-y-8 animate-fade-in">
                                 <div className="mb-6"><h2 className="text-2xl font-bold text-white mb-2">Safety Verification</h2><p className="text-zinc-400">To protect our performers, we require all new clients to verify their identity.</p></div>
                                 {isVerifiedBooker ? (
@@ -591,8 +596,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                                         <div className="space-y-4 pt-6 border-t border-zinc-800">
                                              <label className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-700 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors">
-                                                <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-6 w-6 rounded border-zinc-700 bg-zinc-900 text-orange-500 focus:ring-orange-500" />
-                                                <span className="text-sm text-zinc-300">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-orange-400 underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-orange-400 underline">Privacy Policy</a>. I am 18+.</span>
+                                                <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-6 w-6 rounded border-zinc-700 bg-zinc-900 text-[#e6398a] focus:ring-[#e6398a]" />
+                                                <span className="text-sm text-zinc-300">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-[#e6398a] underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-[#e6398a] underline">Privacy Policy</a>. I am 18+.</span>
                                             </label>
                                             {fieldErrors.agreedTerms && <p className="text-xs text-red-400 font-medium pl-1">Agreement required.</p>}
                                         </div>
@@ -602,12 +607,12 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         )}
 
                         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                            <div className="text-sm text-zinc-500">Step {currentStep} of 4</div>
+                            <div className="text-sm text-[#8888a0]">Step {currentStep} of 3</div>
                             <div className="flex gap-4 w-full sm:w-auto">
                                 <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-lg transition-colors">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
                                 <button onClick={handleNext} disabled={isSubmitting} className="flex-1 sm:flex-none btn-primary px-8 py-3 flex items-center justify-center gap-2">
-                                    {isSubmitting ? <LoaderCircle className="animate-spin" /> : currentStep === 4 ? <Send size={18} /> : null}
-                                    {isSubmitting ? 'Processing...' : currentStep === 4 ? 'Review Request' : 'Continue'}
+                                    {isSubmitting ? <LoaderCircle className="animate-spin" /> : currentStep === 3 ? <Send size={18} /> : null}
+                                    {isSubmitting ? 'Processing...' : currentStep === 3 ? 'Review & Submit' : 'Continue'}
                                 </button>
                             </div>
                         </div>
@@ -626,7 +631,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         {currentStep > 1 && (
                             <div className="card-base mt-6 !p-6 !bg-zinc-900/50 border-zinc-800/50 animate-fade-in">
                                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                                    <Info size={18} className="text-orange-400" /> Booking Summary
+                                    <Info size={18} className="text-[#e6398a]" /> Booking Summary
                                 </h3>
                                 <div className="space-y-3 text-sm">
                                     {form.eventDate && (

@@ -52,10 +52,10 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
   }, [durationHours, selectedServices, performers]);
 
   return (
-    <div className={`card-base !p-6 !bg-zinc-950/50 border-zinc-800/50 transition-all duration-500 ${className} ${totalCost > 0 ? 'ring-1 ring-orange-500/30 shadow-[0_0_20px_rgba(249,115,22,0.1)]' : ''}`}>
+    <div className={`card-base !p-6 !bg-zinc-950/50 border-zinc-800/50 transition-all duration-500 ${className} ${totalCost > 0 ? 'ring-1 ring-[#e6398a]/30 shadow-[0_0_20px_rgba(249,115,22,0.1)]' : ''}`}>
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-xl font-bold text-white flex items-center gap-2">
-          <DollarSign className="text-orange-500" /> Cost Summary
+          <DollarSign className="text-[#e6398a]" /> Cost Summary
         </h3>
         {onClearAll && totalCost > 0 && (
           <button 
@@ -75,9 +75,9 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
           </span>
         </div>
         
-        <div className="flex justify-between items-center p-3 bg-orange-500/5 rounded-xl border border-orange-500/10">
-          <span className="text-sm font-medium text-orange-200/70">Deposit Due ({DEPOSIT_PERCENTAGE * 100}%)</span>
-          <span className="font-bold text-xl text-orange-500">
+        <div className="flex justify-between items-center p-3 bg-[#e6398a]/5 rounded-xl border border-[#e6398a]/10">
+          <span className="text-sm font-medium text-[#f06aaa]/70">Deposit Due ({DEPOSIT_PERCENTAGE * 100}%)</span>
+          <span className="font-bold text-xl text-[#e6398a]">
             ${(depositAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
@@ -87,7 +87,7 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
         <div className="mt-6 pt-6 border-t border-zinc-800/50">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2 text-zinc-400">
-              <Clock size={16} className="text-orange-500/70" />
+              <Clock size={16} className="text-[#e6398a]/70" />
               <span className="text-sm">Total Duration</span>
             </div>
             <span className="font-bold text-zinc-200">{formattedTotalDuration}</span>
