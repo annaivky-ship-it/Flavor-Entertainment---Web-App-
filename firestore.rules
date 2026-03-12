@@ -27,6 +27,15 @@ service cloud.firestore {
       );
     }
 
+    function isValidBookingCreate() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['client_name', 'client_email', 'client_phone', 'status'])
+        && data.client_name is string && data.client_name.size() > 0 && data.client_name.size() <= 200
+        && data.client_email is string && data.client_email.matches('.*@.*\\..*')
+        && data.client_phone is string && data.client_phone.size() >= 8 && data.client_phone.size() <= 20
+        && data.status in ['pending_performer_acceptance', 'PENDING'];
+    }
+
     // --- Performers (public read, admin write) ---
     match /performers/{performerId} {
       allow read: if true;
@@ -41,8 +50,9 @@ service cloud.firestore {
 
     // --- Bookings ---
     match /bookings/{bookingId} {
-      // Clients can create bookings (even unauthenticated for public form)
-      allow create: if true;
+      // Clients can create bookings via Cloud Functions (preferred) or public form
+      // Validates required fields and restricts initial status
+      allow create: if isValidBookingCreate();
 
       // Only the booking owner or admin can read
       allow read: if isAdmin()
@@ -83,9 +93,12 @@ service cloud.firestore {
       allow write: if false; // Only Cloud Functions write
     }
 
-    // --- Consents (the booking client can create, admin can read) ---
+    // --- Consents ---
     match /consents/{consentId} {
-      allow create: if true; // Public booking form
+      // Require at least a booking_id and consent_text for valid consent
+      allow create: if request.resource.data.keys().hasAll(['booking_id', 'consent_text'])
+        && request.resource.data.booking_id is string
+        && request.resource.data.consent_text is string;
       allow read: if isAdmin();
       allow update, delete: if false;
     }
@@ -149,6 +162,29 @@ service cloud.firestore {
     match /performers_auth/{userId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    // --- Booking Slots (system-managed, admin readable) ---
+    match /booking_slots/{slotId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions write
+    }
+
+    // --- Idempotency Keys (system only) ---
+    match /idempotency_keys/{keyId} {
+      allow read, write: if false; // Only Cloud Functions
+    }
+
+    // --- Message Logs (admin read-only) ---
+    match /message_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions
+    }
+
+    // --- Notification Queue (system only) ---
+    match /notificationsQueue/{queueId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions
     }
 
     // --- Default: deny everything else ---

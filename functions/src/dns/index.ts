@@ -7,7 +7,7 @@ import { createKycSession } from '../didit';
 const getDb = () => getFirestore('default');
 const fns = functions as any;
 
-const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
+import { getDnsHashPepper } from '../utils/config';
 
 // --- Helpers ---
 
@@ -26,7 +26,7 @@ export function normalizePhoneToE164(phone: string, defaultCountryCode: string =
 }
 
 export function sha256(value: string): string {
-  return crypto.createHash('sha256').update(value + PEPPER).digest('hex');
+  return crypto.createHash('sha256').update(value + getDnsHashPepper()).digest('hex');
 }
 
 async function writeAuditLog(actorUid: string, actorRole: string, action: string, bookingId: string, details: any = {}) {

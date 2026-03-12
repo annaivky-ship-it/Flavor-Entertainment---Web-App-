@@ -10,9 +10,7 @@ import { createKycSession, processKycResult, verifyWebhookSignature } from './di
 import { calculateRiskScore, shouldSkipKyc } from './risk/scoring';
 import { createIncidentReport, approveIncidentReport, rejectIncidentReport } from './incidents/reporting';
 import { recordConsent, CONSENT_TEXT } from './consent';
-
-// Fix: Declaring Buffer to resolve 'Cannot find name Buffer' error in environments without node types.
-declare const Buffer: any;
+import { checkRateLimit, cleanupRateLimits } from './utils/rateLimit';
 
 admin.initializeApp();
 const db = getFirestore('default');
@@ -107,6 +105,16 @@ export const createDraftApplication = fns.https.onCall(async (data: any, context
  */
 export const submitApplication = fns.https.onCall(async (data: any, context: any) => {
   if (!context.auth) throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
+
+  // Rate limit: max 3 submissions per user per hour
+  const allowed = await checkRateLimit(context.auth.uid, {
+    prefix: 'vetting_submit',
+    maxRequests: 3,
+    windowSeconds: 3600,
+  });
+  if (!allowed) {
+    throw new fns.https.HttpsError('resource-exhausted', 'Too many submission attempts. Please try again later.');
+  }
 
   const { applicationId } = data;
   const appRef = db.collection('vetting_applications').doc(applicationId);
@@ -212,6 +220,17 @@ export const scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').o
  */
 export const createBookingRequest = fns.https.onCall(async (request: any) => {
   const { formState, performerIds } = request.data;
+
+  // Rate limit: max 5 booking attempts per email per hour
+  const emailKey = (formState.email || '').toLowerCase().trim();
+  const allowed = await checkRateLimit(emailKey, {
+    prefix: 'booking_create',
+    maxRequests: 5,
+    windowSeconds: 3600,
+  });
+  if (!allowed) {
+    throw new fns.https.HttpsError('resource-exhausted', 'Too many booking attempts. Please try again later.');
+  }
 
   return db.runTransaction(async (transaction: any) => {
     const emailHash = Buffer.from(formState.email.toLowerCase()).toString('hex');
@@ -698,4 +717,15 @@ export const assessBookingRisk = fns.https.onCall(async (data: any, context: any
       reasons: assessment.reasons,
     },
   };
+});
+
+/**
+ * Scheduled cleanup for expired rate limit entries.
+ * Runs every hour to prevent the rate_limits collection from growing indefinitely.
+ */
+export const scheduledRateLimitCleanup = fns.pubsub.schedule('every 1 hours').onRun(async () => {
+  const cleaned = await cleanupRateLimits();
+  if (cleaned > 0) {
+    console.log(`Cleaned up ${cleaned} expired rate limit entries.`);
+  }
 });

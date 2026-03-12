@@ -36,7 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
+exports.scheduledRateLimitCleanup = exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
@@ -49,6 +49,7 @@ const didit_1 = require("./didit");
 const scoring_1 = require("./risk/scoring");
 const reporting_1 = require("./incidents/reporting");
 const consent_1 = require("./consent");
+const rateLimit_1 = require("./utils/rateLimit");
 admin.initializeApp();
 const db = (0, firestore_1.getFirestore)('default');
 const fns = functions;
@@ -125,6 +126,15 @@ exports.createDraftApplication = fns.https.onCall(async (data, context) => {
 exports.submitApplication = fns.https.onCall(async (data, context) => {
     if (!context.auth)
         throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
+    // Rate limit: max 3 submissions per user per hour
+    const allowed = await (0, rateLimit_1.checkRateLimit)(context.auth.uid, {
+        prefix: 'vetting_submit',
+        maxRequests: 3,
+        windowSeconds: 3600,
+    });
+    if (!allowed) {
+        throw new fns.https.HttpsError('resource-exhausted', 'Too many submission attempts. Please try again later.');
+    }
     const { applicationId } = data;
     const appRef = db.collection('vetting_applications').doc(applicationId);
     const appSnap = await appRef.get();
@@ -212,6 +222,16 @@ exports.scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').onRun(
  */
 exports.createBookingRequest = fns.https.onCall(async (request) => {
     const { formState, performerIds } = request.data;
+    // Rate limit: max 5 booking attempts per email per hour
+    const emailKey = (formState.email || '').toLowerCase().trim();
+    const allowed = await (0, rateLimit_1.checkRateLimit)(emailKey, {
+        prefix: 'booking_create',
+        maxRequests: 5,
+        windowSeconds: 3600,
+    });
+    if (!allowed) {
+        throw new fns.https.HttpsError('resource-exhausted', 'Too many booking attempts. Please try again later.');
+    }
     return db.runTransaction(async (transaction) => {
         const emailHash = Buffer.from(formState.email.toLowerCase()).toString('hex');
         const blacklistDoc = await transaction.get(db.collection('blacklist').doc(emailHash));
@@ -639,5 +659,15 @@ exports.assessBookingRisk = fns.https.onCall(async (data, context) => {
             reasons: assessment.reasons,
         },
     };
+});
+/**
+ * Scheduled cleanup for expired rate limit entries.
+ * Runs every hour to prevent the rate_limits collection from growing indefinitely.
+ */
+exports.scheduledRateLimitCleanup = fns.pubsub.schedule('every 1 hours').onRun(async () => {
+    const cleaned = await (0, rateLimit_1.cleanupRateLimits)();
+    if (cleaned > 0) {
+        console.log(`Cleaned up ${cleaned} expired rate limit entries.`);
+    }
 });
 //# sourceMappingURL=index.js.map
