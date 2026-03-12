@@ -324,7 +324,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setAuthedUser(null);
-    localStorage.removeItem('clientEmail');
+    sessionStorage.removeItem('clientEmail');
     setView('available_now');
   };
 
@@ -626,7 +626,7 @@ const App: React.FC = () => {
       const { data: newBookings, error: apiError } = await api.createBookingRequest(formState, requestedPerformers);
       if (apiError) throw apiError;
 
-      localStorage.setItem('clientEmail', formState.email);
+      sessionStorage.setItem('clientEmail', formState.email);
       setBookings(prev => [...newBookings!, ...prev]);
 
       const firstBooking = newBookings![0];

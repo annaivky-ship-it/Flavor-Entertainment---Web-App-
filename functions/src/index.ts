@@ -495,6 +495,12 @@ export const diditKycWebhook = fns.https.onRequest(async (req: any, res: any) =>
     return;
   }
 
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.includes('application/json')) {
+    res.status(415).send('Content-Type must be application/json');
+    return;
+  }
+
   // Verify webhook signature
   const signature = req.headers['x-signature'] || '';
   const timestamp = req.headers['x-timestamp'] || '';

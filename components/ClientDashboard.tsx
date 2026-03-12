@@ -33,7 +33,7 @@ const statusConfig: Record<Booking['status'], {
 };
 
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings }) => {
-  const [clientEmail, setClientEmail] = useState<string | null>(() => localStorage.getItem('clientEmail'));
+  const [clientEmail, setClientEmail] = useState<string | null>(() => sessionStorage.getItem('clientEmail'));
   const [emailInput, setEmailInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -59,7 +59,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
     lookupTimeoutRef.current = window.setTimeout(() => {
       const foundBookings = bookings.some(b => b.client_email.toLowerCase() === emailInput.toLowerCase());
       if (foundBookings) {
-        localStorage.setItem('clientEmail', emailInput);
+        sessionStorage.setItem('clientEmail', emailInput);
         setClientEmail(emailInput);
       } else {
         setError('No bookings found for this email address.');
@@ -78,7 +78,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('clientEmail');
+    sessionStorage.removeItem('clientEmail');
     setClientEmail(null);
     setEmailInput('');
   };
