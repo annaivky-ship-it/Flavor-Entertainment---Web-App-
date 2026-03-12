@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Briefcase, ChevronDown, ShoppingCart, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PerformerCard from './components/EntertainerCard';
@@ -999,6 +1000,7 @@ const App: React.FC = () => {
   );
 
   return (
+    <ErrorBoundary>
     <Suspense fallback={suspenseFallback}>
     <div className="min-h-screen text-white flex flex-col">
       {showDemoBanner && performers.length > 0 && (
@@ -1110,6 +1112,7 @@ const App: React.FC = () => {
       />
     </div>
     </Suspense>
+    </ErrorBoundary>
   );
 };
 
