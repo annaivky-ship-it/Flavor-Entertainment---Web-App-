@@ -36,7 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scheduledRateLimitCleanup = exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
+exports.scheduledSlotCleanup = exports.scheduledRateLimitCleanup = exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
@@ -222,6 +222,38 @@ exports.scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').onRun(
  */
 exports.createBookingRequest = fns.https.onCall(async (request) => {
     const { formState, performerIds } = request.data;
+    // --- Input Validation ---
+    if (!formState || typeof formState !== 'object') {
+        throw new fns.https.HttpsError('invalid-argument', 'formState is required.');
+    }
+    if (!Array.isArray(performerIds) || performerIds.length === 0) {
+        throw new fns.https.HttpsError('invalid-argument', 'At least one performer must be selected.');
+    }
+    if (!formState.email || typeof formState.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formState.email)) {
+        throw new fns.https.HttpsError('invalid-argument', 'A valid email address is required.');
+    }
+    if (!formState.fullName || typeof formState.fullName !== 'string' || formState.fullName.trim().length < 2) {
+        throw new fns.https.HttpsError('invalid-argument', 'Full name is required.');
+    }
+    if (!formState.phone && !formState.mobile) {
+        throw new fns.https.HttpsError('invalid-argument', 'Phone number is required.');
+    }
+    if (!formState.eventDate || typeof formState.eventDate !== 'string') {
+        throw new fns.https.HttpsError('invalid-argument', 'Event date is required.');
+    }
+    // Verify event date is today or in the future
+    const eventDateParsed = new Date(formState.eventDate + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (isNaN(eventDateParsed.getTime())) {
+        throw new fns.https.HttpsError('invalid-argument', 'Invalid event date format.');
+    }
+    if (eventDateParsed < today) {
+        throw new fns.https.HttpsError('invalid-argument', 'Event date cannot be in the past.');
+    }
+    if (!formState.eventTime || typeof formState.eventTime !== 'string') {
+        throw new fns.https.HttpsError('invalid-argument', 'Event time is required.');
+    }
     // Rate limit: max 5 booking attempts per email per hour
     const emailKey = (formState.email || '').toLowerCase().trim();
     const allowed = await (0, rateLimit_1.checkRateLimit)(emailKey, {
@@ -256,13 +288,14 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
             }
             const bookingRef = db.collection('bookings').doc();
             const bookingData = Object.assign(Object.assign({}, formState), { performer_id: pId, status: 'pending_performer_acceptance', slotLock: slotId, created_at: admin.firestore.FieldValue.serverTimestamp() });
-            // Reserve the slot atomically
+            // Reserve the slot atomically (expires after 48 hours if booking not confirmed)
             transaction.set(slotRef, {
                 bookingId: bookingRef.id,
                 performerId: pId,
                 date: formState.eventDate,
                 time: formState.eventTime,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
             });
             transaction.set(bookingRef, bookingData);
             newBookings.push(Object.assign({ id: bookingRef.id }, bookingData));
@@ -295,6 +328,10 @@ exports.notificationsWorker = fns.firestore
     }
 });
 exports.twilioInboundWebhook = fns.https.onRequest(async (req, res) => {
+    if (req.method !== 'POST') {
+        res.status(405).send('Method not allowed');
+        return;
+    }
     if (!(0, twilio_1.verifyTwilioSignature)(req)) {
         res.status(403).send('Invalid signature');
         return;
@@ -668,6 +705,38 @@ exports.scheduledRateLimitCleanup = fns.pubsub.schedule('every 1 hours').onRun(a
     const cleaned = await (0, rateLimit_1.cleanupRateLimits)();
     if (cleaned > 0) {
         console.log(`Cleaned up ${cleaned} expired rate limit entries.`);
+    }
+});
+/**
+ * Clean up expired booking slot locks.
+ * Runs every 6 hours to release slots from abandoned bookings.
+ */
+exports.scheduledSlotCleanup = fns.pubsub.schedule('every 6 hours').onRun(async () => {
+    const now = new Date();
+    const expiredSlots = await db.collection('booking_slots')
+        .where('expiresAt', '<=', now)
+        .limit(200)
+        .get();
+    if (expiredSlots.empty)
+        return;
+    let cleaned = 0;
+    for (const slotDoc of expiredSlots.docs) {
+        const slot = slotDoc.data();
+        // Only release if the associated booking is not confirmed
+        if (slot.bookingId) {
+            const bookingDoc = await db.collection('bookings').doc(slot.bookingId).get();
+            const booking = bookingDoc.data();
+            if (booking && (booking.status === 'confirmed' || booking.status === 'CONFIRMED')) {
+                // Booking is confirmed, remove the expiry (slot is permanent)
+                await slotDoc.ref.update({ expiresAt: admin.firestore.FieldValue.delete() });
+                continue;
+            }
+        }
+        await slotDoc.ref.delete();
+        cleaned++;
+    }
+    if (cleaned > 0) {
+        console.log(`Released ${cleaned} expired booking slot locks.`);
     }
 });
 //# sourceMappingURL=index.js.map
