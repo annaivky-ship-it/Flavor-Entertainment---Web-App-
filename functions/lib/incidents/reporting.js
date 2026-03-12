@@ -65,14 +65,9 @@ async function approveIncidentReport(reportId, adminUid, adminNotes) {
     if (!reportDoc.exists)
         throw new Error('Report not found');
     const report = reportDoc.data();
-    // Import hash utilities from DNS module
-    const crypto = await Promise.resolve().then(() => __importStar(require('crypto')));
-    const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
-    function sha256(value) {
-        return crypto.createHash('sha256').update(value + PEPPER).digest('hex');
-    }
-    const emailNorm = report.client_email.toLowerCase().trim();
-    const phoneNorm = report.client_phone.replace(/[\s\-\(\)]/g, '');
+    const { sha256, normalizeEmail, normalizePhoneToE164 } = await Promise.resolve().then(() => __importStar(require('../dns/index')));
+    const emailNorm = normalizeEmail(report.client_email);
+    const phoneNorm = normalizePhoneToE164(report.client_phone);
     const emailHash = sha256(emailNorm);
     const phoneHash = sha256(phoneNorm);
     // Create DNS register entry

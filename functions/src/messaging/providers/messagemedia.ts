@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 
-export async function sendMessageMediaSms(to: string, body: string, config: any): Promise<{ providerMessageId: string }> {
+export async function sendMessageMediaSms(to: string, body: string, config: Record<string, string | undefined>): Promise<{ providerMessageId: string }> {
   const apiKey = config.messagemedia_api_key || process.env.MESSAGEMEDIA_API_KEY;
   const apiSecret = config.messagemedia_api_secret || process.env.MESSAGEMEDIA_API_SECRET;
 

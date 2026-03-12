@@ -19,8 +19,8 @@ export interface IncidentReport {
     status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'ESCALATED';
     admin_notes?: string;
     reviewed_by?: string;
-    reviewed_at?: any;
-    created_at?: any;
+    reviewed_at?: FirebaseFirestore.Timestamp;
+    created_at?: FirebaseFirestore.Timestamp;
 }
 
 // --- Create Incident Report ---
@@ -66,16 +66,10 @@ export async function approveIncidentReport(
     if (!reportDoc.exists) throw new Error('Report not found');
     const report = reportDoc.data() as IncidentReport;
 
-    // Import hash utilities from DNS module
-    const crypto = await import('crypto');
-    const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
+    const { sha256, normalizeEmail, normalizePhoneToE164 } = await import('../dns/index');
 
-    function sha256(value: string): string {
-        return crypto.createHash('sha256').update(value + PEPPER).digest('hex');
-    }
-
-    const emailNorm = report.client_email.toLowerCase().trim();
-    const phoneNorm = report.client_phone.replace(/[\s\-\(\)]/g, '');
+    const emailNorm = normalizeEmail(report.client_email);
+    const phoneNorm = normalizePhoneToE164(report.client_phone);
     const emailHash = sha256(emailNorm);
     const phoneHash = sha256(phoneNorm);
 

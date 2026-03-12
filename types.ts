@@ -101,12 +101,13 @@ export interface Booking {
 
 export interface AuditLog {
   id: string;
-  createdAt: any;
+  createdAt: string | { seconds: number; nanoseconds: number };
   actorUid: string;
   actorRole: 'client' | 'admin' | 'system';
   action: string;
   applicationId?: string;
-  details: any;
+  bookingId?: string;
+  details: Record<string, unknown>;
 }
 
 export interface DoNotServeEntry {

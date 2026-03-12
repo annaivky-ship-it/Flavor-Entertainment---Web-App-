@@ -7,8 +7,8 @@ const getDb = () => getFirestore('default');
 // Didit API Configuration
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY || '';
 const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '';
-const DIDIT_API_BASE = process.env.DIDIT_API_BASE || 'https://verification.didit.me';
-const DIDIT_APP_URL = process.env.DIDIT_APP_URL || 'https://flavorentertainers.com.au';
+const DIDIT_API_BASE = process.env.DIDIT_API_BASE || '';
+const DIDIT_APP_URL = process.env.DIDIT_APP_URL || '';
 const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || '';
 
 // --- Types ---
@@ -48,8 +48,8 @@ export interface DiditWebhookPayload {
  * Returns the verification URL to redirect/embed for the client.
  */
 export async function createKycSession(bookingId: string): Promise<DiditSessionResponse | null> {
-    if (!DIDIT_API_KEY || !DIDIT_WORKFLOW_ID) {
-        console.warn('Didit KYC not configured. Skipping session creation.');
+    if (!DIDIT_API_KEY || !DIDIT_WORKFLOW_ID || !DIDIT_API_BASE || !DIDIT_APP_URL) {
+        console.warn('Didit KYC not fully configured (DIDIT_API_KEY, DIDIT_WORKFLOW_ID, DIDIT_API_BASE, DIDIT_APP_URL). Skipping session creation.');
         return null;
     }
 
@@ -149,8 +149,8 @@ export function verifyWebhookSignature(
     timestamp: string
 ): boolean {
     if (!DIDIT_WEBHOOK_SECRET) {
-        console.warn('Didit webhook secret not configured. Skipping signature verification.');
-        return true; // Allow in dev, but warn
+        console.error('CRITICAL: Didit webhook secret not configured. Rejecting webhook.');
+        return false;
     }
 
     const signedPayload = `${timestamp}.${payload}`;
@@ -292,7 +292,7 @@ export async function processKycResult(webhookData: DiditWebhookPayload): Promis
 
 // --- Helper ---
 
-async function logAudit(actorUid: string, actorRole: string, action: string, bookingId: string, details: any = {}) {
+async function logAudit(actorUid: string, actorRole: string, action: string, bookingId: string, details: Record<string, unknown> = {}) {
     await getDb().collection('audit_log').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: actorUid,

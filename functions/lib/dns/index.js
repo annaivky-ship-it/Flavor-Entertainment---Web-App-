@@ -46,7 +46,7 @@ const crypto = __importStar(require("crypto"));
 const didit_1 = require("../didit");
 const getDb = () => (0, firestore_1.getFirestore)('default');
 const fns = functions;
-const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
+const config_1 = require("../utils/config");
 // --- Helpers ---
 function normalizeEmail(email) {
     return email.toLowerCase().trim();
@@ -62,7 +62,7 @@ function normalizePhoneToE164(phone, defaultCountryCode = '+61') {
     return cleaned;
 }
 function sha256(value) {
-    return crypto.createHash('sha256').update(value + PEPPER).digest('hex');
+    return crypto.createHash('sha256').update(value + (0, config_1.getDnsHashPepper)()).digest('hex');
 }
 async function writeAuditLog(actorUid, actorRole, action, bookingId, details = {}) {
     await getDb().collection('audit_log').add({

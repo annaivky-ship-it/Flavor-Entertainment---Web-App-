@@ -1,26 +1,30 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Briefcase, ChevronDown, ShoppingCart, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PerformerCard from './components/EntertainerCard';
-import PerformerProfile from './components/EntertainerProfile';
 import AgeGate from './components/AgeGate';
-import BookingProcess, { BookingFormState } from './components/BookingProcess';
-import PerformerDashboard from './components/PerformerDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import ClientDashboard from './components/ClientDashboard';
-import DoNotServe from './components/DoNotServe';
 import Login from './components/Login';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import TermsOfService from './components/TermsOfService';
-import ServicesGallery from './components/ServicesGallery';
-import DemoPhone from './components/DemoPhone';
-import UserSettings from './components/UserSettings';
-import PresentationVideo from './components/PresentationVideo';
 import RoleSwitcher from './components/RoleSwitcher';
-import FAQ from './components/FAQ';
-import PerformerOnboarding from './components/PerformerOnboarding';
-import WalkthroughOverlay from './components/WalkthroughOverlay';
+
+// Lazy-loaded components (large bundles loaded on demand)
+const PerformerProfile = React.lazy(() => import('./components/EntertainerProfile'));
+const BookingProcess = React.lazy(() => import('./components/BookingProcess'));
+import type { BookingFormState } from './components/BookingProcess';
+const PerformerDashboard = React.lazy(() => import('./components/PerformerDashboard'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
+const ClientDashboard = React.lazy(() => import('./components/ClientDashboard'));
+const DoNotServe = React.lazy(() => import('./components/DoNotServe'));
+const PrivacyPolicy = React.lazy(() => import('./components/PrivacyPolicy'));
+const TermsOfService = React.lazy(() => import('./components/TermsOfService'));
+const ServicesGallery = React.lazy(() => import('./components/ServicesGallery'));
+const DemoPhone = React.lazy(() => import('./components/DemoPhone'));
+const UserSettings = React.lazy(() => import('./components/UserSettings'));
+const PresentationVideo = React.lazy(() => import('./components/PresentationVideo'));
+const FAQ = React.lazy(() => import('./components/FAQ'));
+const PerformerOnboarding = React.lazy(() => import('./components/PerformerOnboarding'));
+const WalkthroughOverlay = React.lazy(() => import('./components/WalkthroughOverlay'));
 import { api, resetDemoData, isDemoMode } from './services/api';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
@@ -320,7 +324,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setAuthedUser(null);
-    localStorage.removeItem('clientEmail');
+    sessionStorage.removeItem('clientEmail');
     setView('available_now');
   };
 
@@ -622,7 +626,7 @@ const App: React.FC = () => {
       const { data: newBookings, error: apiError } = await api.createBookingRequest(formState, requestedPerformers);
       if (apiError) throw apiError;
 
-      localStorage.setItem('clientEmail', formState.email);
+      sessionStorage.setItem('clientEmail', formState.email);
       setBookings(prev => [...newBookings!, ...prev]);
 
       const firstBooking = newBookings![0];
@@ -930,16 +934,16 @@ const App: React.FC = () => {
             </div>
             <div className={`mb-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl max-w-3xl mx-auto grid grid-cols-1 ${!isAvailableNow ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
               <div className="relative">
-                <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
-                <select onChange={(e) => setCategoryFilter(e.target.value)} value={categoryFilter} className="input-base input-with-icon appearance-none">
+                <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true" />
+                <select aria-label="Filter by service category" onChange={(e) => setCategoryFilter(e.target.value)} value={categoryFilter} className="input-base input-with-icon appearance-none">
                   <option value="">All Service Categories</option>
                   {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
               </div>
               <div className="relative">
-                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
-                <select onChange={(e) => setServiceAreaFilter(e.target.value as ServiceArea | '')} value={serviceAreaFilter} className="input-base input-with-icon appearance-none">
+                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true" />
+                <select aria-label="Filter by service area" onChange={(e) => setServiceAreaFilter(e.target.value as ServiceArea | '')} value={serviceAreaFilter} className="input-base input-with-icon appearance-none">
                   <option value="">All Service Areas</option>
                   {serviceAreas.map(area => <option key={area} value={area}>{area}</option>)}
                 </select>
@@ -947,8 +951,8 @@ const App: React.FC = () => {
               </div>
               {!isAvailableNow && (
                 <div className="relative">
-                  <Radio className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
-                  <select onChange={(e) => setAvailabilityFilter(e.target.value as PerformerStatus | '')} value={availabilityFilter} className="input-base input-with-icon appearance-none">
+                  <Radio className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true" />
+                  <select aria-label="Filter by availability" onChange={(e) => setAvailabilityFilter(e.target.value as PerformerStatus | '')} value={availabilityFilter} className="input-base input-with-icon appearance-none">
                     <option value="">All Availabilities</option>
                     <option value="available">Available</option>
                     <option value="busy">Busy</option>
@@ -989,7 +993,15 @@ const App: React.FC = () => {
     }
   };
 
+  const suspenseFallback = (
+    <div className="flex items-center justify-center min-h-[200px]">
+      <LoaderCircle className="h-8 w-8 animate-spin text-orange-500" />
+    </div>
+  );
+
   return (
+    <ErrorBoundary>
+    <Suspense fallback={suspenseFallback}>
     <div className="min-h-screen text-white flex flex-col">
       {showDemoBanner && performers.length > 0 && (
         <div className="bg-orange-600 text-white py-2 px-4 text-center text-xs sm:text-sm font-medium relative z-50">
@@ -1099,6 +1111,8 @@ const App: React.FC = () => {
         onRoleChange={(role) => handleRoleChange(role === 'Client' ? 'user' : role.toLowerCase() as Role)}
       />
     </div>
+    </Suspense>
+    </ErrorBoundary>
   );
 };
 

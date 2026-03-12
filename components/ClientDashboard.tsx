@@ -33,13 +33,14 @@ const statusConfig: Record<Booking['status'], {
 };
 
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings }) => {
-  const [clientEmail, setClientEmail] = useState<string | null>(() => localStorage.getItem('clientEmail'));
+  const [clientEmail, setClientEmail] = useState<string | null>(() => sessionStorage.getItem('clientEmail'));
   const [emailInput, setEmailInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
   const [chatMessages, setChatMessages] = useState<Communication[]>([]);
+  const [chatError, setChatError] = useState('');
   const lookupTimeoutRef = useRef<number | null>(null);
 
   const handleLookup = (e: React.FormEvent) => {
@@ -58,7 +59,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
     lookupTimeoutRef.current = window.setTimeout(() => {
       const foundBookings = bookings.some(b => b.client_email.toLowerCase() === emailInput.toLowerCase());
       if (foundBookings) {
-        localStorage.setItem('clientEmail', emailInput);
+        sessionStorage.setItem('clientEmail', emailInput);
         setClientEmail(emailInput);
       } else {
         setError('No bookings found for this email address.');
@@ -77,24 +78,27 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('clientEmail');
+    sessionStorage.removeItem('clientEmail');
     setClientEmail(null);
     setEmailInput('');
   };
 
   const handleOpenChat = async (booking: Booking) => {
       setActiveChatBooking(booking);
+      setChatError('');
       try {
           const { data } = await api.getBookingMessages(booking.id);
           setChatMessages(data || []);
       } catch (err) {
           console.error("Failed to load chat messages", err);
+          setChatError('Failed to load messages. Please try again.');
       }
   };
 
   const handleSendMessage = async (messageText: string) => {
       if (!activeChatBooking) return;
-      
+      setChatError('');
+
       try {
           const { data, error } = await api.sendBookingMessage(
               activeChatBooking.id,
@@ -102,13 +106,14 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
               activeChatBooking.client_name, // Sender
               activeChatBooking.performer?.name || 'Performer' // Recipient
           );
-          
+
           if (error) throw error;
           if (data) {
               setChatMessages(prev => [...prev, data]);
           }
       } catch (err) {
           console.error("Failed to send message", err);
+          setChatError('Failed to send message. Please try again.');
       }
   };
 
@@ -307,14 +312,23 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
       )}
 
       {activeChatBooking && (
+          <>
+          {chatError && (
+            <div className="fixed top-4 right-4 z-[60] bg-red-900/90 text-red-200 px-4 py-3 rounded-lg text-sm flex items-center gap-2 shadow-lg" role="alert">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              {chatError}
+              <button onClick={() => setChatError('')} className="ml-2 text-red-300 hover:text-white"><X className="h-4 w-4" /></button>
+            </div>
+          )}
           <ChatDialog
               isOpen={!!activeChatBooking}
-              onClose={() => setActiveChatBooking(null)}
+              onClose={() => { setActiveChatBooking(null); setChatError(''); }}
               booking={activeChatBooking}
               currentUser={{ name: activeChatBooking.client_name } as any}
               messages={chatMessages}
               onSendMessage={handleSendMessage}
           />
+          </>
       )}
     </div>
   );

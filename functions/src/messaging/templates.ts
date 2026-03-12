@@ -12,7 +12,7 @@ export type TemplateKey =
   | 'KYC_FAIL_CLIENT'
   | 'KYC_FLAGGED_ADMIN';
 
-export function renderTemplate(key: TemplateKey, data: any): string {
+export function renderTemplate(key: TemplateKey, data: Record<string, string | undefined>): string {
   const optOut = " Reply STOP to opt out.";
   const business = "Flavor Entertainers";
 
