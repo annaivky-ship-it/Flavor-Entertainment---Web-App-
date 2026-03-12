@@ -33,7 +33,7 @@ export const resetDemoData = async () => {
     console.error('Database not initialized. Check environment variables.');
     return;
   }
-  console.log("Starting database seed...");
+  // Seeding database...
   try {
     const batch = writeBatch(db);
 
@@ -62,7 +62,7 @@ export const resetDemoData = async () => {
     }
 
     await batch.commit();
-    console.log("Database seeded successfully.");
+    // Seed complete — reload
     window.location.reload();
   } catch (error) {
     console.error("Error seeding database:", error);

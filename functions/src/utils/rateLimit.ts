@@ -67,8 +67,8 @@ export async function checkRateLimit(
     return result;
   } catch (error) {
     console.error('Rate limit check failed:', error);
-    // Fail open — allow the request if rate limiting is broken
-    return true;
+    // Fail closed — block the request if rate limiting is broken
+    return false;
   }
 }
 
