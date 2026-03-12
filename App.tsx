@@ -933,16 +933,16 @@ const App: React.FC = () => {
             </div>
             <div className={`mb-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl max-w-3xl mx-auto grid grid-cols-1 ${!isAvailableNow ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
               <div className="relative">
-                <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
-                <select onChange={(e) => setCategoryFilter(e.target.value)} value={categoryFilter} className="input-base input-with-icon appearance-none">
+                <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true" />
+                <select aria-label="Filter by service category" onChange={(e) => setCategoryFilter(e.target.value)} value={categoryFilter} className="input-base input-with-icon appearance-none">
                   <option value="">All Service Categories</option>
                   {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
               </div>
               <div className="relative">
-                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
-                <select onChange={(e) => setServiceAreaFilter(e.target.value as ServiceArea | '')} value={serviceAreaFilter} className="input-base input-with-icon appearance-none">
+                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true" />
+                <select aria-label="Filter by service area" onChange={(e) => setServiceAreaFilter(e.target.value as ServiceArea | '')} value={serviceAreaFilter} className="input-base input-with-icon appearance-none">
                   <option value="">All Service Areas</option>
                   {serviceAreas.map(area => <option key={area} value={area}>{area}</option>)}
                 </select>
@@ -950,8 +950,8 @@ const App: React.FC = () => {
               </div>
               {!isAvailableNow && (
                 <div className="relative">
-                  <Radio className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
-                  <select onChange={(e) => setAvailabilityFilter(e.target.value as PerformerStatus | '')} value={availabilityFilter} className="input-base input-with-icon appearance-none">
+                  <Radio className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" aria-hidden="true" />
+                  <select aria-label="Filter by availability" onChange={(e) => setAvailabilityFilter(e.target.value as PerformerStatus | '')} value={availabilityFilter} className="input-base input-with-icon appearance-none">
                     <option value="">All Availabilities</option>
                     <option value="available">Available</option>
                     <option value="busy">Busy</option>

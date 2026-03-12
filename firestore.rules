@@ -31,7 +31,7 @@ service cloud.firestore {
       let data = request.resource.data;
       return data.keys().hasAll(['client_name', 'client_email', 'client_phone', 'status'])
         && data.client_name is string && data.client_name.size() > 0 && data.client_name.size() <= 200
-        && data.client_email is string && data.client_email.matches('.*@.*\\..*')
+        && data.client_email is string && data.client_email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$')
         && data.client_phone is string && data.client_phone.size() >= 8 && data.client_phone.size() <= 20
         && data.status in ['pending_performer_acceptance', 'PENDING'];
     }

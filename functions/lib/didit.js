@@ -43,8 +43,8 @@ const getDb = () => (0, firestore_1.getFirestore)('default');
 // Didit API Configuration
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY || '';
 const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '';
-const DIDIT_API_BASE = process.env.DIDIT_API_BASE || 'https://verification.didit.me';
-const DIDIT_APP_URL = process.env.DIDIT_APP_URL || 'https://flavorentertainers.com.au';
+const DIDIT_API_BASE = process.env.DIDIT_API_BASE || '';
+const DIDIT_APP_URL = process.env.DIDIT_APP_URL || '';
 const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || '';
 // --- Session Management ---
 /**
@@ -52,8 +52,8 @@ const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || '';
  * Returns the verification URL to redirect/embed for the client.
  */
 async function createKycSession(bookingId) {
-    if (!DIDIT_API_KEY || !DIDIT_WORKFLOW_ID) {
-        console.warn('Didit KYC not configured. Skipping session creation.');
+    if (!DIDIT_API_KEY || !DIDIT_WORKFLOW_ID || !DIDIT_API_BASE || !DIDIT_APP_URL) {
+        console.warn('Didit KYC not fully configured (DIDIT_API_KEY, DIDIT_WORKFLOW_ID, DIDIT_API_BASE, DIDIT_APP_URL). Skipping session creation.');
         return null;
     }
     const bookingDoc = await getDb().collection('bookings').doc(bookingId).get();
