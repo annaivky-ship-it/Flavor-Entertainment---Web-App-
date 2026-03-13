@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Shield, CheckCircle, LoaderCircle, AlertTriangle, X } from 'lucide-react';
 
 interface DiditVerificationProps {
@@ -20,6 +20,8 @@ const generateVerificationId = (name: string): string => {
 const DiditVerification: React.FC<DiditVerificationProps> = ({ onSuccess, onCancel, clientName }) => {
   const [step, setStep] = useState<'intro' | 'scanning' | 'processing' | 'success' | 'error'>('intro');
   const [verificationId] = useState(() => generateVerificationId(clientName));
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
 
   useEffect(() => {
     if (step === 'scanning') {
@@ -31,10 +33,10 @@ const DiditVerification: React.FC<DiditVerificationProps> = ({ onSuccess, onCanc
       return () => clearTimeout(timer);
     }
     if (step === 'success') {
-      const timer = setTimeout(() => onSuccess(verificationId), 1500);
+      const timer = setTimeout(() => onSuccessRef.current(verificationId), 1500);
       return () => clearTimeout(timer);
     }
-  }, [step, onSuccess, verificationId]);
+  }, [step, verificationId]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
