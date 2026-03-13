@@ -9,8 +9,8 @@ import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
-import DidItVerification from './DidItVerification';
-import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, UploadCloud, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, FileText, LoaderCircle, Users as UsersIcon, Shield, Camera, Wallet, Briefcase } from 'lucide-react';
+import DiditVerification from './DiditVerification';
+import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase } from 'lucide-react';
 
 export interface BookingFormState {
   fullName: string;
@@ -24,8 +24,7 @@ export interface BookingFormState {
   duration: string;
   numberOfGuests: string;
   selectedServices: string[];
-  idDocument: File | null;
-  selfieDocument: File | null;
+  didit_verification_id: string | null;
   client_message: string;
 }
 
@@ -45,70 +44,17 @@ interface BookingProcessProps {
 
 type BookingStage = 'form' | 'performer_acceptance_pending' | 'vetting_pending' | 'deposit_pending' | 'deposit_confirmation_pending' | 'confirmed' | 'rejected';
 
+/** Generate a unique booking reference like FLV-20260313-X7K2 */
+const generateBookingRef = (): string => {
+  const now = new Date();
+  const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 4; i++) rand += chars[Math.floor(Math.random() * chars.length)];
+  return `FLV-${datePart}-${rand}`;
+};
 
 const eventTypes = ['Bucks Party', 'Birthday Party', 'Corporate Event', 'Hens Party', 'Private Gathering', 'Other'];
-
-interface FileUploadFieldProps {
-  file: File | null;
-  setFile: (f: File | null) => void;
-  id: string;
-  label: string;
-  accept: string;
-  error?: string;
-  icon?: React.ReactNode;
-}
-
-const FileUploadField: React.FC<FileUploadFieldProps> = ({ file, setFile, id, label, accept, error, icon }) => {
-    const [internalError, setInternalError] = useState('');
-    
-    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            if (!ALLOWED_MIME_TYPES.includes(selectedFile.type)) {
-                setInternalError('Only image files are allowed (JPG, PNG, WebP, HEIC).');
-                setFile(null);
-            } else if (selectedFile.size > MAX_FILE_SIZE) {
-                setInternalError('File size must be under 10MB.');
-                setFile(null);
-            } else {
-                setInternalError('');
-                setFile(selectedFile);
-            }
-        }
-    };
-
-    const displayError = internalError || error;
-
-    return (
-        <div className="flex-1 min-w-[280px]">
-            <label htmlFor={id} className="block text-sm font-semibold text-zinc-300 mb-2">{label}</label>
-            <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 transition-all duration-300 ${displayError ? 'border-red-500 bg-red-900/10' : file ? 'border-green-500 bg-green-900/10' : 'border-zinc-700 bg-zinc-900/50 hover:border-orange-500 hover:bg-zinc-800/50'}`}>
-                {file ? (
-                  <div className="text-center animate-fade-in">
-                    <CheckCircle className="mx-auto h-10 w-10 text-green-500 mb-2" />
-                    <p className="text-sm font-bold text-white truncate max-w-[200px]">{file.name}</p>
-                    <button onClick={() => setFile(null)} className="text-xs text-zinc-500 hover:text-red-400 mt-2 underline">Remove</button>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                      {icon || <UploadCloud className={`mx-auto h-10 w-10 ${displayError ? 'text-red-400' : 'text-zinc-500'}`} />}
-                      <div className="mt-3 flex flex-col text-sm leading-6 text-zinc-400">
-                          <label htmlFor={id} className="relative cursor-pointer rounded-md font-semibold text-orange-500 hover:text-orange-400 transition-colors">
-                              <span>Upload Photo</span>
-                              <input id={id} name={id} type="file" className="sr-only" onChange={handleFileChange} accept={accept} />
-                          </label>
-                          <p className="text-xs text-zinc-500">JPG, PNG up to 10MB</p>
-                      </div>
-                  </div>
-                )}
-            </div>
-            {displayError && <p className="text-xs mt-2 text-red-400 font-medium animate-slide-in-up">{displayError}</p>}
-        </div>
-    );
-};
 
 const ErrorDisplay = ({ message }: { message: string | null }) => message ? (
     <div className="p-4 mb-6 text-sm text-red-200 bg-red-900/50 rounded-lg border border-red-500 flex items-start gap-3 animate-fade-in" role="alert">
@@ -152,20 +98,33 @@ const wizardSteps = [
 ];
 
 const ProgressIndicator: React.FC<{ currentStep: number }> = ({ currentStep }) => (
-    <nav aria-label="Progress">
-        <ol role="list" className="space-y-4 md:flex md:space-x-8 md:space-y-0 mb-10">
-            {wizardSteps.map((step) => {
+    <nav aria-label="Progress" className="mb-10">
+        <ol role="list" className="flex items-center justify-between max-w-2xl mx-auto">
+            {wizardSteps.map((step, index) => {
                 const isCompleted = currentStep > step.id;
                 const isCurrent = currentStep === step.id;
+                const Icon = step.icon;
 
                 return (
-                    <li key={step.name} className="md:flex-1">
-                        <div className={`group flex flex-col border-l-4 py-2 pl-4 transition-colors md:border-l-0 md:border-t-4 md:pl-0 md:pt-4 md:pb-0 ${isCompleted ? 'border-orange-500' : isCurrent ? 'border-orange-500' : 'border-zinc-700'}`}>
-                            <span className={`text-sm font-medium transition-colors ${isCompleted ? 'text-orange-400' : isCurrent ? 'text-orange-400' : 'text-zinc-400'}`}>
-                                Step {step.id}
-                            </span>
-                            <span className="text-sm font-medium text-white">{step.name}</span>
+                    <li key={step.name} className="flex items-center flex-1 last:flex-none">
+                        <div className="flex flex-col items-center gap-2">
+                            <div className={`relative flex items-center justify-center w-11 h-11 rounded-full border-2 transition-all duration-300 ${isCompleted ? 'bg-orange-500 border-orange-500' : isCurrent ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-700 bg-zinc-900'}`}>
+                                {isCompleted ? (
+                                    <CheckCircle className="h-5 w-5 text-white" />
+                                ) : (
+                                    <Icon className={`h-5 w-5 ${isCurrent ? 'text-orange-400' : 'text-zinc-500'}`} />
+                                )}
+                            </div>
+                            <div className="text-center">
+                                <span className={`text-[10px] font-semibold uppercase tracking-wider block ${isCurrent ? 'text-orange-400' : isCompleted ? 'text-orange-400/70' : 'text-zinc-600'}`}>
+                                    Step {step.id}
+                                </span>
+                                <span className={`text-xs font-medium hidden sm:block ${isCurrent ? 'text-white' : isCompleted ? 'text-zinc-400' : 'text-zinc-500'}`}>{step.name}</span>
+                            </div>
                         </div>
+                        {index < wizardSteps.length - 1 && (
+                            <div className={`flex-1 h-0.5 mx-3 rounded-full transition-colors duration-300 mb-6 ${isCompleted ? 'bg-orange-500' : 'bg-zinc-800'}`} />
+                        )}
                     </li>
                 );
             })}
@@ -179,15 +138,16 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const [form, setForm] = useState<BookingFormState>({
-        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, idDocument: null, selfieDocument: null, client_message: ''
+        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, didit_verification_id: null, client_message: ''
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
+    const [bookingRef, setBookingRef] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [agreedTerms, setAgreedTerms] = useState(false);
     const [isVerifiedBooker, setIsVerifiedBooker] = useState(false);
-    const [isDidItVerified, setIsDidItVerified] = useState(false);
-    const [showDidItModal, setShowDidItModal] = useState(false);
+    const [isDiditVerified, setIsDiditVerified] = useState(false);
+    const [showDiditModal, setShowDiditModal] = useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
     const [isPayIdModalOpen, setIsPayIdModalOpen] = useState(false);
 
@@ -321,17 +281,24 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 break;
             case 2:
                 if (!form.eventDate) errors.eventDate = "Date required.";
+                else {
+                    const eventDate = new Date(form.eventDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (eventDate < today) errors.eventDate = "Event date must be in the future.";
+                }
                 if (!form.eventTime) errors.eventTime = "Time required.";
                 if (!form.eventAddress.trim()) errors.eventAddress = "Address required.";
                 if (!form.eventType) errors.eventType = "Event type required.";
                 if (!form.numberOfGuests) errors.numberOfGuests = "Guest count required.";
+                else if (Number(form.numberOfGuests) < 1) errors.numberOfGuests = "Must have at least 1 guest.";
                 break;
             case 3:
                 if (form.selectedServices.length === 0) errors.selectedServices = "Select at least one service.";
                 break;
             case 4:
                 if (!isVerifiedBooker) {
-                    if (!isDidItVerified) errors.didit = "Identity verification is required.";
+                    if (!isDiditVerified) errors.didit = "Identity verification is required.";
                     if (!agreedTerms) errors.agreedTerms = "Agreement required.";
                 }
                 break;
@@ -393,6 +360,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             const result = await onBookingRequest(form, performers);
             if (result.success && result.bookingIds) {
                 setBookingIds(result.bookingIds);
+                setBookingRef(generateBookingRef());
             } else {
                 setError(result.message);
             }
@@ -421,26 +389,28 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         return (
             <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)}>
                 Booking approved! Pay <strong>${(depositAmount || 0).toFixed(2)}</strong> to secure your date.
+                {bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}
                 {isPayIdModalOpen && (
-                    <PayIDSimulationModal 
-                        amount={depositAmount} 
-                        totalAmount={totalCost} 
-                        performerNames={performers.map(p => p.name).join(', ')} 
-                        eventType={form.eventType} 
+                    <PayIDSimulationModal
+                        amount={depositAmount}
+                        totalAmount={totalCost}
+                        performerNames={performers.map(p => p.name).join(', ')}
+                        eventType={form.eventType}
                         eventDate={form.eventDate}
                         eventAddress={form.eventAddress}
-                        onPaymentSuccess={handlePaymentSuccess} 
-                        onClose={() => setIsPayIdModalOpen(false)} 
+                        bookingRef={bookingRef}
+                        onPaymentSuccess={handlePaymentSuccess}
+                        onClose={() => setIsPayIdModalOpen(false)}
                     />
                 )}
             </StatusScreen>
         );
     }
     if (stage === 'deposit_confirmation_pending') {
-        return <StatusScreen icon={LoaderCircle} title="Verifying Payment" bgColor="bg-blue-900/10" buttonText="Dashboard" onButtonClick={onBookingSubmitted}>Payment received. Admin is confirming.</StatusScreen>;
+        return <StatusScreen icon={LoaderCircle} title="Verifying Payment" bgColor="bg-blue-900/10" buttonText="Dashboard" onButtonClick={onBookingSubmitted}>Payment received. Admin is confirming.{bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}</StatusScreen>;
     }
     if (stage === 'confirmed') {
-        return <StatusScreen icon={CheckCircle} title="Confirmed!" bgColor="bg-green-900/10" buttonText="View Bookings" onButtonClick={onBookingSubmitted}>Booking is locked in!</StatusScreen>;
+        return <StatusScreen icon={CheckCircle} title="Confirmed!" bgColor="bg-green-900/10" buttonText="View Bookings" onButtonClick={onBookingSubmitted}>Booking is locked in!{bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}</StatusScreen>;
     }
     if (stage === 'rejected') {
         return <StatusScreen icon={ShieldX} title="Application Declined" bgColor="bg-red-900/10" buttonText="Back to Gallery" onButtonClick={onBack}>Request could not be fulfilled.</StatusScreen>;
@@ -459,6 +429,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             </div>
 
             <ProgressIndicator currentStep={currentStep} />
+
+            <div className="flex items-start gap-3 p-4 bg-blue-950/30 border border-blue-500/30 rounded-xl mb-6">
+              <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-200/90 leading-relaxed">
+                Our entertainers are independent freelancers and may become unavailable on short notice. If your chosen performer is unable to attend, we will suggest a suitable replacement for your approval.
+              </p>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
@@ -480,21 +457,14 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                         {currentStep === 2 && (
                             <div className="space-y-6 animate-fade-in">
+                                <div><h2 className="text-2xl font-bold text-white mb-2">Event Details</h2><p className="text-zinc-400">Tell us about your event so we can match the right experience.</p></div>
                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField icon={<Calendar />} label="Event Date" type="date" name="eventDate" min={todayStr} value={form.eventDate} onChange={handleChange} required error={fieldErrors.eventDate} />
                                     <InputField icon={<Clock />} label="Start Time" type="time" name="eventTime" value={form.eventTime} onChange={handleChange} required error={fieldErrors.eventTime} />
-                                    <div>
-                                        <label className="block text-sm font-medium text-zinc-400 mb-1">Duration (Hours)</label>
-                                        <div className="relative">
-                                            <select name="duration" value={form.duration} onChange={handleChange} className="input-base !pl-12 appearance-none">
-                                                {[1, 1.5, 2, 2.5, 3, 4, 5, 6].map(h => <option key={h} value={h}>{h} Hour{h !== 1 ? 's' : ''}</option>)}
-                                            </select>
-                                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
-                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
-                                        </div>
-                                    </div>
                                     <InputField icon={<UsersIcon />} label="Guest Count" type="number" name="numberOfGuests" value={form.numberOfGuests} onChange={handleChange} required error={fieldErrors.numberOfGuests} />
-                                    <InputField icon={<MapPin />} label="Event Address" name="eventAddress" value={form.eventAddress} onChange={handleChange} required error={fieldErrors.eventAddress} />
+                                    <div className="md:col-span-2">
+                                      <InputField icon={<MapPin />} label="Event Address" name="eventAddress" value={form.eventAddress} onChange={handleChange} required error={fieldErrors.eventAddress} placeholder="Full street address" />
+                                    </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-400 mb-1">Event Type</label>
                                         <div className="relative">
@@ -512,6 +482,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                         {currentStep === 3 && (
                             <div className="space-y-6 animate-fade-in">
+                                <div><h2 className="text-2xl font-bold text-white mb-2">Choose Services</h2><p className="text-zinc-400">Select the services you'd like for your event. Costs update in real-time.</p></div>
                                 <div className="space-y-8">
                                      {(Object.entries(servicesByCategory) as [string, Service[]][]).map(([category, services]) => (
                                         <div key={category}>
@@ -541,6 +512,25 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                         </div>
                                      ))}
                                 </div>
+
+                                {/* Duration selector - shown after service selection */}
+                                {form.selectedServices.some(id => allServices.find(s => s.id === id)?.rate_type === 'per_hour') && (
+                                    <div className="p-5 bg-zinc-900/70 border border-zinc-800 rounded-xl animate-fade-in">
+                                        <label className="block text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-2">
+                                            <Clock size={16} className="text-orange-400" />
+                                            Service Duration (for hourly services)
+                                        </label>
+                                        <div className="relative">
+                                            <select name="duration" value={form.duration} onChange={handleChange} className="input-base !pl-12 appearance-none">
+                                                {[1, 1.5, 2, 2.5, 3, 4, 5, 6].map(h => <option key={h} value={h}>{h} Hour{h !== 1 ? 's' : ''}</option>)}
+                                            </select>
+                                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                        </div>
+                                        <p className="text-[10px] text-zinc-500 mt-2">This applies to waitressing and other hourly-rate services. Strip shows have fixed durations.</p>
+                                    </div>
+                                )}
+
                                 <div className="mt-8"><label className="block text-sm font-medium text-zinc-400 mb-2">Special Notes (Optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-24 resize-none" /></div>
                             </div>
                         )}
@@ -563,7 +553,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                         </div>
                                         
                                         <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-zinc-700 rounded-2xl bg-zinc-900/50">
-                                            {isDidItVerified ? (
+                                            {isDiditVerified ? (
                                                 <div className="text-center animate-fade-in">
                                                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                                                     <h3 className="text-xl font-bold text-white mb-2">Identity Verified</h3>
@@ -574,7 +564,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                                     <ShieldCheck className="h-16 w-16 text-zinc-600 mx-auto mb-4" />
                                                     <h3 className="text-xl font-bold text-white mb-4">Verify Your Identity</h3>
                                                     <button
-                                                        onClick={() => setShowDidItModal(true)}
+                                                        onClick={() => setShowDiditModal(true)}
                                                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2 mx-auto"
                                                     >
                                                         <Shield size={20} />
@@ -602,12 +592,16 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         )}
 
                         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                            <div className="text-sm text-zinc-500">Step {currentStep} of 4</div>
-                            <div className="flex gap-4 w-full sm:w-auto">
-                                <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-lg transition-colors">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
-                                <button onClick={handleNext} disabled={isSubmitting} className="flex-1 sm:flex-none btn-primary px-8 py-3 flex items-center justify-center gap-2">
-                                    {isSubmitting ? <LoaderCircle className="animate-spin" /> : currentStep === 4 ? <Send size={18} /> : null}
-                                    {isSubmitting ? 'Processing...' : currentStep === 4 ? 'Review Request' : 'Continue'}
+                            <div className="flex items-center gap-2">
+                                {[1,2,3,4].map(s => (
+                                    <div key={s} className={`h-1.5 rounded-full transition-all duration-300 ${s === currentStep ? 'w-8 bg-orange-500' : s < currentStep ? 'w-4 bg-orange-500/50' : 'w-4 bg-zinc-700'}`} />
+                                ))}
+                            </div>
+                            <div className="flex gap-3 w-full sm:w-auto">
+                                <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-colors border border-zinc-700">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
+                                <button onClick={handleNext} disabled={isSubmitting} className="flex-1 sm:flex-none btn-primary px-8 py-3 flex items-center justify-center gap-2 text-base">
+                                    {isSubmitting ? <LoaderCircle className="animate-spin" size={18} /> : currentStep === 4 ? <Send size={18} /> : null}
+                                    {isSubmitting ? 'Processing...' : currentStep === 4 ? 'Review & Submit' : 'Continue'}
                                 </button>
                             </div>
                         </div>
@@ -673,19 +667,20 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
             <BookingConfirmationDialog isOpen={isConfirmDialogOpen} onClose={() => setIsConfirmDialogOpen(false)} onConfirm={handleFinalSubmission} isLoading={isSubmitting} bookingDetails={{ performers, eventDate: form.eventDate, eventTime: form.eventTime, eventAddress: form.eventAddress, selectedServices: form.selectedServices.map(id => allServices.find(s => s.id === id)?.name || id), eventDuration: formattedTotalDuration, totalCost, depositAmount }} />
             
-            {showDidItModal && (
-                <DidItVerification 
+            {showDiditModal && (
+                <DiditVerification
                     clientName={form.fullName || 'Guest'}
-                    onSuccess={() => {
-                        setIsDidItVerified(true);
-                        setShowDidItModal(false);
+                    onSuccess={(verificationId: string) => {
+                        setIsDiditVerified(true);
+                        setShowDiditModal(false);
+                        setForm(prev => ({ ...prev, didit_verification_id: verificationId }));
                         setFieldErrors(prev => {
                             const newErrors = { ...prev };
                             delete newErrors.didit;
                             return newErrors;
                         });
                     }}
-                    onCancel={() => setShowDidItModal(false)}
+                    onCancel={() => setShowDiditModal(false)}
                 />
             )}
         </div>

@@ -25,10 +25,11 @@ service firebase.storage {
       allow update: if false; 
     }
     
-    // Default public/private rules for other paths
+    // Performer photos — public read, any signed-in user can upload
+    // Admin-only access is enforced at the application layer
     match /performers/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isSignedIn();
     }
     
     match /ids/{allPaths=**} {

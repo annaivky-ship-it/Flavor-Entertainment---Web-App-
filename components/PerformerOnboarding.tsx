@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Camera, Upload, CheckCircle, ArrowRight, User, Tag } from 'lucide-react';
+import { Camera, Upload, CheckCircle, ArrowRight, User, Tag, Image, X } from 'lucide-react';
 import type { Performer, ServiceArea } from '../types';
+import { api } from '../services/api';
 import InputField from './InputField';
 
 interface PerformerOnboardingProps {
@@ -12,12 +13,14 @@ const PerformerOnboarding: React.FC<PerformerOnboardingProps> = ({ onSubmit, onC
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     name: '',
     tagline: '',
     bio: '',
-    photo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
+    photo_url: '',
     service_ids: [] as string[],
     service_areas: [] as ServiceArea[],
   });
@@ -31,8 +34,13 @@ const PerformerOnboarding: React.FC<PerformerOnboardingProps> = ({ onSubmit, onC
     setError('');
     
     try {
+      let photoUrl = formData.photo_url;
+      if (photoFile) {
+        photoUrl = await api.uploadPerformerPhoto(photoFile, formData.name);
+      }
       await onSubmit({
         ...formData,
+        photo_url: photoUrl,
         status: 'pending_verification' as any,
         rating: 5.0,
         review_count: 0,
@@ -86,12 +94,52 @@ const PerformerOnboarding: React.FC<PerformerOnboardingProps> = ({ onSubmit, onC
             />
           </div>
 
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-zinc-300">Profile Photo</label>
+            {photoPreview ? (
+              <div className="relative w-32 h-32">
+                <img src={photoPreview} alt="Preview" className="w-32 h-32 rounded-xl object-cover border border-zinc-700" />
+                <button
+                  type="button"
+                  onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-orange-500/50 transition-colors bg-zinc-900/50">
+                <Camera className="w-8 h-8 text-zinc-500 mb-2" />
+                <span className="text-sm text-zinc-400">Click to upload photo</span>
+                <span className="text-xs text-zinc-600 mt-1">JPG, PNG up to 5MB</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 5 * 1024 * 1024) {
+                        setError('Photo must be under 5MB');
+                        return;
+                      }
+                      setPhotoFile(file);
+                      const reader = new FileReader();
+                      reader.onloadend = () => setPhotoPreview(reader.result as string);
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+            )}
+          </div>
+
           <div className="flex justify-end gap-4 pt-4">
             <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
             <button 
               type="button" 
               onClick={handleNext}
-              disabled={!formData.name || !formData.tagline || !formData.bio}
+              disabled={!formData.name || !formData.tagline || !formData.bio || !photoFile}
               className="btn-primary flex items-center gap-2"
             >
               Next <ArrowRight className="w-4 h-4" />
