@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, LogIn, Mail, Lock } from 'lucide-react';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from '../services/firebaseClient';
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { auth, db } from '../services/firebaseClient';
 import type { Performer, Role } from '../types';
 import InputField from './InputField';
 
@@ -47,21 +48,67 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
   }, [onClose]);
 
   const handleAuthSuccess = async (user: any) => {
+    const displayName = user.displayName || user.email?.split('@')[0] || 'User';
+
+    // 1. Check custom claims first (fastest)
     try {
       const token = await user.getIdTokenResult();
-      const role = token.claims.role as Role || 'user';
-      const performerId = token.claims.performerId as number | undefined;
-      
-      onLogin({ 
-        name: user.displayName || user.email?.split('@')[0] || 'User', 
-        role, 
-        id: performerId 
-      });
+      if (token.claims.role === 'admin' || token.claims.admin === true) {
+        onLogin({ name: displayName, role: 'admin' });
+        return;
+      }
+      if (token.claims.role === 'performer' && token.claims.performerId) {
+        onLogin({ name: displayName, role: 'performer', id: token.claims.performerId as number });
+        return;
+      }
     } catch (err) {
-      console.error('Error getting custom claims:', err);
-      // If claims can't be read, log in as basic user
-      onLogin({ name: user.displayName || user.email?.split('@')[0] || 'User', role: 'user' });
+      console.warn('Could not read custom claims:', err);
     }
+
+    // 2. Check admins collection in Firestore
+    if (db) {
+      try {
+        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+        if (adminDoc.exists()) {
+          onLogin({ name: displayName, role: 'admin' });
+          return;
+        }
+
+        // Bootstrap: if no admins exist yet, make this user the first admin
+        const adminsSnap = await getDocs(collection(db, 'admins'));
+        if (adminsSnap.empty) {
+          await setDoc(doc(db, 'admins', user.uid), {
+            email: user.email,
+            displayName,
+            role: 'admin',
+            createdAt: new Date().toISOString()
+          });
+          console.log('First admin bootstrapped:', user.uid);
+          onLogin({ name: displayName, role: 'admin' });
+          return;
+        }
+      } catch (err) {
+        console.warn('Could not check admins collection:', err);
+      }
+
+      // 3. Check performers_auth collection
+      try {
+        const performerAuthDoc = await getDoc(doc(db, 'performers_auth', user.uid));
+        if (performerAuthDoc.exists()) {
+          const data = performerAuthDoc.data();
+          const performer = performers.find(p => p.id === data.performerId);
+          if (performer) {
+            onLogin({ name: performer.name, role: 'performer', id: performer.id });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not check performers_auth collection:', err);
+      }
+    }
+
+    // 4. Default to regular user
+    onLogin({ name: displayName, role: 'user' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,20 +155,23 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="login-title">
-      <div ref={modalRef} className="card-base !p-8 !bg-zinc-900 max-w-sm w-full relative">
-        <button onClick={onClose} aria-label="Close login" className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors">
-          <X className="h-6 w-6" aria-hidden="true" />
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="card-base !p-8 !bg-zinc-900/95 !border-zinc-700/50 max-w-sm w-full relative shadow-2xl shadow-black/50">
+        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors">
+          <X className="h-5 w-5" />
         </button>
         <div className="text-center mb-8">
-            <h2 id="login-title" className="text-2xl font-bold text-white">Secure Portal Login</h2>
-            <p className="text-zinc-400 mt-1">For Performers, Admins & Clients</p>
+            <div className="h-12 w-12 bg-orange-500/10 border border-orange-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <LogIn className="h-5 w-5 text-orange-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
+            <p className="text-zinc-500 mt-1 text-sm">Sign in to your account</p>
         </div>
         
-        <button 
-          onClick={handleGoogleLogin} 
+        <button
+          onClick={handleGoogleLogin}
           disabled={isLoading}
-          className="w-full bg-white text-zinc-900 font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-3 hover:bg-zinc-100 transition-colors mb-6 disabled:opacity-50"
+          className="w-full bg-white text-zinc-900 font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-3 hover:bg-zinc-100 transition-all mb-6 disabled:opacity-50 shadow-sm"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -144,8 +194,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
         <form onSubmit={handleSubmit} className="space-y-6">
             <InputField icon={<Mail />} type="email" name="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <InputField icon={<Lock />} type="password" name="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            {error && <p role="alert" className="text-sm text-red-400 text-center">{error}</p>}
-            {import.meta.env.VITE_APP_MODE === 'demo' && <p className="text-xs text-zinc-500 text-center !mt-2">Demo mode: use any email with password 'password'.</p>}
+            {error && <p className="text-sm text-red-400 text-center">{error}</p>}
+            <p className="text-xs text-zinc-500 text-center !mt-2">Use your registered email and password to sign in.</p>
             <button type="submit" disabled={isLoading} className="btn-primary w-full text-lg flex items-center justify-center gap-2 disabled:opacity-50">
                 <LogIn aria-hidden="true" />
                 Login

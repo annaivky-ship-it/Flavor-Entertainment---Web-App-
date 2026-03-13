@@ -28,6 +28,10 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
     return getBookingDurationInfo(durationHours, selectedServices);
   }, [durationHours, selectedServices]);
 
+  const selectedServiceDetails = useMemo(() => {
+    return selectedServices.map(id => allServices.find(s => s.id === id)).filter(Boolean) as typeof allServices;
+  }, [selectedServices]);
+
   const durationWarning = useMemo(() => {
     const duration = durationHours;
     if (isNaN(duration) || duration <= 0) return null;
@@ -83,15 +87,38 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
         </div>
       </div>
 
-      {formattedTotalDuration !== 'N/A' && (
-        <div className="mt-6 pt-6 border-t border-zinc-800/50">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2 text-zinc-400">
-              <Clock size={16} className="text-orange-500/70" />
-              <span className="text-sm">Total Duration</span>
+      {selectedServiceDetails.length > 0 && (
+        <div className="mt-6 pt-6 border-t border-zinc-800/50 space-y-3">
+          <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Service Breakdown</p>
+          {selectedServiceDetails.map(service => {
+            const duration = service.rate_type === 'per_hour'
+              ? `${Math.max(durationHours, service.min_duration_hours || 0)} hr${Math.max(durationHours, service.min_duration_hours || 0) !== 1 ? 's' : ''}`
+              : service.duration_minutes
+                ? `${service.duration_minutes} min`
+                : 'N/A';
+            const cost = service.rate_type === 'per_hour'
+              ? service.rate * Math.max(durationHours, service.min_duration_hours || 0) * performers.length
+              : service.rate;
+            return (
+              <div key={service.id} className="flex justify-between items-center text-sm">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Clock size={12} className="text-orange-500/50 flex-shrink-0" />
+                  <span className="text-zinc-400 truncate">{service.name}</span>
+                  <span className="text-[10px] text-zinc-600 bg-zinc-800/50 px-1.5 py-0.5 rounded flex-shrink-0">{duration}</span>
+                </div>
+                <span className="text-zinc-300 font-medium ml-2">${cost.toFixed(2)}</span>
+              </div>
+            );
+          })}
+          {formattedTotalDuration !== 'N/A' && (
+            <div className="flex justify-between items-center pt-3 border-t border-zinc-800/30">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <Clock size={16} className="text-orange-500/70" />
+                <span className="text-sm font-medium">Total Duration</span>
+              </div>
+              <span className="font-bold text-zinc-200">{formattedTotalDuration}</span>
             </div>
-            <span className="font-bold text-zinc-200">{formattedTotalDuration}</span>
-          </div>
+          )}
         </div>
       )}
 

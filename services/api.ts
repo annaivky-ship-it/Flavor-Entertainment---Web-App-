@@ -13,7 +13,8 @@ import {
   limit,
   setDoc,
   writeBatch,
-  onSnapshot
+  onSnapshot,
+  deleteDoc
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -90,9 +91,13 @@ export const api = {
         return { data: snap.docs.map(d => ({ ...(d.data() as any), id: name === 'performers' ? Number(d.id) : d.id })), error: null };
       } catch (err: any) {
         console.error(`Error fetching ${name}:`, err);
+        // Permission errors are expected when not logged in — return empty, not an error
+        if (err.code === 'permission-denied' || err.message?.includes('Missing or insufficient permissions')) {
+          console.warn(`No permission for ${name} — user may not be logged in yet.`);
+          return { data: [], error: null };
+        }
         if (err.code === 'unavailable') {
           console.warn(`Firestore is currently offline or unreachable. Returning mock data for ${name} if available.`);
-          // Fallback to mock data if connection is unavailable
           if (name === 'performers') return { data: mockPerformers, error: null };
           if (name === 'bookings') return { data: mockBookings, error: null };
           if (name === 'do_not_serve') return { data: mockDoNotServeList, error: null };
@@ -174,6 +179,17 @@ export const api = {
     });
   },
 
+  async uploadPerformerPhoto(file: File, performerName: string): Promise<string> {
+    if (!storage) throw new Error("Firebase Storage not initialized");
+    const safeName = performerName.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'performer';
+    const timestamp = Date.now();
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `performers/${safeName}_${timestamp}.${ext}`;
+    const fileRef = ref(storage, path);
+    await uploadBytes(fileRef, file);
+    return await getDownloadURL(fileRef);
+  },
+
   // Fix: Added createAuditLog to allow manual logging of actions to the audit_log collection.
   async createAuditLog(action: string, actorUid: string, details: any = {}, actorRole: 'client' | 'admin' | 'system' = 'system') {
     if (!db) return { id: null, error: new Error('Firebase not initialized') };
@@ -244,50 +260,35 @@ export const api = {
   },
 
   async createBookingRequest(formState: BookingFormState, performers: Performer[]) {
-    if (!db || !auth || !storage || !functions) {
+    if (!db || !auth || !storage) {
       console.warn('Firebase not initialized. Simulating booking request.');
       return { data: [], error: null };
     }
     try {
-      const callCreateBooking = httpsCallable(functions, 'createBookingRequest');
-
-      let idUrl = null;
-      let selfieUrl = null;
-
-      // Handle parallel file uploads for legacy/demo structure
-      const timestamp = Date.now();
-      const uploadPromises = [];
       const user = auth.currentUser;
       if (!user) throw new Error("Authentication required for booking submission");
-      const userUid = user.uid;
-      const submissionId = `booking_kyc_${timestamp}`;
 
-      if (formState.idDocument) {
-        const idPath = `vetting/${userUid}/${submissionId}/id_${formState.idDocument.name}`;
-        const idRef = ref(storage, idPath);
-        uploadPromises.push(uploadBytes(idRef, formState.idDocument).then(async res => idUrl = await getDownloadURL(res.ref)));
+      // Try Cloud Function first, fall back to direct Firestore write
+      let bookingIds: string[] = [];
+
+      if (functions) {
+        try {
+          const callCreateBooking = httpsCallable(functions, 'createBookingRequest');
+          const result = await callCreateBooking({
+            formState: {
+              ...formState,
+              phone: formState.mobile, // Cloud Function expects 'phone'
+            },
+            performerIds: performers.map(p => p.id)
+          }) as { data: { success: boolean; bookingIds: string[] } };
+          bookingIds = result.data.bookingIds;
+        } catch (cfErr: any) {
+          console.warn('Cloud Function failed, using direct Firestore write:', cfErr.message);
+          bookingIds = await this._createBookingsDirect(formState, performers);
+        }
+      } else {
+        bookingIds = await this._createBookingsDirect(formState, performers);
       }
-
-      if (formState.selfieDocument) {
-        const selfiePath = `vetting/${userUid}/${submissionId}/selfie_${formState.selfieDocument.name}`;
-        const selfieRef = ref(storage, selfiePath);
-        uploadPromises.push(uploadBytes(selfieRef, formState.selfieDocument).then(async res => selfieUrl = await getDownloadURL(res.ref)));
-      }
-
-      await Promise.all(uploadPromises);
-
-      const result = await callCreateBooking({
-        formState: {
-          ...formState,
-          id_document_path: idUrl,
-          selfie_document_path: selfieUrl,
-          idDocument: null,
-          selfieDocument: null
-        },
-        performerIds: performers.map(p => p.id)
-      }) as { data: { success: boolean; bookingIds: string[] } };
-
-      const { bookingIds } = result.data;
 
       const newBookings = await Promise.all(bookingIds.map(async (id) => {
         const bDoc = await getDoc(doc(db!, 'bookings', id));
@@ -298,6 +299,43 @@ export const api = {
     } catch (err: any) {
       return { data: null, error: err };
     }
+  },
+
+  /** Direct Firestore write fallback when Cloud Function is unavailable */
+  async _createBookingsDirect(formState: BookingFormState, performers: Performer[]): Promise<string[]> {
+    if (!db) throw new Error('Firebase not initialized');
+    const bookingIds: string[] = [];
+
+    for (const performer of performers) {
+      const bookingData = {
+        performer_id: performer.id,
+        performer: { id: performer.id, name: performer.name },
+        client_name: formState.fullName,
+        client_email: formState.email.toLowerCase().trim(),
+        client_phone: formState.mobile,
+        client_dob: formState.dob,
+        event_date: formState.eventDate,
+        event_time: formState.eventTime,
+        event_address: formState.eventAddress,
+        event_type: formState.eventType,
+        duration_hours: Number(formState.duration),
+        number_of_guests: Number(formState.numberOfGuests),
+        services_requested: formState.selectedServices,
+        client_message: formState.client_message || null,
+        didit_verification_id: formState.didit_verification_id || null,
+        status: 'pending_performer_acceptance' as const,
+        payment_status: 'unpaid' as const,
+        deposit_receipt_path: null,
+        verified_by_admin_name: null,
+        verified_at: null,
+        created_at: new Date().toISOString(),
+      };
+
+      const docRef = await addDoc(collection(db, 'bookings'), bookingData);
+      bookingIds.push(docRef.id);
+    }
+
+    return bookingIds;
   },
 
   async updateBookingStatus(bookingId: string, status: BookingStatus, updates: any = {}) {
@@ -449,5 +487,43 @@ export const api = {
     } catch (err: any) {
       return { data: null, error: err };
     }
+  },
+
+  async getUsers(): Promise<{ admins: Array<{ uid: string; email?: string; grantedAt?: string }>; performerAuths: Array<{ uid: string; performerId?: number; email?: string; grantedAt?: string }> }> {
+    if (!db) return { admins: [], performerAuths: [] };
+    try {
+      const [adminsSnap, perfAuthSnap] = await Promise.all([
+        getDocs(collection(db, 'admins')),
+        getDocs(collection(db, 'performers_auth'))
+      ]);
+      const admins = adminsSnap.docs.map(d => ({ uid: d.id, ...d.data() })) as Array<{ uid: string; email?: string; grantedAt?: string }>;
+      const performerAuths = perfAuthSnap.docs.map(d => ({ uid: d.id, ...d.data() })) as Array<{ uid: string; performerId?: number; email?: string; grantedAt?: string }>;
+      return { admins, performerAuths };
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      return { admins: [], performerAuths: [] };
+    }
+  },
+
+  async grantAdminAccess(uid: string, email: string) {
+    if (!db) throw new Error('Firebase not initialized');
+    await setDoc(doc(db, 'admins', uid), { email, grantedAt: new Date().toISOString() });
+  },
+
+  async revokeAdminAccess(uid: string) {
+    if (!db) throw new Error('Firebase not initialized');
+
+    await deleteDoc(doc(db, 'admins', uid));
+  },
+
+  async grantPerformerAccess(uid: string, performerId: number, email: string) {
+    if (!db) throw new Error('Firebase not initialized');
+    await setDoc(doc(db, 'performers_auth', uid), { performerId, email, grantedAt: new Date().toISOString() });
+  },
+
+  async revokePerformerAccess(uid: string) {
+    if (!db) throw new Error('Firebase not initialized');
+
+    await deleteDoc(doc(db, 'performers_auth', uid));
   }
 };

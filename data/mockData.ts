@@ -123,8 +123,7 @@ export const mockBookings: Booking[] = [
         event_type: 'Corporate Gala',
         status: 'confirmed',
         payment_status: 'fully_paid',
-        id_document_path: null,
-        selfie_document_path: null, // Add: Missing required field
+        didit_verification_id: null,
         deposit_receipt_path: null,
         created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
         duration_hours: 4,
@@ -148,8 +147,7 @@ export const mockBookings: Booking[] = [
         event_type: 'Birthday Celebration',
         status: 'pending_deposit_confirmation',
         payment_status: 'deposit_paid',
-        id_document_path: 'path/to/id.pdf',
-        selfie_document_path: 'path/to/selfie.jpg', // Add: Missing required field
+        didit_verification_id: 'DIDIT-JANE-m1k2x3-A7B9C2',
         deposit_receipt_path: 'path/to/receipt.jpg',
         created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
         duration_hours: 3,
@@ -173,8 +171,7 @@ export const mockBookings: Booking[] = [
         event_type: 'VIP Birthday Party',
         status: 'pending_performer_acceptance',
         payment_status: 'unpaid',
-        id_document_path: 'path/to/another_id.jpg',
-        selfie_document_path: null, // Add: Missing required field
+        didit_verification_id: 'DIDIT-LAUR-n4p5q6-D3E8F1',
         deposit_receipt_path: null,
         created_at: new Date().toISOString(),
         duration_hours: 3,
@@ -198,8 +195,7 @@ export const mockBookings: Booking[] = [
         event_type: 'Charity Fundraiser',
         status: 'rejected',
         payment_status: 'unpaid',
-        id_document_path: 'path/to/id_emily.png',
-        selfie_document_path: null, // Add: Missing required field
+        didit_verification_id: 'DIDIT-EMIL-r7s8t9-G5H2J4',
         deposit_receipt_path: null,
         created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
         duration_hours: 3,

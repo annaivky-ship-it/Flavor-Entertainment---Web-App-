@@ -28,32 +28,39 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
   return (
     <div
       style={cardStyle}
-      className={`relative bg-zinc-900 rounded-2xl overflow-hidden group transition-all duration-500 ease-in-out border border-zinc-800 flex flex-col h-full hover:border-orange-500/50`}
+      className={`relative bg-zinc-900 rounded-2xl overflow-hidden group transition-all duration-500 ease-in-out border flex flex-col h-full ${isSelected ? 'border-orange-500 shadow-lg shadow-orange-500/10' : 'border-zinc-800/60 hover:border-orange-500/40'}`}
     >
-      <div 
-        className={`absolute -inset-1 rounded-2xl bg-[var(--glow-color)] blur-xl transition-opacity duration-500 opacity-[var(--glow-opacity-base)] group-hover:opacity-[var(--glow-opacity-hover)] -z-10`}
-      ></div>
+      {isSelected && (
+        <div className="absolute -inset-1 rounded-2xl bg-orange-500/20 blur-xl -z-10" />
+      )}
 
-      <div className="relative aspect-square md:aspect-[3/4] overflow-hidden">
-        <img
-          src={performer.photo_url}
-          alt={performer.name}
-          loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
-        
+      <div className="relative aspect-[3/4] overflow-hidden">
+        {performer.photo_url ? (
+          <img
+            src={performer.photo_url}
+            alt={performer.name}
+            loading="lazy"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
+            <span className="text-6xl font-bold text-gradient">{performer.name?.charAt(0)?.toUpperCase()}</span>
+          </div>
+        )}
+
         {/* Status Badge */}
-        <div className={`absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider font-bold border ${statusClasses[performer.status]}`}>
-          <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${performer.status === 'available' ? 'bg-green-400' : performer.status === 'busy' ? 'bg-yellow-400' : 'bg-zinc-400'}`}></span>
-          {performer.status}
+        <div className={`absolute top-3 right-3 flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold border ${statusClasses[performer.status]}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${performer.status === 'available' ? 'bg-green-400 animate-pulse' : performer.status === 'busy' ? 'bg-yellow-400' : 'bg-zinc-400'}`}></span>
+          {performer.status === 'pending_verification' ? 'Pending' : performer.status}
         </div>
 
         {/* Rating Badge */}
-        <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-white border border-white/10">
-          <Star className="w-3.5 h-3.5 text-orange-400 fill-orange-400" />
-          <span>{(performer.rating || 0).toFixed(1)}</span>
-          <span className="text-zinc-400 font-normal">({performer.review_count || 0})</span>
-        </div>
+        {(performer.rating || 0) > 0 && (
+          <div className="absolute top-3 left-3 flex items-center gap-1 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full text-xs font-bold text-white border border-white/10">
+            <Star className="w-3 h-3 text-orange-400 fill-orange-400" />
+            <span>{(performer.rating || 0).toFixed(1)}</span>
+          </div>
+        )}
         
         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent md:block hidden"></div>
         
@@ -101,33 +108,36 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
 
       {/* Mobile Content & Actions */}
       <div className="p-4 md:hidden flex flex-col flex-grow">
-        <div className="mb-4">
-          <div className="flex justify-between items-start mb-1">
-            <h3 className="text-xl font-bold text-white tracking-tight">{performer.name}</h3>
-            <div className="flex items-center gap-1 text-xs text-zinc-400">
-              <MapPin size={12} className="text-orange-500" />
-              <span className="truncate max-w-[100px]">{performer.service_areas[0]}</span>
-            </div>
+        <div className="mb-3">
+          <h3 className="text-lg font-bold text-white tracking-tight mb-0.5">{performer.name}</h3>
+          <p className="text-orange-400/80 text-[11px] font-semibold uppercase tracking-wider mb-2">{performer.tagline}</p>
+          <div className="flex items-center gap-3 text-[11px] text-zinc-500">
+            <span className="flex items-center gap-1">
+              <MapPin size={11} className="text-orange-500/70" />
+              {performer.service_areas[0]}
+            </span>
+            {performer.min_booking_duration_hours && (
+              <span className="flex items-center gap-1">
+                <Clock size={11} className="text-orange-500/70" />
+                {performer.min_booking_duration_hours}hr min
+              </span>
+            )}
           </div>
-          <p className="text-orange-400 text-xs font-semibold uppercase tracking-wide mb-2">{performer.tagline}</p>
-          <p className="text-zinc-400 text-xs line-clamp-2 leading-relaxed">
-            {performer.bio}
-          </p>
         </div>
-        
+
         <div className="mt-auto grid grid-cols-2 gap-2">
           <button
             onClick={() => onViewProfile(performer)}
-            className="w-full bg-zinc-800 text-white font-bold py-2.5 rounded-lg text-xs flex items-center justify-center gap-2 active:bg-zinc-700 transition-colors"
+            className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
           >
-            <Eye className="h-4 w-4" />
+            <Eye className="h-3.5 w-3.5" />
             Profile
           </button>
           <button
             onClick={() => onToggleSelection(performer)}
-            className={`w-full font-bold py-2.5 rounded-lg text-xs flex items-center justify-center gap-2 border transition-colors ${isSelected ? 'bg-green-600 border-green-600 text-white' : 'bg-transparent border-zinc-700 text-white active:bg-zinc-800'}`}
+            className={`w-full font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 border transition-all ${isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'bg-transparent border-zinc-700 text-zinc-300 hover:border-orange-500/50 hover:text-white'}`}
           >
-            {isSelected ? <CheckCircle className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+            {isSelected ? <CheckCircle className="h-3.5 w-3.5" /> : <PlusCircle className="h-3.5 w-3.5" />}
             {isSelected ? 'Selected' : 'Select'}
           </button>
         </div>

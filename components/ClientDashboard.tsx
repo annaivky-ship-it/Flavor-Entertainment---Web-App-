@@ -10,6 +10,7 @@ interface ClientDashboardProps {
   bookings: Booking[];
   onBrowsePerformers: () => void;
   onShowSettings: () => void;
+  onUpdateBookingStatus?: (bookingId: string, status: Booking['status']) => Promise<void>;
 }
 
 const statusConfig: Record<Booking['status'], {
@@ -32,16 +33,33 @@ const statusConfig: Record<Booking['status'], {
   rejected: { color: 'text-red-400', borderColor: 'border-red-500', Icon: AlertTriangle, title: "Booking Rejected", description: "Unfortunately, this booking could not be completed at this time." },
 };
 
-const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings }) => {
-  const [clientEmail, setClientEmail] = useState<string | null>(() => sessionStorage.getItem('clientEmail'));
+const CANCELLABLE_STATUSES: Booking['status'][] = ['pending_performer_acceptance', 'pending_vetting', 'deposit_pending', 'pending_deposit_confirmation', 'confirmed'];
+
+const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings, onUpdateBookingStatus }) => {
+  const [clientEmail, setClientEmail] = useState<string | null>(() => localStorage.getItem('clientEmail'));
   const [emailInput, setEmailInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
   const [chatMessages, setChatMessages] = useState<Communication[]>([]);
   const [chatError, setChatError] = useState('');
   const lookupTimeoutRef = useRef<number | null>(null);
+
+  const handleCancelBooking = async (bookingId: string) => {
+    if (!onUpdateBookingStatus) return;
+    setCancellingId(bookingId);
+    try {
+      await onUpdateBookingStatus(bookingId, 'cancelled');
+      setConfirmCancelId(null);
+    } catch (err) {
+      console.error('Failed to cancel booking:', err);
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const handleLookup = (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,10 +229,38 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                                <p className="text-zinc-400 text-sm flex items-center md:justify-end gap-1"><Wallet size={14}/> Total Cost</p>
                                <p className="text-3xl font-bold text-white">${(totalCost || 0).toFixed(2)}</p> 
                             </div>
-                            {booking.status !== 'rejected' && (
-                                <button onClick={() => handleOpenChat(booking)} className="btn-primary w-full flex items-center justify-center gap-2 text-sm px-4 py-2 mt-auto">
+                            {booking.status !== 'rejected' && booking.status !== 'cancelled' && (
+                              <div className="flex flex-col gap-2 w-full mt-auto">
+                                <button onClick={() => handleOpenChat(booking)} className="btn-primary w-full flex items-center justify-center gap-2 text-sm px-4 py-2">
                                     <MessageCircle size={16} /> Message Performer
                                 </button>
+                                {CANCELLABLE_STATUSES.includes(booking.status) && onUpdateBookingStatus && (
+                                  confirmCancelId === booking.id ? (
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => handleCancelBooking(booking.id)}
+                                        disabled={cancellingId === booking.id}
+                                        className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                                      >
+                                        {cancellingId === booking.id ? <LoaderCircle size={14} className="animate-spin" /> : 'Confirm'}
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmCancelId(null)}
+                                        className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white text-xs px-3 py-2 rounded-lg transition-colors"
+                                      >
+                                        Keep
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setConfirmCancelId(booking.id)}
+                                      className="w-full bg-zinc-800 hover:bg-red-900/50 text-zinc-400 hover:text-red-400 text-xs px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
+                                    >
+                                      <X size={14} /> Cancel Booking
+                                    </button>
+                                  )
+                                )}
+                              </div>
                             )}
                          </div>
                       </div>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone, Upload, Image } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
 import { resetDemoData, isDemoMode, api } from '../services/api';
 import ChatDialog from './ChatDialog';
@@ -58,7 +58,7 @@ const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
     { value: 'rejected', label: 'Rejected' },
 ];
 
-type AdminTab = 'management' | 'payments' | 'performers' | 'dns' | 'reporting';
+type AdminTab = 'management' | 'payments' | 'performers' | 'dns' | 'users' | 'reporting';
 
 // Admin Dashboard Component for managing bookings, performers, and reporting
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, doNotServeList, communications, onUpdateBookingStatus, onUpdateDoNotServeStatus, onViewDoNotServe, onAdminDecisionForPerformer, onAdminChangePerformer, onUpdatePerformer, onCreatePerformer }) => {
@@ -73,11 +73,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
   const [chatMessages, setChatMessages] = useState<Communication[]>([]);
   const [editingPerformer, setEditingPerformer] = useState<Performer | null>(null);
   const [isAddingPerformer, setIsAddingPerformer] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [performerForm, setPerformerForm] = useState<Omit<Performer, 'id'>>({
     name: '',
     tagline: '',
     bio: '',
-    photo_url: 'https://picsum.photos/seed/performer/400/600',
+    photo_url: '',
     status: 'available',
     rating: 5.0,
     review_count: 0,
@@ -85,6 +88,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     service_areas: [],
     created_at: new Date().toISOString(),
   });
+
+  const [adminUsers, setAdminUsers] = useState<Array<{ uid: string; email?: string; grantedAt?: string }>>([]);
+  const [performerAuthUsers, setPerformerAuthUsers] = useState<Array<{ uid: string; performerId?: number; email?: string; grantedAt?: string }>>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [newAdminUid, setNewAdminUid] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newPerfUid, setNewPerfUid] = useState('');
+  const [newPerfEmail, setNewPerfEmail] = useState('');
+  const [newPerfPerformerId, setNewPerfPerformerId] = useState('');
+  const [userActionLoading, setUserActionLoading] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (activeTab === 'users') {
+      setIsLoadingUsers(true);
+      api.getUsers().then(({ admins, performerAuths }) => {
+        setAdminUsers(admins as any);
+        setPerformerAuthUsers(performerAuths as any);
+      }).finally(() => setIsLoadingUsers(false));
+    }
+  }, [activeTab]);
 
   const handleAction = async (type: string, id: string, action: () => Promise<void>) => {
     setLoadingState({ type, id });
@@ -364,6 +387,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
             )}
           </button>
           <button
+            onClick={() => setActiveTab('users')}
+            className={`${activeTab === 'users' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+          >
+            <UsersIcon size={16}/> Users
+          </button>
+          <button
             onClick={() => setActiveTab('reporting')}
             className={`${activeTab === 'reporting' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
@@ -440,7 +469,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   name: '',
                   tagline: '',
                   bio: '',
-                  photo_url: 'https://picsum.photos/seed/performer/400/600',
+                  photo_url: '',
                   status: 'available',
                   rating: 5.0,
                   review_count: 0,
@@ -448,6 +477,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   service_areas: [],
                   created_at: new Date().toISOString(),
                 });
+                setPhotoFile(null);
+                setPhotoPreview(null);
                 setIsAddingPerformer(true);
               }}
               className="btn-primary flex items-center gap-2 !py-2 !px-4"
@@ -488,14 +519,60 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     className="input-base w-full h-24"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-sm text-zinc-400">Photo URL</label>
-                  <input 
-                    type="text" 
-                    value={performerForm.photo_url} 
-                    onChange={e => setPerformerForm({...performerForm, photo_url: e.target.value})}
-                    className="input-base w-full"
-                  />
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm text-zinc-400">Photo</label>
+                  <div className="flex items-start gap-4">
+                    {/* Preview */}
+                    <div className="w-24 h-32 rounded-lg border border-zinc-700 overflow-hidden flex-shrink-0 bg-zinc-800 flex items-center justify-center">
+                      {(photoPreview || performerForm.photo_url) ? (
+                        <img
+                          src={photoPreview || performerForm.photo_url}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Image className="w-8 h-8 text-zinc-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      {/* File Upload */}
+                      <label className="flex items-center gap-2 px-4 py-2.5 bg-orange-500/10 border border-orange-500/30 rounded-lg cursor-pointer hover:bg-orange-500/20 transition-colors w-fit">
+                        <Upload size={16} className="text-orange-400" />
+                        <span className="text-sm font-medium text-orange-400">
+                          {photoFile ? photoFile.name : 'Upload Photo'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setPhotoFile(file);
+                              setPhotoPreview(URL.createObjectURL(file));
+                            }
+                          }}
+                        />
+                      </label>
+                      <p className="text-xs text-zinc-500">or paste an image URL below:</p>
+                      <input
+                        type="text"
+                        value={photoFile ? '' : performerForm.photo_url}
+                        placeholder="https://example.com/photo.jpg"
+                        disabled={!!photoFile}
+                        onChange={e => setPerformerForm({...performerForm, photo_url: e.target.value})}
+                        className="input-base w-full disabled:opacity-40"
+                      />
+                      {photoFile && (
+                        <button
+                          onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          Remove uploaded file
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm text-zinc-400">Status</label>
@@ -526,24 +603,51 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   onClick={() => {
                     setIsAddingPerformer(false);
                     setEditingPerformer(null);
+                    setPhotoFile(null);
+                    setPhotoPreview(null);
                   }}
                   className="px-4 py-2 text-zinc-400 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
+                  disabled={isUploadingPhoto}
                   onClick={async () => {
+                    let finalForm = { ...performerForm };
+
+                    // Upload photo file to Firebase Storage if selected
+                    if (photoFile) {
+                      try {
+                        setIsUploadingPhoto(true);
+                        const downloadUrl = await api.uploadPerformerPhoto(photoFile, performerForm.name);
+                        finalForm.photo_url = downloadUrl;
+                      } catch (err) {
+                        console.error('Photo upload failed:', err);
+                        alert('Photo upload failed. Please try again.');
+                        setIsUploadingPhoto(false);
+                        return;
+                      } finally {
+                        setIsUploadingPhoto(false);
+                      }
+                    }
+
                     if (isAddingPerformer) {
-                      await onCreatePerformer(performerForm);
+                      await onCreatePerformer(finalForm);
                     } else if (editingPerformer) {
-                      await onUpdatePerformer(editingPerformer.id, performerForm);
+                      await onUpdatePerformer(editingPerformer.id, finalForm);
                     }
                     setIsAddingPerformer(false);
                     setEditingPerformer(null);
+                    setPhotoFile(null);
+                    setPhotoPreview(null);
                   }}
-                  className="btn-primary !py-2 !px-6"
+                  className="btn-primary !py-2 !px-6 disabled:opacity-50"
                 >
-                  Save Performer
+                  {isUploadingPhoto ? (
+                    <span className="flex items-center gap-2"><LoaderCircle className="animate-spin h-4 w-4" /> Uploading...</span>
+                  ) : (
+                    'Save Performer'
+                  )}
                 </button>
               </div>
             </div>
@@ -753,6 +857,158 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'users' && (
+        <div className="space-y-8 animate-fade-in">
+          {isLoadingUsers ? (
+            <div className="flex items-center justify-center py-16"><LoaderCircle className="h-8 w-8 text-orange-500 animate-spin" /></div>
+          ) : (
+            <>
+              {/* Admin Users */}
+              <div className="card-base !p-6">
+                <h2 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3"><ShieldCheck className="text-orange-500" /> Admin Users</h2>
+                <div className="space-y-3 mb-6">
+                  {adminUsers.length > 0 ? adminUsers.map(admin => (
+                    <div key={admin.uid} className="flex items-center justify-between bg-zinc-900/70 p-4 rounded-xl border border-zinc-700/50">
+                      <div>
+                        <p className="text-white font-medium">{admin.email || 'No email'}</p>
+                        <p className="text-xs text-zinc-500 font-mono">{admin.uid}</p>
+                        {admin.grantedAt && <p className="text-xs text-zinc-600 mt-1">Granted: {new Date(admin.grantedAt).toLocaleDateString()}</p>}
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Revoke admin access for ${admin.email || admin.uid}?`)) return;
+                          setUserActionLoading(admin.uid);
+                          try {
+                            await api.revokeAdminAccess(admin.uid);
+                            setAdminUsers(prev => prev.filter(a => a.uid !== admin.uid));
+                          } catch (err) { console.error(err); }
+                          finally { setUserActionLoading(null); }
+                        }}
+                        disabled={userActionLoading === admin.uid}
+                        className="bg-red-600/20 hover:bg-red-600/40 text-red-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-red-500/30"
+                      >
+                        {userActionLoading === admin.uid ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                        Revoke
+                      </button>
+                    </div>
+                  )) : (
+                    <p className="text-zinc-500 text-center py-4">No admin users found in Firestore.</p>
+                  )}
+                </div>
+                <div className="bg-zinc-900/40 p-4 rounded-xl border border-zinc-800">
+                  <h3 className="text-sm font-semibold text-zinc-300 mb-3">Grant Admin Access</h3>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input type="text" placeholder="Firebase UID" value={newAdminUid} onChange={e => setNewAdminUid(e.target.value)} className="input-base !py-2 !text-sm flex-1" />
+                    <input type="email" placeholder="Email (optional)" value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)} className="input-base !py-2 !text-sm flex-1" />
+                    <button
+                      onClick={async () => {
+                        if (!newAdminUid.trim()) return;
+                        setUserActionLoading('grant-admin');
+                        try {
+                          await api.grantAdminAccess(newAdminUid.trim(), newAdminEmail.trim());
+                          setAdminUsers(prev => [...prev, { uid: newAdminUid.trim(), email: newAdminEmail.trim(), grantedAt: new Date().toISOString() }]);
+                          setNewAdminUid('');
+                          setNewAdminEmail('');
+                        } catch (err) { console.error(err); }
+                        finally { setUserActionLoading(null); }
+                      }}
+                      disabled={!newAdminUid.trim() || userActionLoading === 'grant-admin'}
+                      className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap"
+                    >
+                      {userActionLoading === 'grant-admin' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                      Grant Admin
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performer Auth Users */}
+              <div className="card-base !p-6">
+                <h2 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3"><UserCog className="text-orange-500" /> Performer Access</h2>
+                <div className="space-y-3 mb-6">
+                  {performerAuthUsers.length > 0 ? performerAuthUsers.map(perfAuth => {
+                    const linkedPerformer = performers.find(p => p.id === perfAuth.performerId);
+                    return (
+                      <div key={perfAuth.uid} className="flex items-center justify-between bg-zinc-900/70 p-4 rounded-xl border border-zinc-700/50">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-medium">{perfAuth.email || 'No email'}</p>
+                            {linkedPerformer && (
+                              <span className="bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                → {linkedPerformer.name}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-500 font-mono">{perfAuth.uid}</p>
+                          {perfAuth.grantedAt && <p className="text-xs text-zinc-600 mt-1">Granted: {new Date(perfAuth.grantedAt).toLocaleDateString()}</p>}
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Revoke performer access for ${perfAuth.email || perfAuth.uid}?`)) return;
+                            setUserActionLoading(perfAuth.uid);
+                            try {
+                              await api.revokePerformerAccess(perfAuth.uid);
+                              setPerformerAuthUsers(prev => prev.filter(p => p.uid !== perfAuth.uid));
+                            } catch (err) { console.error(err); }
+                            finally { setUserActionLoading(null); }
+                          }}
+                          disabled={userActionLoading === perfAuth.uid}
+                          className="bg-red-600/20 hover:bg-red-600/40 text-red-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-red-500/30"
+                        >
+                          {userActionLoading === perfAuth.uid ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                          Revoke
+                        </button>
+                      </div>
+                    );
+                  }) : (
+                    <p className="text-zinc-500 text-center py-4">No performer auth entries found.</p>
+                  )}
+                </div>
+                <div className="bg-zinc-900/40 p-4 rounded-xl border border-zinc-800">
+                  <h3 className="text-sm font-semibold text-zinc-300 mb-3">Grant Performer Access</h3>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input type="text" placeholder="Firebase UID" value={newPerfUid} onChange={e => setNewPerfUid(e.target.value)} className="input-base !py-2 !text-sm flex-1" />
+                    <input type="email" placeholder="Email (optional)" value={newPerfEmail} onChange={e => setNewPerfEmail(e.target.value)} className="input-base !py-2 !text-sm flex-1" />
+                    <div className="relative flex-1">
+                      <select
+                        value={newPerfPerformerId}
+                        onChange={e => setNewPerfPerformerId(e.target.value)}
+                        className="input-base !py-2 !text-sm w-full appearance-none"
+                      >
+                        <option value="">Link to Performer...</option>
+                        {performers.map(p => (
+                          <option key={p.id} value={p.id}>{p.name} (ID: {p.id})</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!newPerfUid.trim() || !newPerfPerformerId) return;
+                        setUserActionLoading('grant-performer');
+                        try {
+                          await api.grantPerformerAccess(newPerfUid.trim(), Number(newPerfPerformerId), newPerfEmail.trim());
+                          setPerformerAuthUsers(prev => [...prev, { uid: newPerfUid.trim(), performerId: Number(newPerfPerformerId), email: newPerfEmail.trim(), grantedAt: new Date().toISOString() }]);
+                          setNewPerfUid('');
+                          setNewPerfEmail('');
+                          setNewPerfPerformerId('');
+                        } catch (err) { console.error(err); }
+                        finally { setUserActionLoading(null); }
+                      }}
+                      disabled={!newPerfUid.trim() || !newPerfPerformerId || userActionLoading === 'grant-performer'}
+                      className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap"
+                    >
+                      {userActionLoading === 'grant-performer' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                      Grant Access
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

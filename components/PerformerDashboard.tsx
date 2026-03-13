@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Performer, PerformerStatus, Booking, Communication, AuditLog, BookingStatus } from '../types';
-import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History, MapPin, Sparkles } from 'lucide-react';
+import { Performer, PerformerStatus, Booking, Communication, AuditLog, BookingStatus, ServiceArea } from '../types';
+import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History, MapPin, Sparkles, Save, Edit3 } from 'lucide-react';
 import ChatDialog from './ChatDialog';
 import { api } from '../services/api';
+
+const ALL_SERVICE_AREAS: ServiceArea[] = ['Perth North', 'Perth South', 'Southwest', 'Northwest'];
 
 interface PerformerDashboardProps {
   performer: Performer;
@@ -14,6 +16,7 @@ interface PerformerDashboardProps {
   onBookingDecision: (bookingId: string, decision: 'accepted' | 'declined', eta?: number) => Promise<void>;
   onUpdateEta: (bookingId: string, eta: number) => Promise<void>;
   onUpdateBookingStatus: (bookingId: string, status: BookingStatus) => Promise<void>;
+  onUpdatePerformer?: (performerId: number, updates: Partial<Performer>) => Promise<void>;
 }
 
 const statusConfig: Record<PerformerStatus, { color: string; label: string; icon: React.ElementType; bgColor: string; activeColor: string; description: string; }> = {
@@ -213,10 +216,17 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
 };
 
 
-const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onViewDoNotServe, onBookingDecision, onUpdateEta, onUpdateBookingStatus }) => {
+const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onViewDoNotServe, onBookingDecision, onUpdateEta, onUpdateBookingStatus, onUpdatePerformer }) => {
   const [etas, setEtas] = useState<Record<string, string>>({});
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<PerformerStatus | null>(null);
-  
+
+  // Profile editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editServiceAreas, setEditServiceAreas] = useState<ServiceArea[]>(performer.service_areas);
+  const [editBio, setEditBio] = useState(performer.bio);
+  const [editTagline, setEditTagline] = useState(performer.tagline);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   // Chat State
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
   const [chatMessages, setChatMessages] = useState<Communication[]>([]);
@@ -469,6 +479,147 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
         </div>
       </div>
       
+      {/* My Profile Section */}
+      <div className="card-base !p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
+            <User className="h-6 w-6 text-orange-400" />
+            My Profile
+          </h2>
+          {!isEditingProfile ? (
+            <button
+              onClick={() => {
+                setEditServiceAreas([...performer.service_areas]);
+                setEditBio(performer.bio);
+                setEditTagline(performer.tagline);
+                setIsEditingProfile(true);
+              }}
+              className="text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-600 font-semibold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors"
+            >
+              <Edit3 size={14} />
+              Edit Profile
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsEditingProfile(false)}
+                className="text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-600 font-semibold py-2 px-4 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!onUpdatePerformer) return;
+                  setIsSavingProfile(true);
+                  try {
+                    await onUpdatePerformer(performer.id, {
+                      service_areas: editServiceAreas,
+                      bio: editBio,
+                      tagline: editTagline,
+                    });
+                    setIsEditingProfile(false);
+                  } catch (err) {
+                    console.error('Failed to save profile:', err);
+                  } finally {
+                    setIsSavingProfile(false);
+                  }
+                }}
+                disabled={isSavingProfile || editServiceAreas.length === 0}
+                className="text-sm bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors disabled:opacity-50"
+              >
+                {isSavingProfile ? <LoaderCircle size={14} className="animate-spin" /> : <Save size={14} />}
+                Save Changes
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isEditingProfile ? (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-2">Tagline</label>
+              <input
+                type="text"
+                value={editTagline}
+                onChange={(e) => setEditTagline(e.target.value)}
+                className="input-base"
+                placeholder="Your professional tagline"
+                maxLength={80}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-2">Bio</label>
+              <textarea
+                value={editBio}
+                onChange={(e) => setEditBio(e.target.value)}
+                className="input-base h-28 resize-none"
+                placeholder="Tell clients about yourself..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-3">Service Areas</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {ALL_SERVICE_AREAS.map(area => {
+                  const isSelected = editServiceAreas.includes(area);
+                  return (
+                    <button
+                      key={area}
+                      type="button"
+                      onClick={() => {
+                        setEditServiceAreas(prev =>
+                          isSelected
+                            ? prev.filter(a => a !== area)
+                            : [...prev, area]
+                        );
+                      }}
+                      className={`p-3 rounded-xl border text-sm font-medium transition-all flex items-center gap-2 justify-center ${
+                        isSelected
+                          ? 'bg-orange-500/10 border-orange-500 text-orange-400'
+                          : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                      }`}
+                    >
+                      <MapPin size={14} />
+                      {area}
+                      {isSelected && <CheckCircle size={14} />}
+                    </button>
+                  );
+                })}
+              </div>
+              {editServiceAreas.length === 0 && (
+                <p className="text-xs text-red-400 mt-2">Select at least one service area.</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold mb-1">Tagline</p>
+              <p className="text-zinc-200">{performer.tagline}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold mb-1">Bio</p>
+              <p className="text-zinc-300 text-sm leading-relaxed line-clamp-3">{performer.bio}</p>
+            </div>
+            <div className="md:col-span-2">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold mb-2">Service Areas</p>
+              <div className="flex flex-wrap gap-2">
+                {performer.service_areas.map(area => (
+                  <span key={area} className="inline-flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/30 text-orange-300 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <MapPin size={12} />
+                    {area}
+                  </span>
+                ))}
+                {performer.service_areas.length === 0 && (
+                  <p className="text-zinc-500 text-sm italic">No service areas set. Click "Edit Profile" to add areas.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {activeChatBooking && (
           <ChatDialog
               isOpen={!!activeChatBooking}

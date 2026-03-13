@@ -80,8 +80,7 @@ export interface Booking {
     event_address: string;
     event_type: string;
     status: BookingStatus;
-    id_document_path: string | null;
-    selfie_document_path: string | null;
+    didit_verification_id: string | null;
     deposit_receipt_path: string | null;
     payment_status?: PaymentStatus;
     created_at: string;
