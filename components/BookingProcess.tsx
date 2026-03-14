@@ -22,6 +22,7 @@ export interface BookingFormState {
   eventAddress: string;
   eventType: string;
   duration: string;
+  serviceDurations: Record<string, number>;
   numberOfGuests: string;
   selectedServices: string[];
   didit_verification_id: string | null;
@@ -72,9 +73,11 @@ interface StatusScreenProps {
   bgColor: string;
   buttonText: string;
   onButtonClick: () => void;
+  secondaryButtonText?: string;
+  onSecondaryClick?: () => void;
 }
-    
-const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children, bgColor, buttonText, onButtonClick }) => (
+
+const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children, bgColor, buttonText, onButtonClick, secondaryButtonText, onSecondaryClick }) => (
   <div className={`flex flex-col items-center justify-center min-h-[60vh] text-center p-4 animate-fade-in ${bgColor}`}>
     <div className="bg-black/40 backdrop-blur-md p-8 sm:p-12 rounded-2xl border border-white/10 shadow-2xl max-w-2xl w-full">
         <Icon className={`mx-auto h-20 w-20 mb-6 ${Icon === LoaderCircle ? 'animate-spin text-orange-500' : 'text-orange-400'}`} />
@@ -82,9 +85,16 @@ const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children
         <div className="text-zinc-300 mt-2 mb-8 max-w-lg mx-auto leading-relaxed">
           {children}
         </div>
-        <button onClick={onButtonClick} className="btn-primary px-8 py-3 text-lg">
-            {buttonText}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button onClick={onButtonClick} className="btn-primary px-8 py-3 text-lg">
+                {buttonText}
+            </button>
+            {secondaryButtonText && onSecondaryClick && (
+                <button onClick={onSecondaryClick} className="px-8 py-3 text-lg bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-colors border border-zinc-700">
+                    {secondaryButtonText}
+                </button>
+            )}
+        </div>
     </div>
   </div>
 );
@@ -138,7 +148,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const [form, setForm] = useState<BookingFormState>({
-        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, didit_verification_id: null, client_message: ''
+        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', serviceDurations: {}, numberOfGuests: '', selectedServices: initialSelectedServices, didit_verification_id: null, client_message: ''
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
     const [bookingRef, setBookingRef] = useState<string>('');
@@ -222,10 +232,20 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     
     const handleServiceChange = (serviceId: string) => {
         setForm(prev => {
-            const selectedServices = prev.selectedServices.includes(serviceId)
+            const isRemoving = prev.selectedServices.includes(serviceId);
+            const selectedServices = isRemoving
                 ? prev.selectedServices.filter(s => s !== serviceId)
                 : [...prev.selectedServices, serviceId];
-            return { ...prev, selectedServices };
+            const serviceDurations = { ...prev.serviceDurations };
+            if (isRemoving) {
+                delete serviceDurations[serviceId];
+            } else {
+                const service = allServices.find(s => s.id === serviceId);
+                if (service?.rate_type === 'per_hour') {
+                    serviceDurations[serviceId] = service.min_duration_hours || 2;
+                }
+            }
+            return { ...prev, selectedServices, serviceDurations };
         });
         if (fieldErrors.selectedServices) {
             setFieldErrors(prev => {
@@ -249,10 +269,10 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     }, [availableServices]);
 
     const { totalCost, depositAmount } = useMemo(() => {
-        return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length);
-    }, [form.selectedServices, form.duration, performers.length]);
-    
-    const { formattedTotalDuration } = useMemo(() => getBookingDurationInfo(Number(form.duration), form.selectedServices), [form.duration, form.selectedServices]);
+        return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length, form.serviceDurations);
+    }, [form.selectedServices, form.duration, form.serviceDurations, performers.length]);
+
+    const { formattedTotalDuration } = useMemo(() => getBookingDurationInfo(Number(form.duration), form.selectedServices, form.serviceDurations), [form.duration, form.selectedServices, form.serviceDurations]);
 
     const validateStep = (step: number): boolean => {
         const errors: Record<string, string> = {};
@@ -323,7 +343,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         setForm(prev => ({
             ...prev,
             selectedServices: initialSelectedServices,
-            duration: '2'
+            duration: '2',
+            serviceDurations: {}
         }));
     };
 
@@ -380,10 +401,10 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     };
 
     if (stage === 'performer_acceptance_pending') {
-        return <StatusScreen icon={LoaderCircle} title="Request Sent" bgColor="bg-purple-900/10" buttonText="Back to Dashboard" onButtonClick={onBookingSubmitted}>Awaiting performer confirmation.</StatusScreen>;
+        return <StatusScreen icon={LoaderCircle} title="Request Sent" bgColor="bg-purple-900/10" buttonText="Back to Dashboard" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack}>Awaiting performer confirmation.</StatusScreen>;
     }
     if (stage === 'vetting_pending') {
-        return <StatusScreen icon={Shield} title="Identity Vetting" bgColor="bg-yellow-900/10" buttonText="Back to Dashboard" onButtonClick={onBookingSubmitted}>Admin is reviewing your verification documents.</StatusScreen>;
+        return <StatusScreen icon={Shield} title="Identity Vetting" bgColor="bg-yellow-900/10" buttonText="Back to Dashboard" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack}>Admin is reviewing your verification documents.</StatusScreen>;
     }
     if (stage === 'deposit_pending') {
         return (
@@ -407,10 +428,10 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         );
     }
     if (stage === 'deposit_confirmation_pending') {
-        return <StatusScreen icon={LoaderCircle} title="Verifying Payment" bgColor="bg-blue-900/10" buttonText="Dashboard" onButtonClick={onBookingSubmitted}>Payment received. Admin is confirming.{bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}</StatusScreen>;
+        return <StatusScreen icon={LoaderCircle} title="Verifying Payment" bgColor="bg-blue-900/10" buttonText="Dashboard" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack}>Payment received. Admin is confirming.{bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}</StatusScreen>;
     }
     if (stage === 'confirmed') {
-        return <StatusScreen icon={CheckCircle} title="Confirmed!" bgColor="bg-green-900/10" buttonText="View Bookings" onButtonClick={onBookingSubmitted}>Booking is locked in!{bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}</StatusScreen>;
+        return <StatusScreen icon={CheckCircle} title="Confirmed!" bgColor="bg-green-900/10" buttonText="View Bookings" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack}>Booking is locked in!{bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}</StatusScreen>;
     }
     if (stage === 'rejected') {
         return <StatusScreen icon={ShieldX} title="Application Declined" bgColor="bg-red-900/10" buttonText="Back to Gallery" onButtonClick={onBack}>Request could not be fulfilled.</StatusScreen>;
@@ -513,21 +534,41 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                      ))}
                                 </div>
 
-                                {/* Duration selector - shown after service selection */}
-                                {form.selectedServices.some(id => allServices.find(s => s.id === id)?.rate_type === 'per_hour') && (
-                                    <div className="p-5 bg-zinc-900/70 border border-zinc-800 rounded-xl animate-fade-in">
-                                        <label className="block text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-2">
+                                {/* Per-service duration selectors for hourly services */}
+                                {form.selectedServices.filter(id => allServices.find(s => s.id === id)?.rate_type === 'per_hour').length > 0 && (
+                                    <div className="space-y-4 animate-fade-in">
+                                        <h3 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
                                             <Clock size={16} className="text-orange-400" />
-                                            Service Duration (for hourly services)
-                                        </label>
-                                        <div className="relative">
-                                            <select name="duration" value={form.duration} onChange={handleChange} className="input-base !pl-12 appearance-none">
-                                                {[1, 1.5, 2, 2.5, 3, 4, 5, 6].map(h => <option key={h} value={h}>{h} Hour{h !== 1 ? 's' : ''}</option>)}
-                                            </select>
-                                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
-                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
-                                        </div>
-                                        <p className="text-[10px] text-zinc-500 mt-2">This applies to waitressing and other hourly-rate services. Strip shows have fixed durations.</p>
+                                            Set Duration for Each Service
+                                        </h3>
+                                        {form.selectedServices
+                                            .map(id => allServices.find(s => s.id === id))
+                                            .filter((s): s is Service => !!s && s.rate_type === 'per_hour')
+                                            .map(service => (
+                                                <div key={service.id} className="p-4 bg-zinc-900/70 border border-zinc-800 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-bold text-orange-400 text-sm">{service.name}</p>
+                                                        <p className="text-xs text-zinc-500">${service.rate}/hr{service.min_duration_hours ? ` · Min ${service.min_duration_hours} hr${service.min_duration_hours > 1 ? 's' : ''}` : ''}</p>
+                                                    </div>
+                                                    <div className="relative w-full sm:w-40 flex-shrink-0">
+                                                        <select
+                                                            value={form.serviceDurations[service.id] || service.min_duration_hours || 2}
+                                                            onChange={(e) => setForm(prev => ({
+                                                                ...prev,
+                                                                serviceDurations: { ...prev.serviceDurations, [service.id]: Number(e.target.value) }
+                                                            }))}
+                                                            className="input-base !pl-10 appearance-none !py-2 text-sm"
+                                                        >
+                                                            {[1, 1.5, 2, 2.5, 3, 4, 5, 6].filter(h => h >= (service.min_duration_hours || 1)).map(h => (
+                                                                <option key={h} value={h}>{h} Hour{h !== 1 ? 's' : ''}</option>
+                                                            ))}
+                                                        </select>
+                                                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+                                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+                                                    </div>
+                                                </div>
+                                            ))
+                                        }
                                     </div>
                                 )}
 
@@ -610,9 +651,10 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                 <div className="lg:col-span-1 space-y-6">
                     <div className="sticky top-8">
-                        <BookingCostCalculator 
-                            selectedServices={form.selectedServices} 
-                            durationHours={Number(form.duration)} 
+                        <BookingCostCalculator
+                            selectedServices={form.selectedServices}
+                            durationHours={Number(form.duration)}
+                            serviceDurations={form.serviceDurations}
                             performers={performers} 
                             onClearAll={currentStep === 3 ? handleClearAll : undefined}
                         />
@@ -637,7 +679,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                     )}
                                     <div className="flex justify-between">
                                         <span className="text-zinc-500">Duration:</span>
-                                        <span className="text-zinc-200">{form.duration} Hours</span>
+                                        <span className="text-zinc-200">{formattedTotalDuration}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-zinc-500">Performers:</span>
