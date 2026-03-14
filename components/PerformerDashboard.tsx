@@ -125,6 +125,7 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
   };
 
   const isPending = booking.status !== 'confirmed' && booking.status !== 'rejected' && !['en_route', 'arrived', 'in_progress', 'completed', 'cancelled'].includes(booking.status);
+  const showEtaInput = isPending || booking.status === 'confirmed' || booking.status === 'en_route';
 
   return (
     <div className="bg-zinc-900/70 p-4 rounded-lg border border-zinc-700/50 hover:border-zinc-600 transition-colors">
@@ -141,10 +142,13 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
          <div className="mt-3 pt-3 border-t border-zinc-700 flex flex-wrap items-center gap-x-4 gap-y-1 text-zinc-400 text-sm">
            <span className="flex items-center gap-2"><User className="h-4 w-4 text-orange-400" /> Client: {booking.client_name}</span>
            <span className="flex items-center gap-2"><Users className="h-4 w-4 text-orange-400" /> Guests: {booking.number_of_guests}</span>
+           {booking.performer_eta_minutes && (
+             <span className="flex items-center gap-2 text-orange-400 font-medium"><Timer className="h-4 w-4" /> ETA: {booking.performer_eta_minutes} mins</span>
+           )}
         </div>
-        
+
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-             <button 
+             <button
                 onClick={() => onOpenChat(booking)}
                 className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-600 hover:border-zinc-500 font-semibold py-1.5 px-3 rounded flex items-center gap-2 transition-colors"
              >
@@ -154,7 +158,7 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
 
              <div className="flex items-center gap-2">
                 {booking.status === 'confirmed' && (
-                  <button onClick={() => handleStatusUpdate('en_route')} disabled={!!isLoading} className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center gap-1.5 transition-colors">
+                  <button onClick={() => { if (etaValue) onUpdateEta?.(booking.id, Number(etaValue)); handleStatusUpdate('en_route'); }} disabled={!!isLoading} className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-md flex items-center gap-1.5 transition-colors">
                     {isLoading === 'update_status' ? <LoaderCircle size={14} className="animate-spin" /> : <><Radio size={14}/> On My Way</>}
                   </button>
                 )}
@@ -176,10 +180,10 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
              </div>
         </div>
 
-         {isPending && (
+         {showEtaInput && (
             <div className="mt-4 pt-4 border-t border-zinc-700/50 flex flex-col sm:flex-row items-center gap-3">
                 <p className="text-xs font-semibold text-zinc-300 mr-2 flex-shrink-0">
-                    {booking.status === 'pending_performer_acceptance' ? 'Action Required:' : 'Update ETA:'}
+                    {booking.status === 'pending_performer_acceptance' ? 'Action Required:' : booking.status === 'confirmed' ? 'Set ETA before heading out:' : 'Update ETA:'}
                 </p>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                    <div className="relative flex-grow group">
