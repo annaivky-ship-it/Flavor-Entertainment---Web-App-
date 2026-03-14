@@ -323,6 +323,7 @@ export const api = {
         event_address: formState.eventAddress,
         event_type: formState.eventType,
         duration_hours: Number(formState.duration),
+        service_durations: formState.serviceDurations || {},
         number_of_guests: Number(formState.numberOfGuests),
         services_requested: formState.selectedServices,
         client_message: formState.client_message || null,

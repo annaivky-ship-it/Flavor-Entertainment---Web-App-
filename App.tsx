@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import { Briefcase, ChevronDown, ShoppingCart, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
+import { Briefcase, ChevronDown, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -34,42 +34,6 @@ import { calculateBookingCost } from './utils/bookingUtils';
 type GalleryView = 'available_now' | 'future_bookings' | 'services';
 type AuthedUser = { name: string; role: Role; id?: number; } | null;
 
-const BookingStickyFooter: React.FC<{
-  performers: Performer[];
-  onProceed: () => void;
-}> = ({ performers, onProceed }) => {
-  if (performers.length === 0) return null;
-
-  return (
-    <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl z-40 animate-slide-in-up border-t border-white/10">
-      <div className="container mx-auto px-4 py-3 sm:py-4">
-        <div className="flex justify-between items-center gap-4">
-          <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
-            <div className="flex -space-x-3 sm:-space-x-4 flex-shrink-0">
-              {performers.slice(0, 3).map(p => (
-                <img key={p.id} src={p.photo_url} alt={p.name} loading="lazy" className="h-10 w-10 sm:h-12 sm:h-12 rounded-full object-cover border-2 border-zinc-900 shadow-lg" />
-              ))}
-              {performers.length > 3 && (
-                <div className="h-10 w-10 sm:h-12 sm:h-12 rounded-full bg-zinc-800 border-2 border-zinc-900 flex items-center justify-center text-[10px] sm:text-xs font-bold text-white">
-                  +{performers.length - 3}
-                </div>
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="font-bold text-white text-sm sm:text-base truncate">{performers.length} Selected</p>
-              <p className="text-[10px] sm:text-sm text-zinc-400 truncate hidden xs:block">Ready to book?</p>
-            </div>
-          </div>
-          <button onClick={onProceed} className="btn-primary flex items-center gap-2 !py-2.5 sm:!py-3 !px-4 sm:!px-6 !text-sm sm:!text-base whitespace-nowrap flex-shrink-0">
-            <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="hidden xs:inline">Proceed to Book</span>
-            <span className="xs:hidden">Book</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 
 const App: React.FC = () => {
@@ -1100,7 +1064,6 @@ const App: React.FC = () => {
       {showTermsOfService && <TermsOfService onClose={() => setShowTermsOfService(false)} />}
       {showLogin && <Login onLogin={handleLogin} onClose={() => setShowLogin(false)} performers={performers} onNavigateToOnboarding={() => { setShowLogin(false); setView('performer_onboarding'); }} />}
       {showPresentation && <PresentationVideo onClose={() => setShowPresentation(false)} />}
-      <BookingStickyFooter performers={selectedForBooking} onProceed={handleProceedToBooking} />
       {!ageVerified && <AgeGate onVerified={handleAgeVerified} onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} />}
       <WalkthroughOverlay
         isActive={showWalkthrough && ageVerified}

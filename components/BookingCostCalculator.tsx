@@ -8,6 +8,7 @@ import { allServices } from '../data/mockData';
 interface BookingCostCalculatorProps {
   selectedServices: string[];
   durationHours: number;
+  serviceDurations?: Record<string, number>;
   performers: Performer[];
   className?: string;
   onClearAll?: () => void;
@@ -16,44 +17,47 @@ interface BookingCostCalculatorProps {
 const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
   selectedServices,
   durationHours,
+  serviceDurations,
   performers,
   className = '',
   onClearAll,
 }) => {
   const { totalCost, depositAmount } = useMemo(() => {
-    return calculateBookingCost(durationHours, selectedServices, performers.length);
-  }, [selectedServices, durationHours, performers]);
+    return calculateBookingCost(durationHours, selectedServices, performers.length, serviceDurations);
+  }, [selectedServices, durationHours, serviceDurations, performers]);
 
   const { formattedTotalDuration } = useMemo(() => {
-    return getBookingDurationInfo(durationHours, selectedServices);
-  }, [durationHours, selectedServices]);
+    return getBookingDurationInfo(durationHours, selectedServices, serviceDurations);
+  }, [durationHours, selectedServices, serviceDurations]);
 
   const selectedServiceDetails = useMemo(() => {
     return selectedServices.map(id => allServices.find(s => s.id === id)).filter(Boolean) as typeof allServices;
   }, [selectedServices]);
 
   const durationWarning = useMemo(() => {
-    const duration = durationHours;
-    if (isNaN(duration) || duration <= 0) return null;
-
     const hourlyServices = allServices.filter(
       s => selectedServices.includes(s.id) && s.rate_type === 'per_hour'
     );
 
     for (const service of hourlyServices) {
-      if (service.min_duration_hours && duration < service.min_duration_hours) {
+      const dur = serviceDurations?.[service.id] ?? durationHours;
+      if (isNaN(dur) || dur <= 0) continue;
+      if (service.min_duration_hours && dur < service.min_duration_hours) {
         return `Warning: ${service.name} requires a minimum duration of ${service.min_duration_hours} hours.`;
       }
     }
 
+    const maxDuration = serviceDurations
+      ? Math.max(...Object.values(serviceDurations), 0)
+      : durationHours;
     for (const performer of performers) {
-      if (performer.min_booking_duration_hours && duration < performer.min_booking_duration_hours) {
+      if (performer.min_booking_duration_hours && maxDuration < performer.min_booking_duration_hours) {
         return `Warning: ${performer.name} requires a minimum booking duration of ${performer.min_booking_duration_hours} hours.`;
       }
     }
 
     return null;
-  }, [durationHours, selectedServices, performers]);
+  }, [durationHours, serviceDurations, selectedServices, performers]);
 
   return (
     <div className={`card-base !p-6 !bg-zinc-950/50 border-zinc-800/50 transition-all duration-500 ${className} ${totalCost > 0 ? 'ring-1 ring-orange-500/30 shadow-[0_0_20px_rgba(249,115,22,0.1)]' : ''}`}>
@@ -91,13 +95,18 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
         <div className="mt-6 pt-6 border-t border-zinc-800/50 space-y-3">
           <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Service Breakdown</p>
           {selectedServiceDetails.map(service => {
+            const perServiceHours = service.rate_type === 'per_hour'
+              ? (serviceDurations?.[service.id] != null
+                  ? Math.max(serviceDurations[service.id], service.min_duration_hours || 0)
+                  : Math.max(durationHours, service.min_duration_hours || 0))
+              : 0;
             const duration = service.rate_type === 'per_hour'
-              ? `${Math.max(durationHours, service.min_duration_hours || 0)} hr${Math.max(durationHours, service.min_duration_hours || 0) !== 1 ? 's' : ''}`
+              ? `${perServiceHours} hr${perServiceHours !== 1 ? 's' : ''}`
               : service.duration_minutes
                 ? `${service.duration_minutes} min`
                 : 'N/A';
             const cost = service.rate_type === 'per_hour'
-              ? service.rate * Math.max(durationHours, service.min_duration_hours || 0) * performers.length
+              ? service.rate * perServiceHours * performers.length
               : service.rate;
             return (
               <div key={service.id} className="flex justify-between items-center text-sm">
