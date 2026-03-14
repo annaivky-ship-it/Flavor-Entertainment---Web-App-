@@ -243,6 +243,37 @@ const App: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  // Auto-sync performer availability based on active bookings
+  useEffect(() => {
+    if (bookings.length === 0 || performers.length === 0) return;
+
+    const activeStatuses: BookingStatus[] = ['en_route', 'arrived', 'in_progress'];
+    const today = new Date().toISOString().split('T')[0];
+
+    performers.forEach(performer => {
+      // Skip non-active performers (pending verification, rejected)
+      if (performer.status === 'pending_verification' || performer.status === 'rejected') return;
+
+      const hasActiveBooking = bookings.some(b =>
+        b.performer_id === performer.id && activeStatuses.includes(b.status)
+      );
+
+      const hasConfirmedToday = bookings.some(b =>
+        b.performer_id === performer.id &&
+        b.status === 'confirmed' &&
+        b.event_date === today
+      );
+
+      const shouldBeBusy = hasActiveBooking || hasConfirmedToday;
+
+      if (shouldBeBusy && performer.status === 'available') {
+        api.updatePerformerStatus(performer.id, 'busy');
+      } else if (!shouldBeBusy && performer.status === 'busy') {
+        api.updatePerformerStatus(performer.id, 'available');
+      }
+    });
+  }, [bookings, performers]);
+
   const handleAgeVerified = () => {
     localStorage.setItem('ageVerified', 'true');
     setAgeVerified(true);
