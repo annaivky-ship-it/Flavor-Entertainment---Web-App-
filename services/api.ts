@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { signInAnonymously } from 'firebase/auth';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PerformerStatus, AuditLog, VettingApplication } from '../types';
 import { BookingFormState } from '../components/BookingProcess';
 import { mockPerformers, mockBookings, mockDoNotServeList, mockCommunications } from '../data/mockData';
@@ -265,8 +266,11 @@ export const api = {
       return { data: [], error: null };
     }
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("Authentication required for booking submission");
+      let user = auth.currentUser;
+      if (!user) {
+        const cred = await signInAnonymously(auth);
+        user = cred.user;
+      }
 
       // Try Cloud Function first, fall back to direct Firestore write
       let bookingIds: string[] = [];
