@@ -198,7 +198,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
             <div className="grid gap-6">
                 {bookings.map(booking => {
                     const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
-                    const config = statusConfig[booking.status];
+                    const config = statusConfig[booking.status] || statusConfig.pending_performer_acceptance;
                     return (
                       <div key={booking.id} className={`card-base !p-0 overflow-hidden flex flex-col md:flex-row border-l-4 ${config.borderColor}`}>
                          <div className="p-6 flex-grow">
@@ -315,7 +315,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                       <tbody className="divide-y divide-zinc-800/50">
                         {bookingGroups.past.map(booking => {
                           const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
-                          const config = statusConfig[booking.status];
+                          const config = statusConfig[booking.status] || statusConfig.pending_performer_acceptance;
                           return (
                             <tr key={booking.id} className="hover:bg-zinc-800/30 transition-colors">
                               <td className="px-6 py-4 text-sm text-zinc-300 whitespace-nowrap">

@@ -159,7 +159,7 @@ async function calculateRiskScore(params) {
     // Store risk score in Firestore
     await getDb().collection('risk_scores').add(Object.assign(Object.assign({ booking_id: params.bookingId, client_email_hash: params.clientEmailHash, client_phone_hash: params.clientPhoneHash }, assessment), { created_at: admin.firestore.FieldValue.serverTimestamp() }));
     // Audit log
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: 'system',
         actor_role: 'system',

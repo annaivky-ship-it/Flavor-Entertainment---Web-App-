@@ -61,7 +61,7 @@ async function recordConsent(params) {
         client_ip: params.ipAddress,
         device_fingerprint: params.deviceFingerprint || null,
     });
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: params.clientEmail,
         actor_role: 'client',

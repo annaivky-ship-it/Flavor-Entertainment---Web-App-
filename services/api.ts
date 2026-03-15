@@ -347,6 +347,7 @@ export const api = {
       const bookingData = {
         performer_id: performer.id,
         performer: { id: performer.id, name: performer.name },
+        client_uid: auth?.currentUser?.uid || null,
         client_name: formState.fullName,
         client_email: formState.email.toLowerCase().trim(),
         client_phone: formState.mobile,

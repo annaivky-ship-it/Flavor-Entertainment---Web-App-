@@ -32,6 +32,7 @@ import { calculateBookingCost } from './utils/bookingUtils';
 
 
 type GalleryView = 'available_now' | 'future_bookings' | 'services';
+type AppView = GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq' | 'performer_onboarding';
 type AuthedUser = { name: string; role: Role; id?: number; } | null;
 
 
@@ -40,7 +41,7 @@ const App: React.FC = () => {
   const [ageVerified, setAgeVerified] = useState(() => {
     return localStorage.getItem('ageVerified') === 'true';
   });
-  const [view, setView] = useState<GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq' | 'performer_onboarding'>('available_now');
+  const [view, setView] = useState<AppView>('available_now');
   const [bookingOrigin, setBookingOrigin] = useState<GalleryView>('available_now');
   const [viewedPerformer, setViewedPerformer] = useState<Performer | null>(null);
   const [selectedForBooking, setSelectedForBooking] = useState<Performer[]>([]);
@@ -74,6 +75,8 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' }[]>([]);
 
   const prevBookingsRef = React.useRef<Booking[]>([]);
+  const authedUserRef = React.useRef(authedUser);
+  React.useEffect(() => { authedUserRef.current = authedUser; }, [authedUser]);
 
   const addNotification = useCallback((message: string, type: 'info' | 'success' | 'warning' = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -199,7 +202,7 @@ const App: React.FC = () => {
 
             // Also show phone message for demo feel
             showPhoneMessage({
-              for: authedUser?.role === 'performer' ? 'Performer' : authedUser?.role === 'admin' ? 'Admin' : 'Client',
+              for: authedUserRef.current?.role === 'performer' ? 'Performer' : authedUserRef.current?.role === 'admin' ? 'Admin' : 'Client',
               content: (
                 <div className="space-y-1">
                   <p className="font-bold text-zinc-900">Booking Update</p>
@@ -378,9 +381,10 @@ const App: React.FC = () => {
 
       const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
       const finalBalance = totalCost - depositAmount;
+      const pName = booking.performer?.name || 'your performer';
 
       const clientMessageMap = {
-        deposit_pending: `✅ Booking Approved! Your application for ${booking.event_type} with ${booking.performer?.name} is approved. Please pay the deposit to confirm.`,
+        deposit_pending: `✅ Booking Approved! Your application for ${booking.event_type} with ${pName} is approved. Please pay the deposit to confirm.`,
         pending_deposit_confirmation: `🧾 Deposit Submitted! We've received your confirmation. An admin will verify it shortly.`,
         rejected: `❗️ Booking Rejected. Unfortunately, your application for ${booking.event_type} has been rejected by administration. We suggest checking out other available entertainers.`,
       };
@@ -388,14 +392,14 @@ const App: React.FC = () => {
       const clientMessage = clientMessageMap[status as keyof typeof clientMessageMap];
       if (clientMessage) addCommunication({ sender: 'System', recipient: 'user', message: clientMessage, booking_id: bookingId, type: 'booking_update' });
 
-      if (status === 'deposit_pending') showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />Your application for {booking.event_type} with <strong>{booking.performer?.name}</strong> is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
+      if (status === 'deposit_pending') showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />Your application for {booking.event_type} with <strong>{pName}</strong> is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
 
       if (status === 'confirmed') {
-        showPhoneMessage({ for: 'Client', content: <p>✅ <strong>Booking Confirmed!</strong><br />Your event with <strong>{booking.performer?.name}</strong> is locked in. See you on {new Date(booking.event_date).toLocaleDateString()}!<br /><br /><span className="text-xs">Final balance of <strong>${(finalBalance || 0).toFixed(2)}</strong> due in cash on arrival.</span></p> });
-        addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Confirmed! Your event with ${booking.performer?.name} is locked in. Final balance of $${(finalBalance || 0).toFixed(2)} due in cash on arrival. See you on ${new Date(booking.event_date).toLocaleDateString()}!`, booking_id: bookingId, type: 'booking_confirmation' });
+        showPhoneMessage({ for: 'Client', content: <p>✅ <strong>Booking Confirmed!</strong><br />Your event with <strong>{pName}</strong> is locked in. See you on {new Date(booking.event_date).toLocaleDateString()}!<br /><br /><span className="text-xs">Final balance of <strong>${(finalBalance || 0).toFixed(2)}</strong> due in cash on arrival.</span></p> });
+        addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Confirmed! Your event with ${pName} is locked in. Final balance of $${(finalBalance || 0).toFixed(2)} due in cash on arrival. See you on ${new Date(booking.event_date).toLocaleDateString()}!`, booking_id: bookingId, type: 'booking_confirmation' });
 
         setTimeout(() => showPhoneMessage({ for: 'Performer', content: <p>💰 <strong>DEPOSIT PAID!</strong><br />Your booking is confirmed:<br />👤 Client: <strong>{booking.client_name}</strong><br />📞 Phone: {booking.client_phone}<br />📍 Address: {booking.event_address}<br />📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br />👥 Guests: {booking.number_of_guests}<br />{booking.client_message && <><br />📝 <strong>Note:</strong> "{booking.client_message}"</>}<br /><br />She's coming in hot 🔥 Get ready!</p> }), 6000);
-        setTimeout(() => showPhoneMessage({ for: 'Admin', content: <p>✅ <strong>DEPOSIT CONFIRMED</strong><br />Booking locked in:<br />👤 Client: <strong>{booking.client_name}</strong><br />🍑 Performer: <strong>{booking.performer?.name}</strong><br />📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br /><br />Booking ID: #{booking.id.slice(0, 8)}...</p> }), 12000);
+        setTimeout(() => showPhoneMessage({ for: 'Admin', content: <p>✅ <strong>DEPOSIT CONFIRMED</strong><br />Booking locked in:<br />👤 Client: <strong>{booking.client_name}</strong><br />🍑 Performer: <strong>{pName}</strong><br />📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br /><br />Booking ID: #{booking.id.slice(0, 8)}...</p> }), 12000);
       }
 
       const performerMessageMap = {
@@ -409,8 +413,8 @@ const App: React.FC = () => {
 
       const adminMessageMap = {
         pending_deposit_confirmation: `🧾 Client for booking #${bookingId.slice(0, 8)} (${booking.client_name}) has confirmed deposit payment. Please verify.`,
-        confirmed: `✅ Booking Confirmed for ${booking.client_name} with ${booking.performer?.name}.`,
-        rejected: `❌ Booking Rejected for ${booking.client_name} with ${booking.performer?.name}.`,
+        confirmed: `✅ Booking Confirmed for ${booking.client_name} with ${pName}.`,
+        rejected: `❌ Booking Rejected for ${booking.client_name} with ${pName}.`,
       };
 
       const adminMessage = adminMessageMap[status as keyof typeof adminMessageMap];
@@ -992,7 +996,7 @@ const App: React.FC = () => {
     if (targetView === 'bookings') {
       setView(authedUser ? (authedUser.role === 'admin' ? 'admin_dashboard' : authedUser.role === 'performer' ? 'performer_dashboard' : 'client_dashboard') : 'client_dashboard');
     } else {
-      setView(targetView as any);
+      setView(targetView as AppView);
     }
   };
 

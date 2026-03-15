@@ -42,9 +42,9 @@ const firestore_1 = require("firebase-admin/firestore");
 const getDb = () => (0, firestore_1.getFirestore)('default');
 // --- Create Incident Report ---
 async function createIncidentReport(report) {
-    const reportRef = await getDb().collection('incident_reports').add(Object.assign(Object.assign({}, report), { client_email: report.client_email.toLowerCase().trim(), client_phone: report.client_phone.replace(/[\s\-\(\)]/g, ''), status: 'PENDING_REVIEW', created_at: admin.firestore.FieldValue.serverTimestamp() }));
+    const reportRef = await getDb().collection('incident_reports').add(Object.assign(Object.assign({}, report), { client_email: report.client_email.toLowerCase().trim(), client_phone: report.client_phone.replace(/[\s\-()]/g, ''), status: 'PENDING_REVIEW', created_at: admin.firestore.FieldValue.serverTimestamp() }));
     // Audit log
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: String(report.reported_by_performer_id),
         actor_role: 'performer',
@@ -92,7 +92,7 @@ async function approveIncidentReport(reportId, adminUid, adminNotes) {
         reviewed_at: admin.firestore.FieldValue.serverTimestamp(),
     });
     // Audit
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: adminUid,
         actor_role: 'admin',
@@ -113,7 +113,7 @@ async function rejectIncidentReport(reportId, adminUid, reason) {
         reviewed_by: adminUid,
         reviewed_at: admin.firestore.FieldValue.serverTimestamp(),
     });
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: adminUid,
         actor_role: 'admin',

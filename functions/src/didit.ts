@@ -111,7 +111,7 @@ export async function createKycSession(bookingId: string): Promise<DiditSessionR
         });
 
         // Audit log
-        await getDb().collection('audit_log').add({
+        await getDb().collection('audit_logs').add({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             actor_id: 'system',
             actor_role: 'system',
@@ -293,7 +293,7 @@ export async function processKycResult(webhookData: DiditWebhookPayload): Promis
 // --- Helper ---
 
 async function logAudit(actorUid: string, actorRole: string, action: string, bookingId: string, details: Record<string, unknown> = {}) {
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: actorUid,
         actor_role: actorRole,

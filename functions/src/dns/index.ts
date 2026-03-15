@@ -30,7 +30,7 @@ export function sha256(value: string): string {
 }
 
 async function writeAuditLog(actorUid: string, actorRole: string, action: string, bookingId: string, details: Record<string, unknown> = {}) {
-  await getDb().collection('audit_log').add({
+  await getDb().collection('audit_logs').add({
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
     actor_id: actorUid,
     actor_role: actorRole,

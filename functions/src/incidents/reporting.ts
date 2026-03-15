@@ -37,7 +37,7 @@ export async function createIncidentReport(
     });
 
     // Audit log
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: String(report.reported_by_performer_id),
         actor_role: 'performer',
@@ -97,7 +97,7 @@ export async function approveIncidentReport(
     });
 
     // Audit
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: adminUid,
         actor_role: 'admin',
@@ -125,7 +125,7 @@ export async function rejectIncidentReport(
         reviewed_at: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: adminUid,
         actor_role: 'admin',

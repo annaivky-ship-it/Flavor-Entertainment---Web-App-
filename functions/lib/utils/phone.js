@@ -5,7 +5,7 @@ function normalizePhone(phone, defaultCountryCode = '+61') {
     if (!phone)
         return null;
     // Remove all non-digit characters except leading +
-    let cleaned = phone.replace(/(?!^\+)[^\d]/g, '');
+    const cleaned = phone.replace(/(?!^\+)[^\d]/g, '');
     // If it starts with 0 and is an AU number (e.g., 04xx xxx xxx), replace 0 with +61
     if (cleaned.startsWith('04') && cleaned.length === 10) {
         return '+61' + cleaned.substring(1);

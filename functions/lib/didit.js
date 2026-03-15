@@ -107,7 +107,7 @@ async function createKycSession(bookingId) {
             created_at: admin.firestore.FieldValue.serverTimestamp(),
         });
         // Audit log
-        await getDb().collection('audit_log').add({
+        await getDb().collection('audit_logs').add({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             actor_id: 'system',
             actor_role: 'system',
@@ -256,7 +256,7 @@ async function processKycResult(webhookData) {
 }
 // --- Helper ---
 async function logAudit(actorUid, actorRole, action, bookingId, details = {}) {
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: actorUid,
         actor_role: actorRole,

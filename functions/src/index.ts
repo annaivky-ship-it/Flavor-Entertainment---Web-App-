@@ -305,6 +305,7 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
       const bookingData = {
         performer_id: pId,
         performer: { id: pId, name: performerName },
+        client_uid: request.auth?.uid || null,
         client_name: formState.fullName,
         client_email: normalizedEmail,
         client_phone: normalizedPhone,

@@ -165,7 +165,7 @@ export async function calculateRiskScore(params: {
     });
 
     // Audit log
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: 'system',
         actor_role: 'system',
