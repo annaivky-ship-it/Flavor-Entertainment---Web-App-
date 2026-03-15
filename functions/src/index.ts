@@ -298,10 +298,28 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
       }
 
       const bookingRef = db.collection('bookings').doc();
+      const phone = formState.phone || formState.mobile || '';
       const bookingData = {
-        ...formState,
         performer_id: pId,
+        client_name: formState.fullName,
+        client_email: normalizedEmail,
+        client_phone: phone,
+        client_dob: formState.dob || null,
+        event_date: formState.eventDate,
+        event_time: formState.eventTime,
+        event_address: formState.eventAddress || '',
+        event_type: formState.eventType || '',
+        duration_hours: Number(formState.duration) || 1,
+        service_durations: formState.serviceDurations || {},
+        number_of_guests: Number(formState.numberOfGuests) || 0,
+        services_requested: formState.selectedServices || [],
+        client_message: formState.client_message || null,
+        didit_verification_id: formState.didit_verification_id || null,
         status: 'pending_performer_acceptance',
+        payment_status: 'unpaid',
+        deposit_receipt_path: null,
+        verified_by_admin_name: null,
+        verified_at: null,
         slotLock: slotId,
         created_at: admin.firestore.FieldValue.serverTimestamp(),
       };

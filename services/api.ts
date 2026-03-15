@@ -266,7 +266,9 @@ export const api = {
       return { data: [], error: null };
     }
     try {
-      // Try to authenticate — anonymous sign-in as fallback for guests
+      // Try to authenticate — anonymous sign-in as fallback for guests.
+      // Booking submission works without auth (Firestore rules allow public creates),
+      // but auth enables the Cloud Function path with slot locking & rate limiting.
       if (auth && !auth.currentUser) {
         try {
           await signInAnonymously(auth);
@@ -275,7 +277,8 @@ export const api = {
         }
       }
 
-      // Try Cloud Function first, fall back to direct Firestore write
+      // Try Cloud Function first (provides slot locking, rate limiting, DNS checks).
+      // Fall back to direct Firestore write if CF unavailable or user not authenticated.
       let bookingIds: string[] = [];
 
       if (functions && auth?.currentUser) {
@@ -294,11 +297,14 @@ export const api = {
           bookingIds = await this._createBookingsDirect(formState, performers);
         }
       } else {
+        // No auth or no Cloud Functions — write directly to Firestore.
+        // Firestore rules allow unauthenticated booking creates via isValidBookingCreate().
         bookingIds = await this._createBookingsDirect(formState, performers);
       }
 
-      // Build booking objects from form data instead of reading back
-      // (Firestore read rules may block unauthenticated users)
+      // Build booking objects from form data instead of reading back from Firestore.
+      // Firestore read rules restrict booking reads to admins/owners, so reading back
+      // would fail for anonymous or unauthenticated guests.
       const newBookings: Booking[] = bookingIds.map((id, i) => ({
         id,
         performer_id: performers[i].id,
@@ -312,6 +318,7 @@ export const api = {
         event_address: formState.eventAddress,
         event_type: formState.eventType,
         duration_hours: Number(formState.duration),
+        service_durations: formState.serviceDurations || {},
         number_of_guests: Number(formState.numberOfGuests),
         services_requested: formState.selectedServices,
         client_message: formState.client_message || null,
@@ -326,6 +333,7 @@ export const api = {
 
       return { data: newBookings, error: null };
     } catch (err: any) {
+      console.error('Booking submission failed:', err);
       return { data: null, error: err };
     }
   },
