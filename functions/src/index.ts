@@ -282,6 +282,8 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
       throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
     }
 
+    const phone = (formState.phone || formState.mobile || '').replace(/\s+/g, '');
+
     const newBookings: Array<{ id: string; [key: string]: unknown }> = [];
     for (const pId of performerIds) {
       const slotId = `${pId}_${formState.eventDate}_${formState.eventTime}`;
@@ -297,10 +299,14 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
         );
       }
 
+      // Look up performer name from Firestore (don't trust client input)
+      const performerDoc = await transaction.get(db.collection('performers').doc(String(pId)));
+      const performerName = performerDoc.exists ? performerDoc.data()?.name || '' : '';
+
       const bookingRef = db.collection('bookings').doc();
-      const phone = formState.phone || formState.mobile || '';
       const bookingData = {
         performer_id: pId,
+        performer: { id: pId, name: performerName },
         client_name: formState.fullName,
         client_email: normalizedEmail,
         client_phone: phone,
