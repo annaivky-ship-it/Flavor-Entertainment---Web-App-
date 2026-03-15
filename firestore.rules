@@ -54,10 +54,11 @@ service cloud.firestore {
       // Validates required fields and restricts initial status
       allow create: if isValidBookingCreate();
 
-      // Only the booking owner or admin can read
+      // Admin can always read. Authenticated users can read their own bookings
+      // (matched by client_uid if set, or performer_id for performers).
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.client_uid == request.auth.uid)
-        || (isPerformer() && resource.data.performer_uid == request.auth.uid);
+        || (isPerformer() && resource.data.performer_id == request.auth.token.performerId);
 
       // Only admins can update booking status
       allow update: if isAdmin();

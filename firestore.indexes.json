@@ -159,7 +159,7 @@
       ]
     },
     {
-      "collectionGroup": "audit_log",
+      "collectionGroup": "audit_logs",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -173,7 +173,7 @@
       ]
     },
     {
-      "collectionGroup": "audit_log",
+      "collectionGroup": "audit_logs",
       "queryScope": "COLLECTION",
       "fields": [
         {

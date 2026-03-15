@@ -52,7 +52,7 @@ function normalizeEmail(email) {
     return email.toLowerCase().trim();
 }
 function normalizePhoneToE164(phone, defaultCountryCode = '+61') {
-    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    let cleaned = phone.replace(/[\s\-()]/g, '');
     if (cleaned.startsWith('0')) {
         cleaned = defaultCountryCode + cleaned.substring(1);
     }
@@ -65,7 +65,7 @@ function sha256(value) {
     return crypto.createHash('sha256').update(value + (0, config_1.getDnsHashPepper)()).digest('hex');
 }
 async function writeAuditLog(actorUid, actorRole, action, bookingId, details = {}) {
-    await getDb().collection('audit_log').add({
+    await getDb().collection('audit_logs').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: actorUid,
         actor_role: actorRole,

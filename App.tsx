@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import { Briefcase, ChevronDown, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
+import { Briefcase, ChevronDown, Radio, LoaderCircle, CalendarCheck, Clock, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -32,6 +32,7 @@ import { calculateBookingCost } from './utils/bookingUtils';
 
 
 type GalleryView = 'available_now' | 'future_bookings' | 'services';
+type AppView = GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq' | 'performer_onboarding';
 type AuthedUser = { name: string; role: Role; id?: number; } | null;
 
 
@@ -40,7 +41,7 @@ const App: React.FC = () => {
   const [ageVerified, setAgeVerified] = useState(() => {
     return localStorage.getItem('ageVerified') === 'true';
   });
-  const [view, setView] = useState<GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq' | 'performer_onboarding'>('available_now');
+  const [view, setView] = useState<AppView>('available_now');
   const [bookingOrigin, setBookingOrigin] = useState<GalleryView>('available_now');
   const [viewedPerformer, setViewedPerformer] = useState<Performer | null>(null);
   const [selectedForBooking, setSelectedForBooking] = useState<Performer[]>([]);
@@ -74,6 +75,8 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' }[]>([]);
 
   const prevBookingsRef = React.useRef<Booking[]>([]);
+  const authedUserRef = React.useRef(authedUser);
+  React.useEffect(() => { authedUserRef.current = authedUser; }, [authedUser]);
 
   const addNotification = useCallback((message: string, type: 'info' | 'success' | 'warning' = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -199,7 +202,7 @@ const App: React.FC = () => {
 
             // Also show phone message for demo feel
             showPhoneMessage({
-              for: authedUser?.role === 'performer' ? 'Performer' : authedUser?.role === 'admin' ? 'Admin' : 'Client',
+              for: authedUserRef.current?.role === 'performer' ? 'Performer' : authedUserRef.current?.role === 'admin' ? 'Admin' : 'Client',
               content: (
                 <div className="space-y-1">
                   <p className="font-bold text-zinc-900">Booking Update</p>
@@ -378,9 +381,10 @@ const App: React.FC = () => {
 
       const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
       const finalBalance = totalCost - depositAmount;
+      const pName = booking.performer?.name || 'your performer';
 
       const clientMessageMap = {
-        deposit_pending: `✅ Booking Approved! Your application for ${booking.event_type} with ${booking.performer?.name} is approved. Please pay the deposit to confirm.`,
+        deposit_pending: `✅ Booking Approved! Your application for ${booking.event_type} with ${pName} is approved. Please pay the deposit to confirm.`,
         pending_deposit_confirmation: `🧾 Deposit Submitted! We've received your confirmation. An admin will verify it shortly.`,
         rejected: `❗️ Booking Rejected. Unfortunately, your application for ${booking.event_type} has been rejected by administration. We suggest checking out other available entertainers.`,
       };
@@ -388,14 +392,14 @@ const App: React.FC = () => {
       const clientMessage = clientMessageMap[status as keyof typeof clientMessageMap];
       if (clientMessage) addCommunication({ sender: 'System', recipient: 'user', message: clientMessage, booking_id: bookingId, type: 'booking_update' });
 
-      if (status === 'deposit_pending') showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />Your application for {booking.event_type} with <strong>{booking.performer?.name}</strong> is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
+      if (status === 'deposit_pending') showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Booking Approved!</strong><br />Your application for {booking.event_type} with <strong>{pName}</strong> is approved. Please pay the <strong>${(depositAmount || 0).toFixed(2)}</strong> deposit via the booking page to confirm your event.</p> });
 
       if (status === 'confirmed') {
-        showPhoneMessage({ for: 'Client', content: <p>✅ <strong>Booking Confirmed!</strong><br />Your event with <strong>{booking.performer?.name}</strong> is locked in. See you on {new Date(booking.event_date).toLocaleDateString()}!<br /><br /><span className="text-xs">Final balance of <strong>${(finalBalance || 0).toFixed(2)}</strong> due in cash on arrival.</span></p> });
-        addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Confirmed! Your event with ${booking.performer?.name} is locked in. Final balance of $${(finalBalance || 0).toFixed(2)} due in cash on arrival. See you on ${new Date(booking.event_date).toLocaleDateString()}!`, booking_id: bookingId, type: 'booking_confirmation' });
+        showPhoneMessage({ for: 'Client', content: <p>✅ <strong>Booking Confirmed!</strong><br />Your event with <strong>{pName}</strong> is locked in. See you on {new Date(booking.event_date).toLocaleDateString()}!<br /><br /><span className="text-xs">Final balance of <strong>${(finalBalance || 0).toFixed(2)}</strong> due in cash on arrival.</span></p> });
+        addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Confirmed! Your event with ${pName} is locked in. Final balance of $${(finalBalance || 0).toFixed(2)} due in cash on arrival. See you on ${new Date(booking.event_date).toLocaleDateString()}!`, booking_id: bookingId, type: 'booking_confirmation' });
 
         setTimeout(() => showPhoneMessage({ for: 'Performer', content: <p>💰 <strong>DEPOSIT PAID!</strong><br />Your booking is confirmed:<br />👤 Client: <strong>{booking.client_name}</strong><br />📞 Phone: {booking.client_phone}<br />📍 Address: {booking.event_address}<br />📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br />👥 Guests: {booking.number_of_guests}<br />{booking.client_message && <><br />📝 <strong>Note:</strong> "{booking.client_message}"</>}<br /><br />She's coming in hot 🔥 Get ready!</p> }), 6000);
-        setTimeout(() => showPhoneMessage({ for: 'Admin', content: <p>✅ <strong>DEPOSIT CONFIRMED</strong><br />Booking locked in:<br />👤 Client: <strong>{booking.client_name}</strong><br />🍑 Performer: <strong>{booking.performer?.name}</strong><br />📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br /><br />Booking ID: #{booking.id.slice(0, 8)}...</p> }), 12000);
+        setTimeout(() => showPhoneMessage({ for: 'Admin', content: <p>✅ <strong>DEPOSIT CONFIRMED</strong><br />Booking locked in:<br />👤 Client: <strong>{booking.client_name}</strong><br />🍑 Performer: <strong>{pName}</strong><br />📅 When: {new Date(booking.event_date).toLocaleDateString()}, {booking.event_time}<br /><br />Booking ID: #{booking.id.slice(0, 8)}...</p> }), 12000);
       }
 
       const performerMessageMap = {
@@ -409,8 +413,8 @@ const App: React.FC = () => {
 
       const adminMessageMap = {
         pending_deposit_confirmation: `🧾 Client for booking #${bookingId.slice(0, 8)} (${booking.client_name}) has confirmed deposit payment. Please verify.`,
-        confirmed: `✅ Booking Confirmed for ${booking.client_name} with ${booking.performer?.name}.`,
-        rejected: `❌ Booking Rejected for ${booking.client_name} with ${booking.performer?.name}.`,
+        confirmed: `✅ Booking Confirmed for ${booking.client_name} with ${pName}.`,
+        rejected: `❌ Booking Rejected for ${booking.client_name} with ${pName}.`,
       };
 
       const adminMessage = adminMessageMap[status as keyof typeof adminMessageMap];
@@ -620,18 +624,23 @@ const App: React.FC = () => {
     try {
       const { data: newBookings, error: apiError } = await api.createBookingRequest(formState, requestedPerformers);
       if (apiError) throw apiError;
+      if (!newBookings || newBookings.length === 0) {
+        throw new Error('Booking was not created. Please try again.');
+      }
 
       sessionStorage.setItem('clientEmail', formState.email);
-      setBookings(prev => [...newBookings!, ...prev]);
+      setBookings(prev => [...newBookings, ...prev]);
 
-      const firstBooking = newBookings![0];
-      addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Request Sent! We've notified ${newBookings!.map(b => b.performer?.name).join(', ')} of your request.`, booking_id: firstBooking.id, type: 'booking_update' });
-      addCommunication({ sender: 'System', recipient: 'admin', message: `📥 New Booking Request: for ${formState.fullName} with ${newBookings!.map(b => b.performer?.name).join(', ')}. Awaiting performer acceptance.`, type: 'admin_message' });
+      const firstBooking = newBookings[0];
+      const performerNames = newBookings.map(b => b.performer?.name || 'your selected performer').join(', ');
+      addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Request Sent! We've notified ${performerNames} of your request.`, booking_id: firstBooking.id, type: 'booking_update' });
+      addCommunication({ sender: 'System', recipient: 'admin', message: `📥 New Booking Request: for ${formState.fullName} with ${performerNames}. Awaiting performer acceptance.`, type: 'admin_message' });
 
-      showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Request Sent!</strong><br />We've sent your request to <strong>{newBookings!.map(b => b.performer?.name).join(' & ')}</strong>. We'll notify you as soon as they respond!</p> });
+      showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Request Sent!</strong><br />We've sent your request to <strong>{newBookings.map(b => b.performer?.name || 'your selected performer').join(' & ')}</strong>. We'll notify you as soon as they respond!</p> });
 
+      const bookingCount = newBookings.length;
       setTimeout(() => {
-        const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested || [], newBookings!.length);
+        const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested || [], bookingCount);
         showPhoneMessage({
           for: 'Performer',
           content: <p>🎭 <strong>New Booking Request!</strong><br />From: <strong>{firstBooking.client_name}</strong><br />For: {new Date(firstBooking.event_date).toLocaleDateString()}<br />Event: {firstBooking.event_type}<br />Guests: {firstBooking.number_of_guests}<br /><br /><strong>Total Value:</strong> ${(totalCost || 0).toFixed(2)}<br /><strong>Deposit:</strong> ${(depositAmount || 0).toFixed(2)}</p>,
@@ -641,7 +650,7 @@ const App: React.FC = () => {
           ]
         });
       }, 6000);
-      return { success: true, message: 'Booking submitted', bookingIds: newBookings!.map(b => b.id) };
+      return { success: true, message: 'Booking submitted', bookingIds: newBookings.map(b => b.id) };
     } catch (err: any) {
       return { success: false, message: err.message || 'An unknown error occurred.' };
     }
@@ -818,7 +827,7 @@ const App: React.FC = () => {
     switch (view) {
       case 'profile':
         return viewedPerformer && <PerformerProfile performer={viewedPerformer} onBack={handleReturnToGallery} onBook={handleBookSinglePerformer} />;
-      case 'booking':
+      case 'booking': {
         const approvedDNS = doNotServeList.filter(e => e.status === 'approved');
         return selectedForBooking.length > 0 && (
           <BookingProcess
@@ -835,6 +844,7 @@ const App: React.FC = () => {
             initialSelectedServices={serviceIdFilter ? [serviceIdFilter] : []}
           />
         );
+      }
       case 'admin_dashboard':
         if (authedUser?.role !== 'admin') return <AccessDenied />;
         return <AdminDashboard
@@ -850,12 +860,11 @@ const App: React.FC = () => {
           onUpdatePerformer={handleUpdatePerformer}
           onCreatePerformer={handleCreatePerformer}
         />;
-      case 'performer_dashboard':
+      case 'performer_dashboard': {
         if (authedUser?.role !== 'performer') return <AccessDenied />;
         const currentPerformer = performers.find(p => p.id === authedUser.id);
         const performerBookings = bookings.filter(b => b.performer_id === authedUser.id);
         const performerCommunications = communications.filter(c => c.recipient === authedUser.id);
-        // Fix: Use actorUid for filtering audit logs to match the interface.
         const performerAuditLogs = auditLogs.filter(log => log.actorUid === String(authedUser.id));
         return currentPerformer ? (
           <PerformerDashboard
@@ -872,13 +881,14 @@ const App: React.FC = () => {
         ) : (
           <p className="text-center text-gray-400">Select a performer to view their dashboard.</p>
         );
+      }
       case 'client_dashboard':
         return <ClientDashboard bookings={bookings} onBrowsePerformers={() => setView('available_now')} onShowSettings={() => setView('settings')} />;
       case 'settings':
         return <UserSettings settings={settings} onSettingsChange={setSettings} onBack={() => setView('client_dashboard')} />;
       case 'faq':
         return <FAQ onBack={() => setView('available_now')} />;
-      case 'do_not_serve':
+      case 'do_not_serve': {
         if (!authedUser || role === 'user') return <AccessDenied />;
         const performerSubmitting = performers.find(p => p.id === authedUser.id);
         return <DoNotServe
@@ -888,7 +898,8 @@ const App: React.FC = () => {
           onBack={handleBackToDashboard}
           onCreateEntry={handleCreateDoNotServeEntry}
           addCommunication={addCommunication}
-        />
+        />;
+      }
       case 'performer_onboarding':
         return <PerformerOnboarding onSubmit={handleCreatePerformer} onCancel={() => setView('available_now')} />;
       case 'services':
@@ -900,7 +911,7 @@ const App: React.FC = () => {
         );
       case 'available_now':
       case 'future_bookings':
-      default:
+      default: {
         const isAvailableNow = view === 'available_now';
         return (
           <div className="animate-fade-in">
@@ -977,6 +988,7 @@ const App: React.FC = () => {
             )}
           </div>
         );
+      }
     }
   };
 
@@ -984,7 +996,7 @@ const App: React.FC = () => {
     if (targetView === 'bookings') {
       setView(authedUser ? (authedUser.role === 'admin' ? 'admin_dashboard' : authedUser.role === 'performer' ? 'performer_dashboard' : 'client_dashboard') : 'client_dashboard');
     } else {
-      setView(targetView as any);
+      setView(targetView as AppView);
     }
   };
 

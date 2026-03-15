@@ -266,15 +266,16 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
         throw new fns.https.HttpsError('resource-exhausted', 'Too many booking attempts. Please try again later.');
     }
     return db.runTransaction(async (transaction) => {
+        var _a, _b;
         const emailHash = Buffer.from(formState.email.toLowerCase()).toString('hex');
         const blacklistDoc = await transaction.get(db.collection('blacklist').doc(emailHash));
         if (blacklistDoc.exists)
             throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
         // DNS Check
         const normalizedEmail = formState.email.toLowerCase().trim();
-        const normalizedPhone = formState.phone.replace(/\s+/g, '');
-        const dnsEmailQuery = await transaction.get(db.collection('do_not_serve').where('email', '==', normalizedEmail));
-        const dnsPhoneQuery = await transaction.get(db.collection('do_not_serve').where('phone', '==', normalizedPhone));
+        const normalizedPhone = (formState.phone || formState.mobile || '').replace(/\s+/g, '');
+        const dnsEmailQuery = await transaction.get(db.collection('do_not_serve').where('client_email', '==', normalizedEmail));
+        const dnsPhoneQuery = await transaction.get(db.collection('do_not_serve').where('client_phone', '==', normalizedPhone));
         if (!dnsEmailQuery.empty || !dnsPhoneQuery.empty) {
             throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
         }
@@ -287,8 +288,36 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
             if (slotDoc.exists) {
                 throw new fns.https.HttpsError('already-exists', `This time slot is already booked for performer ${pId}.`);
             }
+            // Look up performer name from Firestore (don't trust client input)
+            const performerDoc = await transaction.get(db.collection('performers').doc(String(pId)));
+            const performerName = performerDoc.exists ? ((_a = performerDoc.data()) === null || _a === void 0 ? void 0 : _a.name) || '' : '';
             const bookingRef = db.collection('bookings').doc();
-            const bookingData = Object.assign(Object.assign({}, formState), { performer_id: pId, status: 'pending_performer_acceptance', slotLock: slotId, created_at: admin.firestore.FieldValue.serverTimestamp() });
+            const bookingData = {
+                performer_id: pId,
+                performer: { id: pId, name: performerName },
+                client_uid: ((_b = request.auth) === null || _b === void 0 ? void 0 : _b.uid) || null,
+                client_name: formState.fullName,
+                client_email: normalizedEmail,
+                client_phone: normalizedPhone,
+                client_dob: formState.dob || null,
+                event_date: formState.eventDate,
+                event_time: formState.eventTime,
+                event_address: formState.eventAddress || '',
+                event_type: formState.eventType || '',
+                duration_hours: Number(formState.duration) || 1,
+                service_durations: formState.serviceDurations || {},
+                number_of_guests: Number(formState.numberOfGuests) || 0,
+                services_requested: formState.selectedServices || [],
+                client_message: formState.client_message || null,
+                didit_verification_id: formState.didit_verification_id || null,
+                status: 'pending_performer_acceptance',
+                payment_status: 'unpaid',
+                deposit_receipt_path: null,
+                verified_by_admin_name: null,
+                verified_at: null,
+                slotLock: slotId,
+                created_at: admin.firestore.FieldValue.serverTimestamp(),
+            };
             // Reserve the slot atomically (expires after 48 hours if booking not confirmed)
             transaction.set(slotRef, {
                 bookingId: bookingRef.id,

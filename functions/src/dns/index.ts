@@ -16,7 +16,7 @@ export function normalizeEmail(email: string): string {
 }
 
 export function normalizePhoneToE164(phone: string, defaultCountryCode: string = '+61'): string {
-  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  let cleaned = phone.replace(/[\s\-()]/g, '');
   if (cleaned.startsWith('0')) {
     cleaned = defaultCountryCode + cleaned.substring(1);
   } else if (!cleaned.startsWith('+')) {
@@ -30,7 +30,7 @@ export function sha256(value: string): string {
 }
 
 async function writeAuditLog(actorUid: string, actorRole: string, action: string, bookingId: string, details: Record<string, unknown> = {}) {
-  await getDb().collection('audit_log').add({
+  await getDb().collection('audit_logs').add({
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
     actor_id: actorUid,
     actor_role: actorRole,
