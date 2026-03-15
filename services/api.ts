@@ -261,21 +261,24 @@ export const api = {
   },
 
   async createBookingRequest(formState: BookingFormState, performers: Performer[]) {
-    if (!db || !auth || !storage) {
+    if (!db) {
       console.warn('Firebase not initialized. Simulating booking request.');
       return { data: [], error: null };
     }
     try {
-      let user = auth.currentUser;
-      if (!user) {
-        const cred = await signInAnonymously(auth);
-        user = cred.user;
+      // Try to authenticate — anonymous sign-in as fallback for guests
+      if (auth && !auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (authErr) {
+          console.warn('Anonymous auth not available, proceeding without auth:', authErr);
+        }
       }
 
       // Try Cloud Function first, fall back to direct Firestore write
       let bookingIds: string[] = [];
 
-      if (functions) {
+      if (functions && auth?.currentUser) {
         try {
           const callCreateBooking = httpsCallable(functions, 'createBookingRequest');
           const result = await callCreateBooking({
@@ -294,9 +297,31 @@ export const api = {
         bookingIds = await this._createBookingsDirect(formState, performers);
       }
 
-      const newBookings = await Promise.all(bookingIds.map(async (id) => {
-        const bDoc = await getDoc(doc(db!, 'bookings', id));
-        return { ...bDoc.data(), id: bDoc.id } as Booking;
+      // Build booking objects from form data instead of reading back
+      // (Firestore read rules may block unauthenticated users)
+      const newBookings: Booking[] = bookingIds.map((id, i) => ({
+        id,
+        performer_id: performers[i].id,
+        performer: { id: performers[i].id, name: performers[i].name },
+        client_name: formState.fullName,
+        client_email: formState.email,
+        client_phone: formState.mobile,
+        client_dob: formState.dob,
+        event_date: formState.eventDate,
+        event_time: formState.eventTime,
+        event_address: formState.eventAddress,
+        event_type: formState.eventType,
+        duration_hours: Number(formState.duration),
+        number_of_guests: Number(formState.numberOfGuests),
+        services_requested: formState.selectedServices,
+        client_message: formState.client_message || null,
+        didit_verification_id: formState.didit_verification_id || null,
+        status: 'pending_performer_acceptance' as const,
+        payment_status: 'unpaid' as const,
+        deposit_receipt_path: null,
+        verified_by_admin_name: null,
+        verified_at: null,
+        created_at: new Date().toISOString(),
       }));
 
       return { data: newBookings, error: null };
