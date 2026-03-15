@@ -31,7 +31,7 @@ export async function createIncidentReport(
     const reportRef = await getDb().collection('incident_reports').add({
         ...report,
         client_email: report.client_email.toLowerCase().trim(),
-        client_phone: report.client_phone.replace(/[\s\-\(\)]/g, ''),
+        client_phone: report.client_phone.replace(/[\s\-()]/g, ''),
         status: 'PENDING_REVIEW',
         created_at: admin.firestore.FieldValue.serverTimestamp(),
     });

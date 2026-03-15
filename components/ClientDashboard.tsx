@@ -36,7 +36,7 @@ const statusConfig: Record<Booking['status'], {
 const CANCELLABLE_STATUSES: Booking['status'][] = ['pending_performer_acceptance', 'pending_vetting', 'deposit_pending', 'pending_deposit_confirmation', 'confirmed'];
 
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings, onUpdateBookingStatus }) => {
-  const [clientEmail, setClientEmail] = useState<string | null>(() => localStorage.getItem('clientEmail'));
+  const [clientEmail, setClientEmail] = useState<string | null>(() => sessionStorage.getItem('clientEmail'));
   const [emailInput, setEmailInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');

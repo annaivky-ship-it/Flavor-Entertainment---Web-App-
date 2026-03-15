@@ -16,7 +16,7 @@ export function normalizeEmail(email: string): string {
 }
 
 export function normalizePhoneToE164(phone: string, defaultCountryCode: string = '+61'): string {
-  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  let cleaned = phone.replace(/[\s\-()]/g, '');
   if (cleaned.startsWith('0')) {
     cleaned = defaultCountryCode + cleaned.substring(1);
   } else if (!cleaned.startsWith('+')) {

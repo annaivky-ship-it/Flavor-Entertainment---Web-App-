@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 // This tests the same algorithm from functions/src/utils/phone.ts
 function normalizePhone(phone: string): string | null {
   if (!phone) return null;
-  let cleaned = phone.replace(/(?!^\+)[^\d]/g, '');
+  const cleaned = phone.replace(/(?!^\+)[^\d]/g, '');
 
   if (cleaned.startsWith('04') && cleaned.length === 10) {
     return '+61' + cleaned.substring(1);

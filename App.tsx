@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import { Briefcase, ChevronDown, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
+import { Briefcase, ChevronDown, Radio, LoaderCircle, CalendarCheck, Clock, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -620,18 +620,23 @@ const App: React.FC = () => {
     try {
       const { data: newBookings, error: apiError } = await api.createBookingRequest(formState, requestedPerformers);
       if (apiError) throw apiError;
+      if (!newBookings || newBookings.length === 0) {
+        throw new Error('Booking was not created. Please try again.');
+      }
 
       sessionStorage.setItem('clientEmail', formState.email);
-      setBookings(prev => [...newBookings!, ...prev]);
+      setBookings(prev => [...newBookings, ...prev]);
 
-      const firstBooking = newBookings![0];
-      addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Request Sent! We've notified ${newBookings!.map(b => b.performer?.name).join(', ')} of your request.`, booking_id: firstBooking.id, type: 'booking_update' });
-      addCommunication({ sender: 'System', recipient: 'admin', message: `📥 New Booking Request: for ${formState.fullName} with ${newBookings!.map(b => b.performer?.name).join(', ')}. Awaiting performer acceptance.`, type: 'admin_message' });
+      const firstBooking = newBookings[0];
+      const performerNames = newBookings.map(b => b.performer?.name || 'your selected performer').join(', ');
+      addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Request Sent! We've notified ${performerNames} of your request.`, booking_id: firstBooking.id, type: 'booking_update' });
+      addCommunication({ sender: 'System', recipient: 'admin', message: `📥 New Booking Request: for ${formState.fullName} with ${performerNames}. Awaiting performer acceptance.`, type: 'admin_message' });
 
-      showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Request Sent!</strong><br />We've sent your request to <strong>{newBookings!.map(b => b.performer?.name).join(' & ')}</strong>. We'll notify you as soon as they respond!</p> });
+      showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Request Sent!</strong><br />We've sent your request to <strong>{newBookings.map(b => b.performer?.name || 'your selected performer').join(' & ')}</strong>. We'll notify you as soon as they respond!</p> });
 
+      const bookingCount = newBookings.length;
       setTimeout(() => {
-        const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested || [], newBookings!.length);
+        const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested || [], bookingCount);
         showPhoneMessage({
           for: 'Performer',
           content: <p>🎭 <strong>New Booking Request!</strong><br />From: <strong>{firstBooking.client_name}</strong><br />For: {new Date(firstBooking.event_date).toLocaleDateString()}<br />Event: {firstBooking.event_type}<br />Guests: {firstBooking.number_of_guests}<br /><br /><strong>Total Value:</strong> ${(totalCost || 0).toFixed(2)}<br /><strong>Deposit:</strong> ${(depositAmount || 0).toFixed(2)}</p>,
@@ -641,7 +646,7 @@ const App: React.FC = () => {
           ]
         });
       }, 6000);
-      return { success: true, message: 'Booking submitted', bookingIds: newBookings!.map(b => b.id) };
+      return { success: true, message: 'Booking submitted', bookingIds: newBookings.map(b => b.id) };
     } catch (err: any) {
       return { success: false, message: err.message || 'An unknown error occurred.' };
     }
@@ -818,7 +823,7 @@ const App: React.FC = () => {
     switch (view) {
       case 'profile':
         return viewedPerformer && <PerformerProfile performer={viewedPerformer} onBack={handleReturnToGallery} onBook={handleBookSinglePerformer} />;
-      case 'booking':
+      case 'booking': {
         const approvedDNS = doNotServeList.filter(e => e.status === 'approved');
         return selectedForBooking.length > 0 && (
           <BookingProcess
@@ -835,6 +840,7 @@ const App: React.FC = () => {
             initialSelectedServices={serviceIdFilter ? [serviceIdFilter] : []}
           />
         );
+      }
       case 'admin_dashboard':
         if (authedUser?.role !== 'admin') return <AccessDenied />;
         return <AdminDashboard
@@ -850,12 +856,11 @@ const App: React.FC = () => {
           onUpdatePerformer={handleUpdatePerformer}
           onCreatePerformer={handleCreatePerformer}
         />;
-      case 'performer_dashboard':
+      case 'performer_dashboard': {
         if (authedUser?.role !== 'performer') return <AccessDenied />;
         const currentPerformer = performers.find(p => p.id === authedUser.id);
         const performerBookings = bookings.filter(b => b.performer_id === authedUser.id);
         const performerCommunications = communications.filter(c => c.recipient === authedUser.id);
-        // Fix: Use actorUid for filtering audit logs to match the interface.
         const performerAuditLogs = auditLogs.filter(log => log.actorUid === String(authedUser.id));
         return currentPerformer ? (
           <PerformerDashboard
@@ -872,13 +877,14 @@ const App: React.FC = () => {
         ) : (
           <p className="text-center text-gray-400">Select a performer to view their dashboard.</p>
         );
+      }
       case 'client_dashboard':
         return <ClientDashboard bookings={bookings} onBrowsePerformers={() => setView('available_now')} onShowSettings={() => setView('settings')} />;
       case 'settings':
         return <UserSettings settings={settings} onSettingsChange={setSettings} onBack={() => setView('client_dashboard')} />;
       case 'faq':
         return <FAQ onBack={() => setView('available_now')} />;
-      case 'do_not_serve':
+      case 'do_not_serve': {
         if (!authedUser || role === 'user') return <AccessDenied />;
         const performerSubmitting = performers.find(p => p.id === authedUser.id);
         return <DoNotServe
@@ -888,7 +894,8 @@ const App: React.FC = () => {
           onBack={handleBackToDashboard}
           onCreateEntry={handleCreateDoNotServeEntry}
           addCommunication={addCommunication}
-        />
+        />;
+      }
       case 'performer_onboarding':
         return <PerformerOnboarding onSubmit={handleCreatePerformer} onCancel={() => setView('available_now')} />;
       case 'services':
@@ -900,7 +907,7 @@ const App: React.FC = () => {
         );
       case 'available_now':
       case 'future_bookings':
-      default:
+      default: {
         const isAvailableNow = view === 'available_now';
         return (
           <div className="animate-fade-in">
@@ -977,6 +984,7 @@ const App: React.FC = () => {
             )}
           </div>
         );
+      }
     }
   };
 

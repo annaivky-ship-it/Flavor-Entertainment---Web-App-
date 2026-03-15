@@ -85,6 +85,7 @@ export interface Booking {
     payment_status?: PaymentStatus;
     created_at: string;
     duration_hours: number;
+    service_durations?: Record<string, number>;
     number_of_guests: number;
     services_requested: string[];
     verified_by_admin_name: string | null;

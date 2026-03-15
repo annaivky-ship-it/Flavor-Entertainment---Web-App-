@@ -282,8 +282,6 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
       throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
     }
 
-    const phone = (formState.phone || formState.mobile || '').replace(/\s+/g, '');
-
     const newBookings: Array<{ id: string; [key: string]: unknown }> = [];
     for (const pId of performerIds) {
       const slotId = `${pId}_${formState.eventDate}_${formState.eventTime}`;
@@ -309,7 +307,7 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
         performer: { id: pId, name: performerName },
         client_name: formState.fullName,
         client_email: normalizedEmail,
-        client_phone: phone,
+        client_phone: normalizedPhone,
         client_dob: formState.dob || null,
         event_date: formState.eventDate,
         event_time: formState.eventTime,
