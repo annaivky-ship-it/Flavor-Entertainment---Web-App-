@@ -35,9 +35,23 @@ const statusConfig: Record<Booking['status'], {
 
 const CANCELLABLE_STATUSES: Booking['status'][] = ['pending_performer_acceptance', 'pending_vetting', 'deposit_pending', 'pending_deposit_confirmation', 'confirmed'];
 
+const LIVE_STATUSES: Booking['status'][] = ['en_route', 'arrived', 'in_progress'];
+
+const statusNextStep: Partial<Record<Booking['status'], { text: string; isPayNow?: boolean }>> = {
+  pending_performer_acceptance: { text: "Sit tight! You'll be notified when the performer responds." },
+  pending_vetting:              { text: "Our team is reviewing your booking. This usually takes 1–2 hours." },
+  deposit_pending:              { text: "Open your banking app and transfer the deposit via PayID.", isPayNow: true },
+  pending_deposit_confirmation: { text: "Almost there! We're verifying your payment." },
+  arrived:                      { text: "Your performer has arrived at the venue!" },
+  in_progress:                  { text: "The show is on! Enjoy your event." },
+};
+
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings, onUpdateBookingStatus }) => {
-  const [clientEmail, setClientEmail] = useState<string | null>(() => sessionStorage.getItem('clientEmail'));
+  const [clientEmail, setClientEmail] = useState<string | null>(() => {
+    return localStorage.getItem('clientEmail') || sessionStorage.getItem('clientEmail');
+  });
   const [emailInput, setEmailInput] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -77,7 +91,11 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
     lookupTimeoutRef.current = window.setTimeout(() => {
       const foundBookings = bookings.some(b => b.client_email.toLowerCase() === emailInput.toLowerCase());
       if (foundBookings) {
-        sessionStorage.setItem('clientEmail', emailInput);
+        if (rememberMe) {
+          localStorage.setItem('clientEmail', emailInput);
+        } else {
+          sessionStorage.setItem('clientEmail', emailInput);
+        }
         setClientEmail(emailInput);
       } else {
         setError('No bookings found for this email address.');
@@ -97,6 +115,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
 
   const handleLogout = () => {
     sessionStorage.removeItem('clientEmail');
+    localStorage.removeItem('clientEmail');
     setClientEmail(null);
     setEmailInput('');
   };
@@ -145,9 +164,11 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
       const groups = clientBookings.reduce((groups, booking) => {
         const [y, m, d] = booking.event_date.split('-').map(Number);
         const eventDate = new Date(y, m - 1, d);
-        
+
         if (['pending_performer_acceptance', 'pending_vetting', 'deposit_pending', 'pending_deposit_confirmation'].includes(booking.status)) {
             groups.actionRequired.push(booking);
+        } else if (LIVE_STATUSES.includes(booking.status)) {
+            groups.live.push(booking);
         } else if (booking.status === 'confirmed' && eventDate >= today) {
             groups.upcoming.push(booking);
         } else {
@@ -155,11 +176,11 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
         }
         return groups;
 
-      }, { actionRequired: [] as Booking[], upcoming: [] as Booking[], past: [] as Booking[] });
+      }, { actionRequired: [] as Booking[], live: [] as Booking[], upcoming: [] as Booking[], past: [] as Booking[] });
 
       // Sort past bookings by date descending
       groups.past.sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
-      
+
       return groups;
   }, [clientEmail, bookings]);
     
@@ -171,6 +192,17 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
             <p className="text-zinc-400 mt-2 mb-6">Enter your email to view your booking history and status.</p>
             <form onSubmit={handleLookup} className="space-y-4">
                 <InputField icon={<User />} type="email" name="email" placeholder="Your booking email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} required error={error} />
+                <label className="flex items-center gap-3 cursor-pointer select-none group">
+                  <div className="relative flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-orange-500 accent-orange-500 cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">Remember me on this device</span>
+                </label>
                 <button type="submit" disabled={isLoading} className="btn-primary w-full flex items-center justify-center gap-2">
                     {isLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : <Search className="h-5 w-5"/>}
                     Find My Bookings
@@ -213,14 +245,36 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                                 </div>
                               </div>
 
+                              {/* Next-step guidance */}
+                              {booking.status === 'en_route' && booking.performer_eta_minutes && booking.performer_eta_minutes > 0 ? (
+                                <div className="mb-4 px-4 py-3 rounded-lg bg-zinc-900/30 border border-blue-500/30 flex items-center gap-3">
+                                  <Timer className="h-5 w-5 text-blue-400 animate-pulse flex-shrink-0" />
+                                  <p className="text-sm text-blue-300 font-semibold animate-pulse">
+                                    Your performer is on the way — ETA approximately {booking.performer_eta_minutes} minute{booking.performer_eta_minutes !== 1 ? 's' : ''}!
+                                  </p>
+                                </div>
+                              ) : booking.status === 'en_route' ? (
+                                <div className="mb-4 px-4 py-3 rounded-lg bg-zinc-900/30 border border-blue-500/30 flex items-center gap-3">
+                                  <Timer className="h-5 w-5 text-blue-400 animate-pulse flex-shrink-0" />
+                                  <p className="text-sm text-blue-300">Your performer is on their way. ETA will update shortly.</p>
+                                </div>
+                              ) : statusNextStep[booking.status] ? (
+                                <div className="mb-4 px-4 py-3 rounded-lg bg-zinc-900/30 border border-zinc-700/50 flex items-start gap-3">
+                                  <Info className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />
+                                  <div className="flex-1">
+                                    <p className="text-sm text-zinc-300">{statusNextStep[booking.status]!.text}</p>
+                                    {statusNextStep[booking.status]!.isPayNow && (
+                                      <p className="text-xs text-orange-400 font-semibold mt-1 flex items-center gap-1">
+                                        <Wallet size={12} /> Open your banking app to complete the PayID transfer.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
+
                              <div className="text-zinc-300 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm mt-2 border-t border-zinc-800 pt-4">
                                 <div className="flex items-center gap-2"><Calendar size={16} className="text-orange-500/80"/> {new Date(booking.event_date).toLocaleDateString()} at {booking.event_time}</div>
                                 <div className="flex items-center gap-2"><Clock size={16} className="text-orange-500/80"/> {booking.duration_hours} hour{booking.duration_hours > 1 ? 's' : ''}</div>
-                                {booking.performer_eta_minutes && booking.performer_eta_minutes > 0 && (
-                                  <div className="flex items-center gap-2 text-orange-400 font-semibold animate-pulse">
-                                    <Timer size={16} className="text-orange-400"/> ETA: ~{booking.performer_eta_minutes} mins
-                                  </div>
-                                )}
                                 <div className="flex items-center gap-2 col-span-full"><MapPin size={16} className="text-orange-500/80"/> {booking.event_address}</div>
                              </div>
                          </div>
@@ -290,9 +344,86 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
         </div>
       </div>
       
-      {bookingGroups && (bookingGroups.actionRequired.length > 0 || bookingGroups.upcoming.length > 0 || bookingGroups.past.length > 0) ? (
+      {bookingGroups && (bookingGroups.actionRequired.length > 0 || bookingGroups.live.length > 0 || bookingGroups.upcoming.length > 0 || bookingGroups.past.length > 0) ? (
         <div className="space-y-12">
             <BookingGroup title="Action Required" bookings={bookingGroups.actionRequired} icon={AlertTriangle} />
+
+            {bookingGroups.live.length > 0 && (
+              <div className="relative">
+                {/* Pulsing "live" ring around the whole section */}
+                <div className="absolute -inset-px rounded-xl bg-gradient-to-r from-red-500/20 via-orange-500/10 to-red-500/20 animate-pulse pointer-events-none" />
+                <div className="relative rounded-xl border border-red-500/40 p-6 space-y-6 bg-zinc-950/60">
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+                    </span>
+                    <Radio className="text-red-400 h-6 w-6" />
+                    Live Now
+                    <span className="ml-auto text-xs font-normal text-red-400 border border-red-500/40 px-2 py-0.5 rounded-full">
+                      {bookingGroups.live.length} active
+                    </span>
+                  </h2>
+                  <div className="grid gap-6">
+                    {bookingGroups.live.map(booking => {
+                      const { totalCost } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
+                      const config = statusConfig[booking.status];
+                      return (
+                        <div key={booking.id} className={`card-base !p-0 overflow-hidden flex flex-col md:flex-row border-l-4 ${config.borderColor}`}>
+                          <div className="p-6 flex-grow">
+                            <h3 className="text-2xl font-bold text-white">{booking.event_type}</h3>
+                            <p className="text-sm text-zinc-400 mb-4">with <strong className="text-orange-400">{booking.performer?.name}</strong></p>
+
+                            <div className="p-3 rounded-lg flex items-start gap-3 mb-4 bg-zinc-900/50">
+                              <config.Icon className={`h-6 w-6 mt-1 flex-shrink-0 ${config.color}`} />
+                              <div>
+                                <p className={`font-semibold ${config.color}`}>{config.title}</p>
+                                <p className="text-sm text-zinc-400">{config.description}</p>
+                              </div>
+                            </div>
+
+                            {booking.status === 'en_route' && booking.performer_eta_minutes && booking.performer_eta_minutes > 0 ? (
+                              <div className="mb-4 px-4 py-3 rounded-lg bg-zinc-900/30 border border-blue-500/30 flex items-center gap-3">
+                                <Timer className="h-5 w-5 text-blue-400 animate-pulse flex-shrink-0" />
+                                <p className="text-sm text-blue-300 font-semibold animate-pulse">
+                                  Your performer is on the way — ETA approximately {booking.performer_eta_minutes} minute{booking.performer_eta_minutes !== 1 ? 's' : ''}!
+                                </p>
+                              </div>
+                            ) : booking.status === 'en_route' ? (
+                              <div className="mb-4 px-4 py-3 rounded-lg bg-zinc-900/30 border border-blue-500/30 flex items-center gap-3">
+                                <Timer className="h-5 w-5 text-blue-400 animate-pulse flex-shrink-0" />
+                                <p className="text-sm text-blue-300">Your performer is on their way. ETA will update shortly.</p>
+                              </div>
+                            ) : statusNextStep[booking.status] ? (
+                              <div className="mb-4 px-4 py-3 rounded-lg bg-zinc-900/30 border border-zinc-700/50 flex items-start gap-3">
+                                <Info className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-sm text-zinc-300">{statusNextStep[booking.status]!.text}</p>
+                              </div>
+                            ) : null}
+
+                            <div className="text-zinc-300 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm mt-2 border-t border-zinc-800 pt-4">
+                              <div className="flex items-center gap-2"><Calendar size={16} className="text-orange-500/80"/> {new Date(booking.event_date).toLocaleDateString()} at {booking.event_time}</div>
+                              <div className="flex items-center gap-2"><Clock size={16} className="text-orange-500/80"/> {booking.duration_hours} hour{booking.duration_hours > 1 ? 's' : ''}</div>
+                              <div className="flex items-center gap-2 col-span-full"><MapPin size={16} className="text-orange-500/80"/> {booking.event_address}</div>
+                            </div>
+                          </div>
+                          <div className="bg-zinc-900/50 p-6 flex flex-col justify-between items-center md:items-end md:border-l border-zinc-800 md:min-w-[220px]">
+                            <div className="text-center md:text-right mb-4 w-full">
+                              <p className="text-zinc-400 text-sm flex items-center md:justify-end gap-1"><Wallet size={14}/> Total Cost</p>
+                              <p className="text-3xl font-bold text-white">${(totalCost || 0).toFixed(2)}</p>
+                            </div>
+                            <button onClick={() => handleOpenChat(booking)} className="btn-primary w-full flex items-center justify-center gap-2 text-sm px-4 py-2 mt-auto">
+                              <MessageCircle size={16} /> Message Performer
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <BookingGroup title="Upcoming Confirmed" bookings={bookingGroups.upcoming} icon={CheckCircle} />
             
             {bookingGroups.past.length > 0 && (
@@ -347,13 +478,25 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
             )}
         </div>
       ) : (
-        <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-zinc-800">
-            <h2 className="text-2xl font-semibold text-white">No Bookings Found</h2>
-            <p className="text-zinc-500 my-4 max-w-md mx-auto">It looks like there are no bookings associated with this email address yet. Ready to find the perfect entertainment?</p>
-             <button onClick={onBrowsePerformers} className="btn-primary flex items-center justify-center gap-2 mx-auto mt-6">
-                <Briefcase className="h-5 w-5" />
-                Book a Performer
-            </button>
+        <div className="text-center py-20 bg-zinc-900/50 rounded-xl border border-zinc-800 flex flex-col items-center">
+            <div className="w-20 h-20 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center mb-6">
+              <Briefcase className="h-10 w-10 text-zinc-500" />
+            </div>
+            <h2 className="text-2xl font-semibold text-white">No Bookings Yet</h2>
+            <p className="text-zinc-500 my-4 max-w-md mx-auto">
+              There are no bookings linked to <strong className="text-zinc-300">{clientEmail}</strong> yet.
+              Browse our performers and make your first booking — it only takes a few minutes!
+            </p>
+            <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
+              <button onClick={onBrowsePerformers} className="btn-primary flex items-center justify-center gap-2">
+                  <Briefcase className="h-5 w-5" />
+                  Browse Performers
+              </button>
+              <button onClick={handleLogout} className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm px-4 py-2.5 rounded-lg transition-colors flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Try a different email
+              </button>
+            </div>
         </div>
       )}
 
