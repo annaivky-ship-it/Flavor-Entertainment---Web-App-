@@ -24,6 +24,7 @@ const DiditVerification: React.FC<DiditVerificationProps> = ({ onSuccess, onCanc
   const [verificationId] = useState(() => generateVerificationId(clientName));
   const [idPreview, setIdPreview] = useState<string | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
 
@@ -39,13 +40,20 @@ const DiditVerification: React.FC<DiditVerificationProps> = ({ onSuccess, onCanc
   }, [step, verificationId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'id' | 'selfie') => {
+    setFileError(null);
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setFileError('File must be under 10 MB. Please choose a smaller image.');
+      return;
+    }
     const reader = new FileReader();
     reader.onloadend = () => {
       if (type === 'id') setIdPreview(reader.result as string);
       else setSelfiePreview(reader.result as string);
+    };
+    reader.onerror = () => {
+      setFileError('Failed to read file. Please try again.');
     };
     reader.readAsDataURL(file);
   };
@@ -84,6 +92,13 @@ const DiditVerification: React.FC<DiditVerificationProps> = ({ onSuccess, onCanc
                   'w-4 bg-zinc-700'
                 }`} />
               ))}
+            </div>
+          )}
+
+          {fileError && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              {fileError}
             </div>
           )}
 

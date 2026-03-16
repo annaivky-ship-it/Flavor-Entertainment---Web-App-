@@ -403,8 +403,16 @@ export const api = {
   async addCommunication(commData: Omit<Communication, 'id' | 'created_at' | 'read'>) {
     if (!db) return { data: null, error: new Error('Firebase not initialized') };
     try {
+      const currentUser = auth?.currentUser;
+      const senderUid = commData.sender_uid || currentUser?.uid || 'system';
+      // Ensure participant_uids is populated for Firestore security rules
+      const participantUids = commData.participant_uids && commData.participant_uids.length > 0
+        ? commData.participant_uids
+        : currentUser ? [currentUser.uid] : [];
       const docRef = await addDoc(collection(db, 'communications'), {
         ...commData,
+        sender_uid: senderUid,
+        participant_uids: participantUids,
         created_at: new Date().toISOString(),
         read: false
       });
@@ -546,5 +554,32 @@ export const api = {
     if (!db) throw new Error('Firebase not initialized');
 
     await deleteDoc(doc(db, 'performers_auth', uid));
+  },
+
+  // --- Payment Settings ---
+  async getPaymentSettings(): Promise<{ auto_confirm_enabled: boolean; auto_confirm_delay_minutes: number }> {
+    if (!db) return { auto_confirm_enabled: false, auto_confirm_delay_minutes: 0 };
+    try {
+      const settingsDoc = await getDoc(doc(db, 'settings', 'payments'));
+      if (settingsDoc.exists()) {
+        const data = settingsDoc.data();
+        return {
+          auto_confirm_enabled: data.auto_confirm_enabled || false,
+          auto_confirm_delay_minutes: data.auto_confirm_delay_minutes || 0,
+        };
+      }
+      return { auto_confirm_enabled: false, auto_confirm_delay_minutes: 0 };
+    } catch (err) {
+      console.error('Error fetching payment settings:', err);
+      return { auto_confirm_enabled: false, auto_confirm_delay_minutes: 0 };
+    }
+  },
+
+  async updatePaymentSettings(settings: { auto_confirm_enabled: boolean; auto_confirm_delay_minutes: number }) {
+    if (!db) throw new Error('Firebase not initialized');
+    await setDoc(doc(db, 'settings', 'payments'), {
+      ...settings,
+      updated_at: new Date().toISOString(),
+    }, { merge: true });
   }
 };

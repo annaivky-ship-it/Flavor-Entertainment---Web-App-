@@ -17,7 +17,7 @@ dist-ssr
 .env.*
 !.env.example
 !.env.demo
-!.env.production
+# .env.production must NOT be committed — contains real API keys
 serviceAccountKey.json
 
 # Editor directories and files

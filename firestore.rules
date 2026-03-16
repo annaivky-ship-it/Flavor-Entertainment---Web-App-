@@ -54,10 +54,10 @@ service cloud.firestore {
       // Validates required fields and restricts initial status
       allow create: if isValidBookingCreate();
 
-      // Only the booking owner, admin, or verified performer can read
+      // Only the booking owner, admin, or the assigned performer can read
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.client_uid == request.auth.uid)
-        || isPerformer();
+        || (isPerformer() && resource.data.performer_id == request.auth.uid);
 
       // Only admins can update booking status
       allow update: if isAdmin();
@@ -132,14 +132,25 @@ service cloud.firestore {
     }
 
     // --- Communications ---
-    // NOTE: Communications are readable by any signed-in user. Ideally access
-    // should be scoped to booking participants, but cross-referencing booking
-    // ownership in security rules is not feasible without denormalizing
-    // participant_uids onto each message. This is a known limitation.
+    // Access scoped to booking participants via denormalized participant_uids array.
+    // Each message must include participant_uids containing all allowed reader UIDs.
     match /communications/{msgId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
+      // Only participants of the conversation or admins can read
+      allow read: if isAdmin()
+        || (isSignedIn() && request.auth.uid in resource.data.participant_uids);
+
+      // Creator must be authenticated and must be listed in participant_uids.
+      // sender_uid must match the authenticated user to prevent impersonation.
+      allow create: if isSignedIn()
+        && request.resource.data.sender_uid == request.auth.uid
+        && request.auth.uid in request.resource.data.participant_uids
+        && request.resource.data.keys().hasAll(['booking_id', 'sender_uid', 'participant_uids', 'message']);
+
+      // Only allow marking as read
+      allow update: if isSignedIn()
+        && request.auth.uid in resource.data.participant_uids
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+
       allow delete: if false;
     }
 

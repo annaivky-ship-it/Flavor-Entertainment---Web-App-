@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { createHash } from 'crypto';
 import { getFirestore } from 'firebase-admin/firestore';
 import { sendWhatsApp, sendSms, verifyTwilioSignature } from './twilio';
 import { sendMessage } from './messaging/send';
@@ -84,11 +85,21 @@ async function isAdmin(uid: string) {
 export const createDraftApplication = fns.https.onCall(async (data: any, context: any) => {
   if (!context.auth) throw new fns.https.HttpsError('unauthenticated', 'User must be signed in.');
 
-  const appData = data.application;
+  const appData = data.application || {};
+
+  // Allowlist: only permit known safe fields from user input
+  const ALLOWED_FIELDS = ['fullName', 'email', 'phone', 'dob', 'address', 'idType', 'idFilePath', 'selfieFilePath', 'notes'];
+  const sanitized: Record<string, unknown> = {};
+  for (const field of ALLOWED_FIELDS) {
+    if (appData[field] !== undefined) {
+      sanitized[field] = appData[field];
+    }
+  }
+
   const appRef = db.collection('vetting_applications').doc();
 
   await appRef.set({
-    ...appData,
+    ...sanitized,
     userId: context.auth.uid,
     status: 'draft',
     submittedAt: null,
@@ -219,8 +230,13 @@ export const scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').o
 /**
  * Legacy Booking Transaction (Retained for functionality)
  */
-export const createBookingRequest = fns.https.onCall(async (request: any) => {
-  const { formState, performerIds } = request.data;
+export const createBookingRequest = fns.https.onCall(async (request: any, context: any) => {
+  // Require authentication to prevent bot abuse
+  if (!context.auth) {
+    throw new fns.https.HttpsError('unauthenticated', 'User must be signed in to create a booking.');
+  }
+
+  const { formState, performerIds } = request.data || request;
 
   // --- Input Validation ---
   if (!formState || typeof formState !== 'object') {
@@ -266,8 +282,21 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
     throw new fns.https.HttpsError('resource-exhausted', 'Too many booking attempts. Please try again later.');
   }
 
+  // IP-based rate limit: max 10 booking attempts per IP per hour
+  const clientIp = context.rawRequest?.ip || 'unknown';
+  if (clientIp !== 'unknown') {
+    const ipAllowed = await checkRateLimit(clientIp, {
+      prefix: 'booking_create_ip',
+      maxRequests: 10,
+      windowSeconds: 3600,
+    });
+    if (!ipAllowed) {
+      throw new fns.https.HttpsError('resource-exhausted', 'Too many booking attempts from this network. Please try again later.');
+    }
+  }
+
   return db.runTransaction(async (transaction: any) => {
-    const emailHash = Buffer.from(formState.email.toLowerCase()).toString('hex');
+    const emailHash = createHash('sha256').update(formState.email.toLowerCase()).digest('hex');
     const blacklistDoc = await transaction.get(db.collection('blacklist').doc(emailHash));
     if (blacklistDoc.exists) throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
 
@@ -298,8 +327,22 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
       }
 
       const bookingRef = db.collection('bookings').doc();
+      // Allowlist booking fields to prevent injection of arbitrary data
       const bookingData = {
-        ...formState,
+        client_name: String(formState.fullName || '').trim(),
+        client_email: emailKey,
+        client_phone: String(formState.phone || formState.mobile || '').trim(),
+        client_dob: formState.dob || null,
+        event_date: String(formState.eventDate || ''),
+        event_time: String(formState.eventTime || ''),
+        event_address: String(formState.eventAddress || formState.address || '').trim(),
+        event_type: String(formState.eventType || '').trim(),
+        duration_hours: Number(formState.durationHours) || 1,
+        number_of_guests: Number(formState.numberOfGuests) || 1,
+        services_requested: Array.isArray(formState.servicesRequested) ? formState.servicesRequested.map(String) : [],
+        client_message: formState.clientMessage ? String(formState.clientMessage).substring(0, 2000) : null,
+        is_asap: formState.isAsap === true,
+        client_uid: context.auth.uid,
         performer_id: pId,
         status: 'pending_performer_acceptance',
         slotLock: slotId,
@@ -411,6 +454,64 @@ export const onBookingStatusChanged = fns.firestore
     const after = change.after.data();
 
     if (before.status === after.status) return;
+
+    // --- Auto Payment Recognition ---
+    // When booking moves to pending_deposit_confirmation with a receipt ref,
+    // check settings and auto-confirm if enabled
+    if (after.status === 'pending_deposit_confirmation' && before.status !== 'pending_deposit_confirmation') {
+      try {
+        const settingsDoc = await db.collection('settings').doc('payments').get();
+        const paymentSettings = settingsDoc.data() || {};
+        const autoConfirmEnabled = paymentSettings.auto_confirm_enabled === true;
+        const autoConfirmDelayMs = (paymentSettings.auto_confirm_delay_minutes || 0) * 60 * 1000;
+
+        if (autoConfirmEnabled && after.deposit_receipt_ref) {
+          const receiptRef = after.deposit_receipt_ref;
+          const isValidRef = receiptRef.length >= 4;
+
+          if (isValidRef) {
+            // Apply delay if configured, otherwise confirm immediately
+            const confirmPayment = async () => {
+              // Re-read to ensure no admin override happened during delay
+              const currentDoc = await db.collection('bookings').doc(bookingId).get();
+              const currentData = currentDoc.data();
+              if (!currentData || currentData.status !== 'pending_deposit_confirmation') return;
+
+              await db.collection('bookings').doc(bookingId).update({
+                status: 'confirmed',
+                verified_by_admin_name: 'Auto-Verified',
+                verified_at: admin.firestore.FieldValue.serverTimestamp(),
+                auto_confirmed: true,
+                auto_confirmed_at: admin.firestore.FieldValue.serverTimestamp(),
+              });
+
+              await writeAuditLog('system', 'system', 'PAYMENT_AUTO_CONFIRMED', bookingId, {
+                receipt_ref: receiptRef,
+                delay_minutes: paymentSettings.auto_confirm_delay_minutes || 0,
+              });
+
+              logger.info('Payment auto-confirmed', { bookingId, receiptRef });
+            };
+
+            if (autoConfirmDelayMs > 0) {
+              // For delays, use a scheduled approach via a pending_auto_confirm collection
+              await db.collection('pending_auto_confirms').doc(bookingId).set({
+                bookingId,
+                receipt_ref: receiptRef,
+                confirm_after: new Date(Date.now() + autoConfirmDelayMs),
+                created_at: admin.firestore.FieldValue.serverTimestamp(),
+              });
+              logger.info('Payment queued for auto-confirmation', { bookingId, delayMinutes: paymentSettings.auto_confirm_delay_minutes });
+            } else {
+              await confirmPayment();
+            }
+          }
+        }
+      } catch (autoConfirmErr: any) {
+        logger.error('Auto payment confirmation failed', { bookingId, error: autoConfirmErr.message });
+        // Non-fatal: admin can still manually confirm
+      }
+    }
 
     // Cleanup slot lock if booking is rejected or cancelled
     if (after.status === 'rejected' || after.status === 'DECLINED' || after.status === 'cancelled' || after.status === 'CANCELLED') {
@@ -772,6 +873,59 @@ export const scheduledRateLimitCleanup = fns.pubsub.schedule('every 1 hours').on
   const cleaned = await cleanupRateLimits();
   if (cleaned > 0) {
     logger.info("Rate limit cleanup completed", { cleanedCount: cleaned });
+  }
+});
+
+/**
+ * Process delayed auto-confirmations for PayID payments.
+ * Runs every 5 minutes to check for bookings ready to auto-confirm.
+ */
+export const processAutoConfirmPayments = fns.pubsub.schedule('every 5 minutes').onRun(async () => {
+  const now = new Date();
+  const pendingSnap = await db.collection('pending_auto_confirms')
+    .where('confirm_after', '<=', now)
+    .limit(50)
+    .get();
+
+  if (pendingSnap.empty) return;
+
+  let confirmed = 0;
+  for (const pendingDoc of pendingSnap.docs) {
+    const pending = pendingDoc.data();
+    const bookingId = pending.bookingId;
+
+    try {
+      const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+      const booking = bookingDoc.data();
+
+      if (!booking || booking.status !== 'pending_deposit_confirmation') {
+        // Already confirmed/cancelled by admin, clean up
+        await pendingDoc.ref.delete();
+        continue;
+      }
+
+      await db.collection('bookings').doc(bookingId).update({
+        status: 'confirmed',
+        verified_by_admin_name: 'Auto-Verified',
+        verified_at: admin.firestore.FieldValue.serverTimestamp(),
+        auto_confirmed: true,
+        auto_confirmed_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await writeAuditLog('system', 'system', 'PAYMENT_AUTO_CONFIRMED', bookingId, {
+        receipt_ref: pending.receipt_ref,
+        delayed: true,
+      });
+
+      await pendingDoc.ref.delete();
+      confirmed++;
+    } catch (err: any) {
+      logger.error('Failed to auto-confirm payment', { bookingId, error: err.message });
+    }
+  }
+
+  if (confirmed > 0) {
+    logger.info('Auto-confirmed payments processed', { confirmedCount: confirmed });
   }
 });
 

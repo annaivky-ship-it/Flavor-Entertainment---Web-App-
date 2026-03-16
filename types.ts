@@ -93,6 +93,10 @@ export interface Booking {
     performer_reassigned_from_id?: number | null;
     performer_eta_minutes?: number | null;
     is_asap?: boolean;
+    auto_confirmed?: boolean;
+    auto_confirmed_at?: string | null;
+    deposit_receipt_ref?: string | null;
+    deposit_submitted_at?: string | null;
     performer?: {
         id: number;
         name: string;
@@ -127,11 +131,13 @@ export interface DoNotServeEntry {
 export interface Communication {
   id: string;
   sender: 'System' | Performer['name'] | 'Admin' | string;
+  sender_uid?: string;
   recipient: Role | number | string;
   message: string;
   created_at: string;
   read: boolean;
   booking_id?: string;
+  participant_uids?: string[];
   type?: 'booking_update' | 'booking_confirmation' | 'admin_message' | 'system_alert' | 'direct_message';
 }
 
