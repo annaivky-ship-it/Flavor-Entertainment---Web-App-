@@ -58,6 +58,20 @@ const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
     { value: 'rejected', label: 'Rejected' },
 ];
 
+const VALID_STATUS_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
+  pending_performer_acceptance: ['pending_vetting', 'rejected', 'cancelled'],
+  pending_vetting: ['deposit_pending', 'rejected', 'cancelled'],
+  deposit_pending: ['pending_deposit_confirmation', 'rejected', 'cancelled'],
+  pending_deposit_confirmation: ['confirmed', 'deposit_pending', 'rejected', 'cancelled'],
+  confirmed: ['en_route', 'cancelled'],
+  en_route: ['arrived', 'cancelled'],
+  arrived: ['in_progress', 'cancelled'],
+  in_progress: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+  rejected: [],
+};
+
 type AdminTab = 'management' | 'payments' | 'performers' | 'dns' | 'users' | 'reporting';
 
 // Admin Dashboard Component for managing bookings, performers, and reporting
@@ -134,6 +148,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
 
   const [managementPage, setManagementPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 20;
 
   React.useEffect(() => {
@@ -1126,23 +1141,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         <div className="space-y-4">
           {filteredBookings.length > 0 ? paginatedBookings.map(booking => {
             const isLoading = loadingState?.id === booking.id;
+            const isExpanded = expandedBookingId === booking.id;
+            const validNextStatuses = VALID_STATUS_TRANSITIONS[booking.status] || [];
             return (
-            <div key={booking.id} className={`p-4 rounded-lg border ${statusClasses[booking.status]}`}>
+            <div key={booking.id} className={`rounded-lg border overflow-hidden ${statusClasses[booking.status]}`}>
+              {/* Clickable summary row */}
+              <div
+                className="p-4 cursor-pointer select-none"
+                onClick={() => setExpandedBookingId(isExpanded ? null : booking.id)}
+              >
               <div className="flex flex-col md:flex-row justify-between md:items-start">
                 <div className="flex-grow">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
                       <p className="font-bold text-lg text-white">{booking.event_type}</p>
                       <span className="hidden sm:inline text-zinc-500">&bull;</span>
                       <p className="text-zinc-200">{booking.client_name}</p>
+                      <ChevronDown size={16} className={`ml-auto text-zinc-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                   </div>
-                  
+
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-300 mb-2">
                       <div className="flex items-center gap-1.5">
-                        <Calendar size={14} className="text-orange-400"/> 
+                        <Calendar size={14} className="text-orange-400"/>
                         <span>{new Date(booking.event_date).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Clock size={14} className="text-orange-400"/> 
+                        <Clock size={14} className="text-orange-400"/>
                         <span>{booking.event_time}</span>
                       </div>
                   </div>
@@ -1154,9 +1177,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                         <span className="flex items-center gap-1.5"><Clock size={14}/> ETA: <span className="font-semibold text-white">{booking.performer_eta_minutes} mins</span></span>
                     )}
                   </div>
-                  {booking.client_message && (
-                    <p className="text-sm text-zinc-300 mt-1 italic">Note: "{booking.client_message}"</p>
-                  )}
                   <p className={`font-semibold capitalize text-sm mt-1`}>{booking.status.replace(/_/g, ' ')}</p>
                 </div>
                 <div className="text-sm text-zinc-400 mt-4 md:mt-0 md:text-right flex-shrink-0">
@@ -1165,7 +1185,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     <p>{booking.client_phone}</p>
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-gray-600/50 flex flex-wrap gap-4 items-center justify-between">
+              </div>
+              {/* Action bar — stop click propagation so row toggle isn't triggered */}
+              <div
+                className="px-4 pb-4 pt-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+              <div className="pt-4 border-t border-gray-600/50 flex flex-wrap gap-4 items-center justify-between">
                 <div className="flex flex-wrap gap-2 items-center">
                     {booking.status === 'pending_vetting' && (
                         <button onClick={() => handleAction('approve-vetting', booking.id, () => onUpdateBookingStatus(booking.id, 'deposit_pending'))} disabled={isLoading} className="text-xs bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-32">
@@ -1202,9 +1228,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                      </button>
                 </div>
                  <div className="flex flex-wrap gap-2 items-center">
+                       {/* Status transition dropdown — only shown when valid transitions exist */}
+                       {validNextStatuses.length > 0 && (
+                         <div className="relative">
+                           <RefreshCcw className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400 pointer-events-none" />
+                           <select
+                             value=""
+                             onChange={(e) => {
+                               const next = e.target.value as BookingStatus;
+                               if (next && window.confirm(`Move booking to "${next.replace(/_/g, ' ')}"?`)) {
+                                 handleAction('status-transition', booking.id, () => onUpdateBookingStatus(booking.id, next));
+                               }
+                             }}
+                             className="input-base !py-1.5 !pl-9 !pr-8 !text-xs !w-auto appearance-none bg-zinc-700 hover:bg-zinc-600"
+                             title="Move to next status"
+                             disabled={isLoading}
+                           >
+                             <option value="" disabled>Move to...</option>
+                             {bookingStatusOptions
+                               .filter(opt => validNextStatuses.includes(opt.value))
+                               .map(opt => (
+                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
+                               ))
+                             }
+                           </select>
+                           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                         </div>
+                       )}
                        <div className="relative group">
                           <RefreshCcw className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                          <select 
+                          <select
                             value={booking.performer_id}
                             onChange={(e) => onAdminChangePerformer(booking.id, Number(e.target.value))}
                             className="input-base !py-1.5 !pl-9 !pr-8 !text-xs !w-auto appearance-none bg-zinc-700 hover:bg-zinc-600"
@@ -1224,6 +1277,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     )}
                  </div>
               </div>
+              </div>
+              {/* Expandable booking detail panel */}
+              {isExpanded && (
+                <div className="bg-zinc-950/50 p-4 border-t border-zinc-800 animate-fade-in">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div><p className="text-zinc-500 text-xs">Client Email</p><p className="text-zinc-200 break-all">{booking.client_email}</p></div>
+                    <div><p className="text-zinc-500 text-xs">Phone</p><p className="text-zinc-200">{booking.client_phone || '—'}</p></div>
+                    <div><p className="text-zinc-500 text-xs">Address</p><p className="text-zinc-200">{booking.event_address || '—'}</p></div>
+                    <div><p className="text-zinc-500 text-xs">Duration</p><p className="text-zinc-200">{booking.duration_hours}h</p></div>
+                  </div>
+                  {booking.deposit_receipt_path && (
+                    <div className="mt-3 p-2 bg-green-900/20 border border-green-500/30 rounded text-sm">
+                      <span className="text-green-400 font-semibold">Receipt Path:</span>{' '}
+                      <span className="text-zinc-200 font-mono break-all">{booking.deposit_receipt_path}</span>
+                    </div>
+                  )}
+                  {booking.client_message && (
+                    <div className="mt-3">
+                      <p className="text-zinc-500 text-xs">Client Notes</p>
+                      <p className="text-zinc-300 text-sm">{booking.client_message}</p>
+                    </div>
+                  )}
+                  {booking.services_requested && booking.services_requested.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-zinc-500 text-xs mb-1">Services Requested</p>
+                      <div className="flex flex-wrap gap-1">
+                        {booking.services_requested.map(sid => {
+                          const svc = allServices.find(s => s.id === sid);
+                          return svc ? (
+                            <span key={sid} className="text-xs bg-zinc-800 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{svc.name}</span>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {validNextStatuses.length === 0 && (
+                    <div className="mt-3 text-xs text-zinc-500 italic">This booking is in a terminal state — no further status transitions are available.</div>
+                  )}
+                </div>
+              )}
             </div>
           )}) : <p className="text-zinc-400 text-center py-4">No bookings match the current filter.</p>}
         </div>

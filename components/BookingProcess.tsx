@@ -77,9 +77,10 @@ interface StatusScreenProps {
   onButtonClick: () => void;
   secondaryButtonText?: string;
   onSecondaryClick?: () => void;
+  bookingRef?: string;
 }
 
-const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children, bgColor, buttonText, onButtonClick, secondaryButtonText, onSecondaryClick }) => (
+const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children, bgColor, buttonText, onButtonClick, secondaryButtonText, onSecondaryClick, bookingRef }) => (
   <div className={`flex flex-col items-center justify-center min-h-[60vh] text-center p-4 animate-fade-in ${bgColor}`}>
     <div className="bg-black/40 backdrop-blur-md p-8 sm:p-12 rounded-2xl border border-white/10 shadow-2xl max-w-2xl w-full">
         <Icon className={`mx-auto h-20 w-20 mb-6 ${Icon === LoaderCircle ? 'animate-spin text-orange-500' : 'text-orange-400'}`} />
@@ -87,6 +88,12 @@ const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children
         <div className="text-zinc-300 mt-2 mb-8 max-w-lg mx-auto leading-relaxed">
           {children}
         </div>
+        {bookingRef && (
+          <div className="mt-4 mb-8 bg-zinc-900/50 px-6 py-3 rounded-xl border border-zinc-800 inline-block">
+            <p className="text-xs text-zinc-500 uppercase tracking-wider">Booking Reference</p>
+            <p className="text-xl font-mono font-bold text-orange-400 mt-1">{bookingRef}</p>
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button onClick={onButtonClick} className="btn-primary px-8 py-3 text-lg">
                 {buttonText}
@@ -109,18 +116,22 @@ const wizardSteps = [
     { id: 4, name: 'Identity & Safety', icon: ShieldCheck },
 ];
 
-const ProgressIndicator: React.FC<{ currentStep: number }> = ({ currentStep }) => (
+const ProgressIndicator: React.FC<{ currentStep: number; onStepClick?: (step: number) => void }> = ({ currentStep, onStepClick }) => (
     <nav aria-label="Progress" className="mb-10">
         <ol role="list" className="flex items-center justify-between max-w-2xl mx-auto">
             {wizardSteps.map((step, index) => {
                 const isCompleted = currentStep > step.id;
                 const isCurrent = currentStep === step.id;
+                const isClickable = step.id <= currentStep;
                 const Icon = step.icon;
 
                 return (
                     <li key={step.name} className="flex items-center flex-1 last:flex-none">
                         <div className="flex flex-col items-center gap-2">
-                            <div className={`relative flex items-center justify-center w-11 h-11 rounded-full border-2 transition-all duration-300 ${isCompleted ? 'bg-orange-500 border-orange-500' : isCurrent ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-700 bg-zinc-900'}`}>
+                            <div
+                                onClick={() => isClickable && onStepClick?.(step.id)}
+                                className={`relative flex items-center justify-center w-11 h-11 rounded-full border-2 transition-all duration-300 ${isCompleted ? 'bg-orange-500 border-orange-500' : isCurrent ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-700 bg-zinc-900'} ${isClickable ? 'cursor-pointer hover:scale-110' : ''}`}
+                            >
                                 {isCompleted ? (
                                     <CheckCircle className="h-5 w-5 text-white" />
                                 ) : (
@@ -329,7 +340,11 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }
 
         setFieldErrors(errors);
-        return Object.keys(errors).length === 0;
+        if (Object.keys(errors).length > 0) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return false;
+        }
+        return true;
     };
 
     const handleNext = () => {
@@ -430,17 +445,26 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
        }
     };
 
+    if (isSubmitting) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in">
+                <LoaderCircle className="h-20 w-20 animate-spin text-orange-500 mb-6" />
+                <h2 className="text-3xl font-bold text-white mb-2">Submitting Your Booking</h2>
+                <p className="text-zinc-400">Please wait while we process your request...</p>
+            </div>
+        );
+    }
+
     if (stage === 'performer_acceptance_pending') {
-        return <StatusScreen icon={LoaderCircle} title="Request Sent" bgColor="bg-purple-900/10" buttonText="Back to Dashboard" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack}>Awaiting performer confirmation.</StatusScreen>;
+        return <StatusScreen icon={LoaderCircle} title="Request Sent" bgColor="bg-purple-900/10" buttonText="Back to Dashboard" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack} bookingRef={bookingRef}>Awaiting performer confirmation.</StatusScreen>;
     }
     if (stage === 'vetting_pending') {
-        return <StatusScreen icon={Shield} title="Identity Vetting" bgColor="bg-yellow-900/10" buttonText="Back to Dashboard" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack}>Admin is reviewing your verification documents.</StatusScreen>;
+        return <StatusScreen icon={Shield} title="Identity Vetting" bgColor="bg-yellow-900/10" buttonText="Back to Dashboard" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack} bookingRef={bookingRef}>Admin is reviewing your verification documents.</StatusScreen>;
     }
     if (stage === 'deposit_pending') {
         return (
-            <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)}>
+            <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)} bookingRef={bookingRef}>
                 Booking approved! Pay <strong>${(depositAmount || 0).toFixed(2)}</strong> to secure your date.
-                {bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}
                 {isPayIdModalOpen && (
                     <PayIDSimulationModal
                         amount={depositAmount}
@@ -458,10 +482,10 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         );
     }
     if (stage === 'deposit_confirmation_pending') {
-        return <StatusScreen icon={LoaderCircle} title="Verifying Payment" bgColor="bg-blue-900/10" buttonText="Dashboard" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack}>Payment received. Admin is confirming.{bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}</StatusScreen>;
+        return <StatusScreen icon={LoaderCircle} title="Verifying Payment" bgColor="bg-blue-900/10" buttonText="Dashboard" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack} bookingRef={bookingRef}>Payment received. Admin is confirming.</StatusScreen>;
     }
     if (stage === 'confirmed') {
-        return <StatusScreen icon={CheckCircle} title="Confirmed!" bgColor="bg-green-900/10" buttonText="View Bookings" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack}>Booking is locked in!{bookingRef && <span className="block mt-2 text-sm text-zinc-400">Reference: <strong className="font-mono text-orange-400">{bookingRef}</strong></span>}</StatusScreen>;
+        return <StatusScreen icon={CheckCircle} title="Confirmed!" bgColor="bg-green-900/10" buttonText="View Bookings" onButtonClick={onBookingSubmitted} secondaryButtonText="Book Another Entertainer" onSecondaryClick={onBack} bookingRef={bookingRef}>Booking is locked in!</StatusScreen>;
     }
     if (stage === 'rejected') {
         return <StatusScreen icon={ShieldX} title="Application Declined" bgColor="bg-red-900/10" buttonText="Back to Gallery" onButtonClick={onBack}>Request could not be fulfilled.</StatusScreen>;
@@ -479,7 +503,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 </div>
             </div>
 
-            <ProgressIndicator currentStep={currentStep} />
+            <ProgressIndicator currentStep={currentStep} onStepClick={(step) => { setCurrentStep(step); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
 
             <div className="flex items-start gap-3 p-4 bg-blue-950/30 border border-blue-500/30 rounded-xl mb-6">
               <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />

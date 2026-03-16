@@ -90,6 +90,12 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
   const [isLoading, setIsLoading] = useState<'accept' | 'decline' | 'update_eta' | 'update_status' | null>(null);
 
   const handleDecision = async (decision: 'accepted' | 'declined') => {
+    if (decision === 'declined') {
+      const confirmed = window.confirm(
+        `Are you sure you want to decline this booking from ${booking.client_name}?`
+      );
+      if (!confirmed) return;
+    }
     setIsLoading(decision === 'accepted' ? 'accept' : 'decline');
     try {
       const rawEta = Number(etaValue);
@@ -117,6 +123,24 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
 
   const handleStatusUpdate = async (status: BookingStatus) => {
     if (!onUpdateStatus) return;
+
+    if (status === 'en_route') {
+      const confirmed = window.confirm(
+        `Are you sure you want to mark yourself as en route to ${booking.event_type} for ${booking.client_name}?`
+      );
+      if (!confirmed) return;
+    } else if (status === 'in_progress') {
+      const confirmed = window.confirm(
+        `Start the performance for ${booking.event_type}? Confirm you have arrived and are ready to begin.`
+      );
+      if (!confirmed) return;
+    } else if (status === 'completed') {
+      const confirmed = window.confirm(
+        `Mark this booking as completed? This cannot be undone.`
+      );
+      if (!confirmed) return;
+    }
+
     setIsLoading('update_status');
     try {
       await onUpdateStatus(booking.id, status);
@@ -145,6 +169,9 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
          <div className="mt-3 pt-3 border-t border-zinc-700 flex flex-wrap items-center gap-x-4 gap-y-1 text-zinc-400 text-sm">
            <span className="flex items-center gap-2"><User className="h-4 w-4 text-orange-400" /> Client: {booking.client_name}</span>
            <span className="flex items-center gap-2"><Users className="h-4 w-4 text-orange-400" /> Guests: {booking.number_of_guests}</span>
+           {booking.event_address && (
+             <span className="flex items-center gap-2"><MapPin className="h-4 w-4 text-orange-400" /> {booking.event_address}</span>
+           )}
            {booking.performer_eta_minutes && (
              <span className="flex items-center gap-2 text-orange-400 font-medium"><Timer className="h-4 w-4" /> ETA: {booking.performer_eta_minutes} mins</span>
            )}
@@ -295,8 +322,15 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
       }
   };
 
+  const activeStatuses: BookingStatus[] = ['en_route', 'arrived', 'in_progress'];
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
-  const pendingBookings = bookings.filter(b => b.status !== 'confirmed' && b.status !== 'rejected');
+  const activeBookings = bookings.filter(b => activeStatuses.includes(b.status));
+  const pendingBookings = bookings.filter(b =>
+    b.status !== 'confirmed' &&
+    b.status !== 'rejected' &&
+    !activeStatuses.includes(b.status) &&
+    !['completed', 'cancelled'].includes(b.status)
+  );
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
@@ -401,32 +435,35 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
              </h2>
              
              <div className="space-y-8">
+                {/* Active Bookings — en_route, arrived, in_progress */}
                 <div>
-                  <h3 className="text-lg font-semibold text-orange-400 mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
-                    <span>Pending Actions</span>
-                    <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-xs">{pendingBookings.length}</span>
+                  <h3 className="text-lg font-semibold text-indigo-400 mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
+                    <span className="flex items-center gap-2"><Radio size={16} /> Active Now</span>
+                    <span className="bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded text-xs">{activeBookings.length}</span>
                   </h3>
-                  {pendingBookings.length > 0 ? (
+                  {activeBookings.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {pendingBookings.map(booking => (
-                            <BookingCard 
-                              key={booking.id} 
-                              booking={booking} 
-                              onDecision={onBookingDecision} 
-                              etaValue={etas[booking.id] !== undefined ? etas[booking.id] : (booking.performer_eta_minutes?.toString() || '')} 
-                              onEtaChange={handleEtaChange} 
-                              onOpenChat={handleOpenChat} 
+                          {activeBookings.map(booking => (
+                            <BookingCard
+                              key={booking.id}
+                              booking={booking}
+                              onDecision={onBookingDecision}
+                              etaValue={etas[booking.id] !== undefined ? etas[booking.id] : (booking.performer_eta_minutes?.toString() || '')}
+                              onEtaChange={handleEtaChange}
+                              onOpenChat={handleOpenChat}
                               onUpdateEta={onUpdateEta}
                               onUpdateStatus={onUpdateBookingStatus}
                             />
                           ))}
                       </div>
                   ) : (
-                      <div className="bg-zinc-950/30 border border-dashed border-zinc-800 rounded-lg py-8 text-center">
-                        <p className="text-zinc-500 text-sm">No pending booking requests at this time.</p>
+                      <div className="bg-indigo-950/20 border border-dashed border-indigo-900/50 rounded-lg py-6 text-center">
+                        <p className="text-indigo-600 text-sm">No bookings currently in progress.</p>
                       </div>
                   )}
                 </div>
+
+                {/* Confirmed Bookings */}
                 <div>
                   <h3 className="text-lg font-semibold text-green-400 mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
                     <span>Confirmed Bookings</span>
@@ -435,13 +472,13 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                   {confirmedBookings.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          {confirmedBookings.map(booking => (
-                           <BookingCard 
-                            key={booking.id} 
-                            booking={booking} 
-                            onDecision={onBookingDecision} 
-                            etaValue={''} 
-                            onEtaChange={() => {}} 
-                            onOpenChat={handleOpenChat} 
+                           <BookingCard
+                            key={booking.id}
+                            booking={booking}
+                            onDecision={onBookingDecision}
+                            etaValue={etas[booking.id] !== undefined ? etas[booking.id] : (booking.performer_eta_minutes?.toString() || '')}
+                            onEtaChange={handleEtaChange}
+                            onOpenChat={handleOpenChat}
                             onUpdateEta={onUpdateEta}
                             onUpdateStatus={onUpdateBookingStatus}
                            />
@@ -450,6 +487,34 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                   ) : (
                       <div className="bg-zinc-950/30 border border-dashed border-zinc-800 rounded-lg py-8 text-center">
                         <p className="text-zinc-500 text-sm">You have no confirmed upcoming bookings.</p>
+                      </div>
+                  )}
+                </div>
+
+                {/* Pending Actions */}
+                <div>
+                  <h3 className="text-lg font-semibold text-orange-400 mb-4 border-b border-zinc-800 pb-2 flex justify-between items-center">
+                    <span>Pending Actions</span>
+                    <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-xs">{pendingBookings.length}</span>
+                  </h3>
+                  {pendingBookings.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {pendingBookings.map(booking => (
+                            <BookingCard
+                              key={booking.id}
+                              booking={booking}
+                              onDecision={onBookingDecision}
+                              etaValue={etas[booking.id] !== undefined ? etas[booking.id] : (booking.performer_eta_minutes?.toString() || '')}
+                              onEtaChange={handleEtaChange}
+                              onOpenChat={handleOpenChat}
+                              onUpdateEta={onUpdateEta}
+                              onUpdateStatus={onUpdateBookingStatus}
+                            />
+                          ))}
+                      </div>
+                  ) : (
+                      <div className="bg-zinc-950/30 border border-dashed border-zinc-800 rounded-lg py-8 text-center">
+                        <p className="text-zinc-500 text-sm">No pending booking requests at this time.</p>
                       </div>
                   )}
                 </div>
@@ -553,7 +618,12 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
         {isEditingProfile ? (
           <div className="space-y-6 animate-fade-in">
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Tagline</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-zinc-400">Tagline</label>
+                <span className={`text-xs tabular-nums ${editTagline.length >= 80 ? 'text-red-400' : editTagline.length >= 60 ? 'text-yellow-400' : 'text-zinc-500'}`}>
+                  {editTagline.length}/80 characters
+                </span>
+              </div>
               <input
                 type="text"
                 value={editTagline}
@@ -565,12 +635,18 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Bio</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-zinc-400">Bio</label>
+                <span className={`text-xs tabular-nums ${editBio.length >= 500 ? 'text-red-400' : editBio.length >= 400 ? 'text-yellow-400' : 'text-zinc-500'}`}>
+                  {editBio.length}/500 characters
+                </span>
+              </div>
               <textarea
                 value={editBio}
                 onChange={(e) => setEditBio(e.target.value)}
                 className="input-base h-28 resize-none"
                 placeholder="Tell clients about yourself..."
+                maxLength={500}
               />
             </div>
 
