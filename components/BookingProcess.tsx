@@ -3,7 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebaseClient';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { DEPOSIT_PERCENTAGE } from '../constants';
+import { DEPOSIT_PERCENTAGE, ASAP_DEFAULT_DURATION_HOURS, ASAP_MAX_ETA_MINUTES, ASAP_SURCHARGE_MULTIPLIER } from '../constants';
 import { getBookingDurationInfo, calculateBookingCost } from '../utils/bookingUtils';
 import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
@@ -11,7 +11,7 @@ import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
 import { api } from '../services/api';
 import DiditVerification from './DiditVerification';
-import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Zap } from 'lucide-react';
 
 export interface BookingFormState {
   fullName: string;
@@ -29,6 +29,7 @@ export interface BookingFormState {
   didit_verification_id: string | null;
   client_message: string;
   _hp: string;  // honeypot - must remain empty
+  isASAP: boolean;
 }
 
 interface BookingProcessProps {
@@ -43,6 +44,7 @@ interface BookingProcessProps {
   onShowPrivacyPolicy: () => void;
   onShowTermsOfService: () => void;
   initialSelectedServices?: string[];
+  isASAP?: boolean;
 }
 
 type BookingStage = 'form' | 'performer_acceptance_pending' | 'vetting_pending' | 'deposit_pending' | 'deposit_confirmation_pending' | 'confirmed' | 'rejected';
@@ -109,21 +111,24 @@ const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children
 );
 
 
-const wizardSteps = [
+const allWizardSteps = [
     { id: 1, name: 'Client Details', icon: User },
     { id: 2, name: 'Event Details', icon: Calendar },
     { id: 3, name: 'Services', icon: ListChecks },
     { id: 4, name: 'Identity & Safety', icon: ShieldCheck },
 ];
 
-const ProgressIndicator: React.FC<{ currentStep: number; onStepClick?: (step: number) => void }> = ({ currentStep, onStepClick }) => (
+type WizardStep = typeof allWizardSteps[number];
+
+const ProgressIndicator: React.FC<{ currentStep: number; steps: WizardStep[]; onStepClick?: (step: number) => void }> = ({ currentStep, steps, onStepClick }) => (
     <nav aria-label="Progress" className="mb-10">
         <ol role="list" className="flex items-center justify-between max-w-2xl mx-auto">
-            {wizardSteps.map((step, index) => {
+            {steps.map((step, index) => {
                 const isCompleted = currentStep > step.id;
                 const isCurrent = currentStep === step.id;
                 const isClickable = step.id <= currentStep;
                 const Icon = step.icon;
+                const displayNumber = index + 1;
 
                 return (
                     <li key={step.name} className="flex items-center flex-1 last:flex-none">
@@ -140,12 +145,12 @@ const ProgressIndicator: React.FC<{ currentStep: number; onStepClick?: (step: nu
                             </div>
                             <div className="text-center">
                                 <span className={`text-[10px] font-semibold uppercase tracking-wider block ${isCurrent ? 'text-orange-400' : isCompleted ? 'text-orange-400/70' : 'text-zinc-600'}`}>
-                                    Step {step.id}
+                                    Step {displayNumber}
                                 </span>
                                 <span className={`text-xs font-medium hidden sm:block ${isCurrent ? 'text-white' : isCompleted ? 'text-zinc-400' : 'text-zinc-500'}`}>{step.name}</span>
                             </div>
                         </div>
-                        {index < wizardSteps.length - 1 && (
+                        {index < steps.length - 1 && (
                             <div className={`flex-1 h-0.5 mx-3 rounded-full transition-colors duration-300 mb-6 ${isCompleted ? 'bg-orange-500' : 'bg-zinc-800'}`} />
                         )}
                     </li>
@@ -156,12 +161,12 @@ const ProgressIndicator: React.FC<{ currentStep: number; onStepClick?: (step: nu
 );
 
 
-const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onBookingSubmitted, bookings, onUpdateBookingStatus, onBookingRequest, doNotServeList, addCommunication, onShowPrivacyPolicy, onShowTermsOfService, initialSelectedServices = [] }) => {
+const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onBookingSubmitted, bookings, onUpdateBookingStatus, onBookingRequest, doNotServeList, addCommunication, onShowPrivacyPolicy, onShowTermsOfService, initialSelectedServices = [], isASAP = false }) => {
     const [stage, setStage] = useState<BookingStage>('form');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const [form, setForm] = useState<BookingFormState>({
-        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', serviceDurations: {}, numberOfGuests: '', selectedServices: initialSelectedServices, didit_verification_id: null, client_message: '', _hp: ''
+        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', serviceDurations: {}, numberOfGuests: '', selectedServices: initialSelectedServices, didit_verification_id: null, client_message: '', _hp: '', isASAP: false
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
     const [bookingRef, setBookingRef] = useState<string>('');
@@ -225,6 +230,34 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         return () => unsubscribe();
     }, [bookingIds, stage]);
 
+    // Auto-fill date/time and set ASAP flag when launched in ASAP mode
+    useEffect(() => {
+        if (isASAP) {
+            const now = new Date();
+            const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            setForm(prev => ({
+                ...prev,
+                isASAP: true,
+                eventDate: todayDate,
+                eventTime: currentTime,
+                duration: String(ASAP_DEFAULT_DURATION_HOURS),
+            }));
+        }
+    }, [isASAP]);
+
+    // Wizard steps — ASAP mode skips the Event Details step (it's auto-filled)
+    const wizardSteps = useMemo(() => {
+        if (isASAP) {
+            return [
+                { id: 1, name: 'Client Details', icon: User },
+                { id: 3, name: 'Services', icon: ListChecks },
+                { id: 4, name: 'Identity & Safety', icon: ShieldCheck },
+            ];
+        }
+        return allWizardSteps;
+    }, [isASAP]);
+
     const todayStr = useMemo(() => {
         const d = new Date();
         const year = d.getFullYear();
@@ -284,8 +317,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     }, [availableServices]);
 
     const { totalCost, depositAmount } = useMemo(() => {
-        return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length, form.serviceDurations);
-    }, [form.selectedServices, form.duration, form.serviceDurations, performers.length]);
+        return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length, form.serviceDurations, form.isASAP);
+    }, [form.selectedServices, form.duration, form.serviceDurations, performers.length, form.isASAP]);
 
     const { formattedTotalDuration } = useMemo(() => getBookingDurationInfo(Number(form.duration), form.selectedServices, form.serviceDurations), [form.duration, form.selectedServices, form.serviceDurations]);
 
@@ -315,6 +348,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 }
                 break;
             case 2:
+                if (form.isASAP) break; // Auto-filled for ASAP bookings
                 if (!form.eventDate) errors.eventDate = "Date required.";
                 else {
                     const eventDate = new Date(form.eventDate);
@@ -349,8 +383,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
     const handleNext = () => {
         if (validateStep(currentStep)) {
-            if (currentStep < 4) {
-                setCurrentStep(currentStep + 1);
+            let nextStep = currentStep + 1;
+            // Skip Event Details step in ASAP mode (auto-filled)
+            if (isASAP && nextStep === 2) {
+                nextStep = 3;
+            }
+            if (nextStep <= 4) {
+                setCurrentStep(nextStep);
                 window.scrollTo(0, 0);
             } else {
                 setIsConfirmDialogOpen(true);
@@ -368,8 +407,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     };
 
     const handleBack = () => {
-        if (currentStep > 1) {
-            setCurrentStep(currentStep - 1);
+        let prevStep = currentStep - 1;
+        // Skip Event Details step in ASAP mode
+        if (isASAP && prevStep === 2) {
+            prevStep = 1;
+        }
+        if (prevStep >= 1) {
+            setCurrentStep(prevStep);
             window.scrollTo(0, 0);
         } else {
             onBack();
@@ -503,7 +547,19 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 </div>
             </div>
 
-            <ProgressIndicator currentStep={currentStep} onStepClick={(step) => { setCurrentStep(step); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+            {isASAP && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/40 rounded-xl flex items-center gap-4 animate-fade-in">
+                    <div className="bg-orange-500 text-white p-3 rounded-xl flex-shrink-0">
+                        <Zap className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-white">ASAP Booking</h3>
+                        <p className="text-sm text-orange-200/80">Performer arrives within {ASAP_MAX_ETA_MINUTES} minutes. {Math.round((ASAP_SURCHARGE_MULTIPLIER - 1) * 100)}% express surcharge applies.</p>
+                    </div>
+                </div>
+            )}
+
+            <ProgressIndicator currentStep={currentStep} steps={wizardSteps} onStepClick={(step) => { setCurrentStep(step); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
 
             <div className="flex items-start gap-3 p-4 bg-blue-950/30 border border-blue-500/30 rounded-xl mb-6">
               <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
@@ -691,8 +747,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
                             <div className="flex items-center gap-2">
-                                {[1,2,3,4].map(s => (
-                                    <div key={s} className={`h-1.5 rounded-full transition-all duration-300 ${s === currentStep ? 'w-8 bg-orange-500' : s < currentStep ? 'w-4 bg-orange-500/50' : 'w-4 bg-zinc-700'}`} />
+                                {wizardSteps.map((step, idx) => (
+                                    <div key={step.id} className={`h-1.5 rounded-full transition-all duration-300 ${step.id === currentStep ? 'w-8 bg-orange-500' : step.id < currentStep ? 'w-4 bg-orange-500/50' : 'w-4 bg-zinc-700'}`} />
                                 ))}
                             </div>
                             <div className="flex gap-3 w-full sm:w-auto">

@@ -1,7 +1,7 @@
 import { allServices } from '../data/mockData';
-import { DEPOSIT_PERCENTAGE } from '../constants';
+import { DEPOSIT_PERCENTAGE, ASAP_SURCHARGE_MULTIPLIER } from '../constants';
 
-export const calculateBookingCost = (durationHours: number, serviceIds: string[], numPerformers: number, serviceDurations?: Record<string, number>) => {
+export const calculateBookingCost = (durationHours: number, serviceIds: string[], numPerformers: number, serviceDurations?: Record<string, number>, isASAP?: boolean) => {
     if (!serviceIds || serviceIds.length === 0 || numPerformers === 0) return { totalCost: 0, depositAmount: 0 };
 
     const durationNum = durationHours || 0;
@@ -23,7 +23,8 @@ export const calculateBookingCost = (durationHours: number, serviceIds: string[]
         }
     });
 
-    const totalCost = (hourlyCost * numPerformers) + flatCost;
+    const subtotal = (hourlyCost * numPerformers) + flatCost;
+    const totalCost = isASAP ? subtotal * ASAP_SURCHARGE_MULTIPLIER : subtotal;
     const depositAmount = totalCost * DEPOSIT_PERCENTAGE;
     return { totalCost, depositAmount };
 };

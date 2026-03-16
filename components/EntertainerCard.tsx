@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Eye, PlusCircle, CheckCircle, MapPin, Star, Clock } from 'lucide-react';
+import { Eye, PlusCircle, CheckCircle, MapPin, Star, Clock, Zap } from 'lucide-react';
 import type { Performer, PerformerStatus } from '../types';
 
 interface PerformerCardProps {
@@ -8,6 +8,7 @@ interface PerformerCardProps {
   onViewProfile: (performer: Performer) => void;
   onToggleSelection: (performer: Performer) => void;
   isSelected: boolean;
+  onASAPBook?: () => void;
 }
 
 const statusClasses: Record<PerformerStatus, string> = {
@@ -18,7 +19,7 @@ const statusClasses: Record<PerformerStatus, string> = {
   rejected: 'bg-red-500/80 border-red-400 text-red-50',
 };
 
-const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile, onToggleSelection, isSelected }) => {
+const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile, onToggleSelection, isSelected, onASAPBook }) => {
   const cardStyle = {
     '--glow-color': isSelected ? 'rgba(249, 115, 22, 0.5)' : 'rgba(249, 115, 22, 0.3)',
     '--glow-opacity-hover': isSelected ? '1' : '1',
@@ -102,6 +103,15 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
               {isSelected ? <CheckCircle className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
               {isSelected ? 'Selected' : 'Select'}
             </button>
+            {onASAPBook && (
+              <button
+                onClick={onASAPBook}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
+              >
+                <Zap className="h-5 w-5" />
+                Book ASAP
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -125,7 +135,7 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
           </div>
         </div>
 
-        <div className="mt-auto grid grid-cols-2 gap-2">
+        <div className={`mt-auto grid gap-2 ${onASAPBook ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <button
             onClick={() => onViewProfile(performer)}
             className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
@@ -140,6 +150,15 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
             {isSelected ? <CheckCircle className="h-3.5 w-3.5" /> : <PlusCircle className="h-3.5 w-3.5" />}
             {isSelected ? 'Selected' : 'Select'}
           </button>
+          {onASAPBook && (
+            <button
+              onClick={onASAPBook}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              ASAP
+            </button>
+          )}
         </div>
       </div>
     </div>

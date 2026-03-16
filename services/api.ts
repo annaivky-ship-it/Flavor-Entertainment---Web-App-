@@ -285,6 +285,8 @@ export const api = {
             formState: {
               ...formState,
               phone: formState.mobile, // Cloud Function expects 'phone'
+              is_asap: formState.isASAP || false,
+              performer_eta_minutes: formState.isASAP ? 60 : null,
             },
             performerIds: performers.map(p => p.id)
           }) as { data: { success: boolean; bookingIds: string[] } };
@@ -316,6 +318,8 @@ export const api = {
         services_requested: formState.selectedServices,
         client_message: formState.client_message || null,
         didit_verification_id: formState.didit_verification_id || null,
+        is_asap: formState.isASAP || false,
+        performer_eta_minutes: formState.isASAP ? 60 : null,
         status: 'pending_performer_acceptance' as const,
         payment_status: 'unpaid' as const,
         deposit_receipt_path: null,
@@ -353,6 +357,8 @@ export const api = {
         services_requested: formState.selectedServices,
         client_message: formState.client_message || null,
         didit_verification_id: formState.didit_verification_id || null,
+        is_asap: formState.isASAP || false,
+        performer_eta_minutes: formState.isASAP ? 60 : null,
         status: 'pending_performer_acceptance' as const,
         payment_status: 'unpaid' as const,
         deposit_receipt_path: null,
