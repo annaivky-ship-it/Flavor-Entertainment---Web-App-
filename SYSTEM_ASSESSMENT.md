@@ -28,6 +28,21 @@
 
 ### CRITICAL
 
+#### 2.0 Client-Side Role Elevation — Any User Can Become Admin
+- **File:** `App.tsx:294-310`
+- **Issue:** `handleRoleChange()` allows switching to admin/performer roles purely in client-side state with no server verification:
+  ```typescript
+  } else if (role === 'admin') {
+    setAuthedUser({ name: 'Admin', role: 'admin' });  // No backend check!
+    setView('admin_dashboard');
+  }
+  ```
+- **Risk:** Any user can access the admin dashboard and all admin-only UI. While Firestore rules protect backend data, any read-only admin views or client-side admin logic is fully exposed.
+- **Fix:**
+  1. Remove the `RoleSwitcher` component in production (it may be a demo/dev tool)
+  2. Always verify roles via Firebase custom claims (`user.getIdTokenResult()`) — already done in `Login.tsx` but not enforced in `handleRoleChange`
+  3. Gate dashboard components on verified token claims, not client state
+
 #### 2.1 Firebase API Key Committed to Version Control
 - **File:** `.env.production:3`
 - **Issue:** `VITE_FIREBASE_API_KEY=AIzaSyDJXlPBCyGfFkHwYLb_fw-lyJ1CJRpQLz8` is committed and excluded from `.gitignore`
@@ -110,6 +125,31 @@
 - **File:** `functions/src/dns/index.ts`
 - **Issue:** If `getDnsHashPepper()` returns empty, hashes are unsalted and trivially reversible
 - **Fix:** Fail loudly at startup if pepper is not configured or below minimum length
+
+#### 2.14 Do-Not-Serve List Sent to Frontend
+- **File:** `components/BookingProcess.tsx:451-464`
+- **Issue:** The full DNS (Do-Not-Serve) list is sent to the client for a "UX convenience" pre-check. This leaks the entire blocklist to any user.
+- **Fix:** Remove client-side DNS checking. Perform all checks server-side only.
+
+#### 2.15 PII Stored in localStorage Without Encryption
+- **File:** `components/ClientDashboard.tsx:103-150`
+- **Issue:** Client email addresses stored in `localStorage`/`sessionStorage` in plaintext — accessible via DevTools or XSS
+- **Fix:** Remove PII from client storage. Use server-side sessions or encrypted httpOnly cookies.
+
+#### 2.16 Age Gate Bypass — Client-Side Only
+- **File:** `App.tsx:40-41`, `components/AgeGate.tsx`
+- **Issue:** Age verification stored as `localStorage.getItem('ageVerified') === 'true'` — trivially bypassable
+- **Fix:** For legal compliance, implement server-side age verification. Client-side gate is cosmetic only.
+
+#### 2.17 Insecure Email "Hash" in Blacklist Check
+- **File:** `functions/src/index.ts:270`
+- **Issue:** Uses `Buffer.from(email).toString('hex')` — this is **encoding**, not hashing. Trivially reversible.
+- **Fix:** Use `crypto.createHash('sha256').update(email).digest('hex')` with a pepper
+
+#### 2.18 Rate Limit Timestamp Array — Unbounded Growth
+- **File:** `functions/src/utils/rateLimit.ts`
+- **Issue:** All timestamps stored in a single Firestore document array. Will hit the 1MB document size limit under sustained load.
+- **Fix:** Use time-bucketed documents (one per hour) or a counter-based approach
 
 ---
 
@@ -218,17 +258,22 @@
 
 | Priority | Item | Effort |
 |----------|------|--------|
+| P0 | Lock down role elevation — remove/gate RoleSwitcher in production (2.0) | 2-3 hours |
 | P0 | Fix communications data leakage (2.2, 2.3) | 2-4 hours |
 | P0 | Remove `.env.production` from git tracking (2.1) | 1 hour |
 | P0 | Scope performer booking reads (2.4) | 1-2 hours |
+| P0 | Remove DNS list from frontend (2.14) | 1 hour |
+| P1 | Fix insecure email encoding in blacklist check (2.17) | 1 hour |
 | P1 | Add IP-based rate limiting (2.5) | 2 hours |
 | P1 | Require auth or CAPTCHA for booking creation (2.6) | 2-3 hours |
 | P1 | Allowlist fields in `createDraftApplication` (2.7) | 1 hour |
 | P1 | Fix consent creation auth requirement (2.9) | 30 min |
+| P1 | Remove PII from localStorage (2.15) | 1 hour |
 | P2 | Introduce React Router (3.1) | 1-2 days |
 | P2 | Decompose App.tsx state management (3.2) | 1-2 days |
 | P2 | Add component tests (3.3) | Ongoing |
 | P2 | Split api.ts into domain modules (3.5) | 1 day |
+| P2 | Fix rate limit unbounded growth (2.18) | 2-3 hours |
 | P3 | Fix CSP unsafe-inline (2.10) | 2-3 hours |
 | P3 | Add pre-commit hooks (6.1) | 1 hour |
 | P3 | Performance optimizations (4.x) | 1-2 days |
