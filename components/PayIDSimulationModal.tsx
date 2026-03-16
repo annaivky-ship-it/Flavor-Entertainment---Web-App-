@@ -10,7 +10,7 @@ interface PayIDSimulationModalProps {
   eventDate: string;
   eventAddress: string;
   bookingRef: string;
-  onPaymentSuccess: () => void;
+  onPaymentSuccess: (receiptRef: string) => void;
   onClose: () => void;
 }
 
@@ -27,6 +27,8 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
 }) => {
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
   const [copied, setCopied] = useState<string | null>(null);
+  const [receiptRef, setReceiptRef] = useState('');
+  const [receiptError, setReceiptError] = useState('');
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -36,13 +38,22 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
   };
 
   const handlePay = () => {
+    if (!receiptRef.trim()) {
+      setReceiptError('Please enter your bank transaction reference.');
+      return;
+    }
+    if (receiptRef.trim().length < 4) {
+      setReceiptError('Transaction reference must be at least 4 characters.');
+      return;
+    }
+    setReceiptError('');
     setStatus('processing');
     setTimeout(() => {
       setStatus('success');
       setTimeout(() => {
-        onPaymentSuccess();
+        onPaymentSuccess(receiptRef.trim());
       }, 1500);
-    }, 2000);
+    }, 800);
   };
 
   const Content = () => {
@@ -156,6 +167,22 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
                       <li>Submit the transfer and click <strong>"Confirm Payment Sent"</strong> below</li>
                     </ol>
                 </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs text-zinc-400 font-semibold mb-2 uppercase tracking-wider">
+                Bank Transaction Reference
+              </label>
+              <input
+                type="text"
+                value={receiptRef}
+                onChange={(e) => { setReceiptRef(e.target.value); setReceiptError(''); }}
+                placeholder="Enter your bank receipt/transaction reference"
+                className="w-full bg-zinc-900 text-white border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 placeholder-zinc-600 text-sm"
+              />
+              {receiptError && (
+                <p className="text-red-400 text-xs mt-2">{receiptError}</p>
+              )}
             </div>
 
             <button onClick={handlePay} className="btn-primary w-full py-4 text-lg font-bold flex items-center justify-center gap-3 shadow-2xl shadow-orange-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all">

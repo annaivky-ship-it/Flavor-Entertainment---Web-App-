@@ -371,9 +371,6 @@ export const api = {
   async updateBookingStatus(bookingId: string, status: BookingStatus, updates: any = {}) {
     if (!db) return { error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { error: null };
-      }
       const docRef = doc(db, 'bookings', bookingId);
       await updateDoc(docRef, {
         status,
@@ -400,9 +397,6 @@ export const api = {
   async addCommunication(commData: Omit<Communication, 'id' | 'created_at' | 'read'>) {
     if (!db) return { data: null, error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { data: [{ ...commData, id: `msg-${Date.now()}`, created_at: new Date().toISOString(), read: false }] as Communication[], error: null };
-      }
       const docRef = await addDoc(collection(db, 'communications'), {
         ...commData,
         created_at: new Date().toISOString(),
@@ -418,9 +412,6 @@ export const api = {
   async updatePerformerStatus(performerId: number, status: PerformerStatus) {
     if (!db) return { error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { error: null };
-      }
       const docRef = doc(db, 'performers', String(performerId));
       await updateDoc(docRef, { status });
       return { error: null };
@@ -432,9 +423,6 @@ export const api = {
   async createPerformer(performerData: Omit<Performer, 'id'>) {
     if (!db) return { data: null, error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { data: { ...performerData, id: Math.floor(Math.random() * 1000) } as Performer, error: null };
-      }
       const performersSnap = await getDocs(query(collection(db, 'performers'), orderBy('id', 'desc'), limit(1)));
       const lastId = performersSnap.docs.length > 0 ? (performersSnap.docs[0].data() as Performer).id : 0;
       const newId = lastId + 1;
@@ -451,9 +439,6 @@ export const api = {
   async updatePerformer(performerId: number, updates: Partial<Performer>) {
     if (!db) return { error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { error: null };
-      }
       const docRef = doc(db, 'performers', String(performerId));
       await setDoc(docRef, updates, { merge: true });
       return { error: null };
@@ -478,9 +463,6 @@ export const api = {
   async updateDoNotServeStatus(entryId: string, status: DoNotServeStatus) {
     if (!db) return { error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { error: null };
-      }
       const docRef = doc(db, 'do_not_serve', entryId);
       await updateDoc(docRef, { status });
       return { error: null };
