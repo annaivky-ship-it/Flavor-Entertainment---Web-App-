@@ -3,7 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebaseClient';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { DEPOSIT_PERCENTAGE, ASAP_DEFAULT_DURATION_HOURS, ASAP_MAX_ETA_MINUTES, ASAP_SURCHARGE_MULTIPLIER } from '../constants';
+import { DEPOSIT_PERCENTAGE, ASAP_DEFAULT_DURATION_HOURS, ASAP_MAX_ETA_MINUTES, ASAP_SURCHARGE_MULTIPLIER, PAY_ID_NAME, PAY_ID_EMAIL } from '../constants';
 import { getBookingDurationInfo, calculateBookingCost } from '../utils/bookingUtils';
 import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
@@ -507,8 +507,27 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     }
     if (stage === 'deposit_pending') {
         return (
-            <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)} bookingRef={bookingRef}>
-                Booking approved! Pay <strong>${(depositAmount || 0).toFixed(2)}</strong> to secure your date.
+            <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Open Payment Form" onButtonClick={() => setIsPayIdModalOpen(true)} bookingRef={bookingRef}>
+                <p className="mb-4">Booking approved! Pay <strong>${(depositAmount || 0).toFixed(2)}</strong> to secure your date.</p>
+                <div className="text-left bg-zinc-900/60 rounded-xl p-5 border border-zinc-800 space-y-3 max-w-md mx-auto">
+                    <p className="text-xs text-zinc-400 uppercase tracking-wider font-bold">Transfer via PayID</p>
+                    <div className="flex items-center gap-3 bg-zinc-950/50 p-3 rounded-lg border border-orange-500/20">
+                        <div className="w-10 h-10 bg-orange-500 text-white rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Wallet className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="font-bold text-white text-sm uppercase tracking-tight truncate">{PAY_ID_NAME}</p>
+                            <p className="text-xs font-medium text-orange-400 truncate">{PAY_ID_EMAIL}</p>
+                        </div>
+                    </div>
+                    <ol className="text-xs text-zinc-300 space-y-1.5 list-decimal list-inside leading-relaxed">
+                        <li>Open your banking app → <strong className="text-white">PayID transfer</strong></li>
+                        <li>PayID email: <strong className="text-orange-400">{PAY_ID_EMAIL}</strong></li>
+                        <li>Amount: <strong className="text-white">${(depositAmount || 0).toFixed(2)}</strong></li>
+                        <li>Reference: <strong className="text-orange-400 font-mono">{bookingRef}</strong></li>
+                        <li>Click <strong className="text-white">"Open Payment Form"</strong> below to confirm</li>
+                    </ol>
+                </div>
                 {isPayIdModalOpen && (
                     <PayIDSimulationModal
                         amount={depositAmount}
