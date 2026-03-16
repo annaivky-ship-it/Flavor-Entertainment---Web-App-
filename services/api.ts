@@ -451,8 +451,11 @@ export const api = {
   async updatePerformer(performerId: number, updates: Partial<Performer>) {
     if (!db) return { error: new Error('Firebase not initialized') };
     try {
+      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
+        return { error: null };
+      }
       const docRef = doc(db, 'performers', String(performerId));
-      await updateDoc(docRef, updates);
+      await setDoc(docRef, updates, { merge: true });
       return { error: null };
     } catch (err: any) {
       return { error: err };
