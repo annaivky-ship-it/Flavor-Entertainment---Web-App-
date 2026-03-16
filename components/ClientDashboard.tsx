@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Booking, Communication } from '../types';
-import { Calendar, Clock, User, MessageCircle, MapPin, Wallet, Search, LogOut, Briefcase, LoaderCircle, AlertTriangle, CheckCircle, Archive, History, Info, Settings, Timer, Radio, X } from 'lucide-react';
+import { Calendar, Clock, User, MessageCircle, MapPin, Wallet, Search, LogOut, Briefcase, LoaderCircle, AlertTriangle, CheckCircle, Archive, History, Info, Settings, Timer, Radio, X, Building2, Copy } from 'lucide-react';
 import ChatDialog from './ChatDialog';
 import { api } from '../services/api';
+import { PAY_ID_NAME, PAY_ID_EMAIL, DEPOSIT_PERCENTAGE } from '../constants';
 import { calculateBookingCost } from '../utils/bookingUtils';
 import InputField from './InputField';
 
@@ -37,13 +38,65 @@ const CANCELLABLE_STATUSES: Booking['status'][] = ['pending_performer_acceptance
 
 const LIVE_STATUSES: Booking['status'][] = ['en_route', 'arrived', 'in_progress'];
 
-const statusNextStep: Partial<Record<Booking['status'], { text: string; isPayNow?: boolean }>> = {
+const statusNextStep: Partial<Record<Booking['status'], { text: string }>> = {
   pending_performer_acceptance: { text: "Sit tight! You'll be notified when the performer responds." },
-  pending_vetting:              { text: "Our team is reviewing your booking. This usually takes 1–2 hours." },
-  deposit_pending:              { text: "Open your banking app and transfer the deposit via PayID.", isPayNow: true },
+  pending_vetting:              { text: "Our team is reviewing your booking. This usually takes 1-2 hours." },
   pending_deposit_confirmation: { text: "Almost there! We're verifying your payment." },
   arrived:                      { text: "Your performer has arrived at the venue!" },
   in_progress:                  { text: "The show is on! Enjoy your event." },
+};
+
+const PayIDInstructions: React.FC<{ totalCost: number; depositAmount: number }> = ({ totalCost, depositAmount }) => {
+  const [copied, setCopied] = useState<string | null>(null);
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(label);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
+
+  return (
+    <div className="mb-4 rounded-xl border border-orange-500/30 bg-orange-950/20 overflow-hidden">
+      <div className="px-4 py-3 bg-orange-500/10 border-b border-orange-500/20 flex items-center gap-2">
+        <Wallet className="h-4 w-4 text-orange-400" />
+        <p className="text-sm font-bold text-orange-300">Deposit Required — Pay via PayID</p>
+      </div>
+      <div className="p-4 space-y-3">
+        {/* PayID details */}
+        <div className="flex items-center gap-3 bg-zinc-950/50 p-3 rounded-lg border border-zinc-800">
+          <div className="w-10 h-10 bg-orange-500 text-white rounded-lg flex items-center justify-center flex-shrink-0">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-white text-sm uppercase tracking-tight truncate">{PAY_ID_NAME}</p>
+            <p className="text-xs font-medium text-orange-400 truncate">{PAY_ID_EMAIL}</p>
+          </div>
+          <button onClick={() => handleCopy(PAY_ID_EMAIL, 'payid')} className="p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors flex-shrink-0" title="Copy PayID">
+            {copied === 'payid' ? <CheckCircle className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5 text-zinc-400" />}
+          </button>
+        </div>
+
+        {/* Amount */}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-zinc-400">Deposit amount ({Math.round(DEPOSIT_PERCENTAGE * 100)}%):</span>
+          <span className="text-white font-bold text-lg">${depositAmount.toFixed(2)}</span>
+        </div>
+
+        {/* Steps */}
+        <ol className="text-xs text-zinc-300 space-y-1.5 list-decimal list-inside leading-relaxed">
+          <li>Open your banking app and select <strong className="text-white">PayID transfer</strong></li>
+          <li>Enter PayID: <button onClick={() => handleCopy(PAY_ID_EMAIL, 'payid2')} className="inline-flex items-center gap-1 bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded font-mono font-bold text-[11px] hover:bg-orange-500/30 transition-colors">{PAY_ID_EMAIL} {copied === 'payid2' ? <CheckCircle size={9} /> : <Copy size={9} />}</button></li>
+          <li>Set the amount to <strong className="text-white">${depositAmount.toFixed(2)}</strong></li>
+          <li>Add your <strong className="text-white">booking ID</strong> as the payment reference/description</li>
+          <li>Submit the transfer — admin will verify and confirm your booking</li>
+        </ol>
+
+        <p className="text-[10px] text-zinc-500 italic pt-1 border-t border-zinc-800">
+          Transfers are usually verified within 1-2 hours during business hours.
+        </p>
+      </div>
+    </div>
+  );
 };
 
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings, onUpdateBookingStatus }) => {
@@ -246,7 +299,9 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                               </div>
 
                               {/* Next-step guidance */}
-                              {booking.status === 'en_route' && booking.performer_eta_minutes && booking.performer_eta_minutes > 0 ? (
+                              {booking.status === 'deposit_pending' ? (
+                                <PayIDInstructions totalCost={totalCost} depositAmount={totalCost * DEPOSIT_PERCENTAGE} />
+                              ) : booking.status === 'en_route' && booking.performer_eta_minutes && booking.performer_eta_minutes > 0 ? (
                                 <div className="mb-4 px-4 py-3 rounded-lg bg-zinc-900/30 border border-blue-500/30 flex items-center gap-3">
                                   <Timer className="h-5 w-5 text-blue-400 animate-pulse flex-shrink-0" />
                                   <p className="text-sm text-blue-300 font-semibold animate-pulse">
@@ -261,14 +316,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                               ) : statusNextStep[booking.status] ? (
                                 <div className="mb-4 px-4 py-3 rounded-lg bg-zinc-900/30 border border-zinc-700/50 flex items-start gap-3">
                                   <Info className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />
-                                  <div className="flex-1">
-                                    <p className="text-sm text-zinc-300">{statusNextStep[booking.status]!.text}</p>
-                                    {statusNextStep[booking.status]!.isPayNow && (
-                                      <p className="text-xs text-orange-400 font-semibold mt-1 flex items-center gap-1">
-                                        <Wallet size={12} /> Open your banking app to complete the PayID transfer.
-                                      </p>
-                                    )}
-                                  </div>
+                                  <p className="text-sm text-zinc-300">{statusNextStep[booking.status]!.text}</p>
                                 </div>
                               ) : null}
 
