@@ -25,15 +25,14 @@ service firebase.storage {
       allow update: if false; 
     }
     
-    // Performer photos — public read, any signed-in user can upload
-    // Admin-only access is enforced at the application layer
+    // Performer photos — public read, admin-only write
     match /performers/{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
     }
     
     match /ids/{allPaths=**} {
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
       allow read: if isAdmin();
     }
   }

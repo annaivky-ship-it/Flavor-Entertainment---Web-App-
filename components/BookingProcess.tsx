@@ -9,6 +9,7 @@ import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
+import { api } from '../services/api';
 import DiditVerification from './DiditVerification';
 import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase } from 'lucide-react';
 
@@ -27,6 +28,7 @@ export interface BookingFormState {
   selectedServices: string[];
   didit_verification_id: string | null;
   client_message: string;
+  _hp: string;  // honeypot - must remain empty
 }
 
 interface BookingProcessProps {
@@ -148,7 +150,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const [form, setForm] = useState<BookingFormState>({
-        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', serviceDurations: {}, numberOfGuests: '', selectedServices: initialSelectedServices, didit_verification_id: null, client_message: ''
+        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', serviceDurations: {}, numberOfGuests: '', selectedServices: initialSelectedServices, didit_verification_id: null, client_message: '', _hp: ''
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
     const [bookingRef, setBookingRef] = useState<string>('');
@@ -160,6 +162,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [showDiditModal, setShowDiditModal] = useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
     const [isPayIdModalOpen, setIsPayIdModalOpen] = useState(false);
+    const [lastSubmitTime, setLastSubmitTime] = useState<number>(0);
+    const formStartTime = React.useRef<number>(Date.now());
 
     useEffect(() => {
       const checkVerifiedBooker = () => {
@@ -362,6 +366,29 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         setIsSubmitting(true);
         setError(null);
 
+        // Honeypot check - bots will fill this hidden field
+        if (form._hp) {
+            setStage('rejected');
+            setIsSubmitting(false);
+            return;
+        }
+
+        // Rate limit: minimum 10 seconds between submissions
+        const now = Date.now();
+        if (now - lastSubmitTime < 10000) {
+            setError('Please wait a moment before submitting again.');
+            setIsSubmitting(false);
+            return;
+        }
+        setLastSubmitTime(now);
+
+        // Reject submissions completed in under 5 seconds (likely bot)
+        if (Date.now() - formStartTime.current < 5000) {
+            setStage('rejected');
+            setIsSubmitting(false);
+            return;
+        }
+
         const normalizedEmail = form.email.toLowerCase().trim();
         const normalizedPhone = form.mobile.replace(/\s+/g, '');
         // Note: This client-side check is a UX convenience only. 
@@ -392,10 +419,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }
     };
 
-    const handlePaymentSuccess = async () => {
+    const handlePaymentSuccess = async (receiptRef: string) => {
        setIsPayIdModalOpen(false);
        if(bookingIds.length > 0) {
-          await onUpdateBookingStatus?.(bookingIds[0], 'pending_deposit_confirmation');
+          await api.updateBookingStatus(bookingIds[0], 'pending_deposit_confirmation', {
+            deposit_receipt_ref: receiptRef,
+            deposit_submitted_at: new Date().toISOString()
+          });
           setStage('deposit_confirmation_pending');
        }
     };
@@ -473,6 +503,9 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                     <InputField icon={<Calendar />} label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} required error={fieldErrors.dob} />
                                 </div>
                                 {isVerifiedBooker && <div className="p-4 bg-green-900/20 border border-green-500/50 rounded-lg flex items-center gap-3"><CheckCircle className="text-green-400" /> <p className="text-sm text-green-200">Verified Trusted Client detected. Verification skipped.</p></div>}
+                                <div className="absolute opacity-0 h-0 overflow-hidden" aria-hidden="true" tabIndex={-1}>
+                                    <input type="text" name="_hp" value={form._hp} onChange={handleChange} tabIndex={-1} autoComplete="off" />
+                                </div>
                             </div>
                         )}
 

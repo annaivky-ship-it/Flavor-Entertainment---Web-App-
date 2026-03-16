@@ -61,6 +61,39 @@ const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
 type AdminTab = 'management' | 'payments' | 'performers' | 'dns' | 'users' | 'reporting';
 
 // Admin Dashboard Component for managing bookings, performers, and reporting
+const Pagination: React.FC<{ currentPage: number; totalPages: number; onPageChange: (page: number) => void; totalItems: number; itemsPerPage: number }> = ({ currentPage, totalPages, onPageChange, totalItems, itemsPerPage }) => {
+  if (totalPages <= 1) return null;
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-zinc-800">
+      <p className="text-sm text-zinc-400">
+        Showing <span className="font-medium text-zinc-200">{startItem}-{endItem}</span> of <span className="font-medium text-zinc-200">{totalItems}</span>
+      </p>
+      <div className="flex items-center gap-2">
+        <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage <= 1} className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg border border-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          Previous
+        </button>
+        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+          let page: number;
+          if (totalPages <= 5) { page = i + 1; }
+          else if (currentPage <= 3) { page = i + 1; }
+          else if (currentPage >= totalPages - 2) { page = totalPages - 4 + i; }
+          else { page = currentPage - 2 + i; }
+          return (
+            <button key={page} onClick={() => onPageChange(page)} className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${currentPage === page ? 'bg-orange-500 border-orange-500 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}`}>
+              {page}
+            </button>
+          );
+        })}
+        <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= totalPages} className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg border border-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          Next
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, doNotServeList, communications, onUpdateBookingStatus, onUpdateDoNotServeStatus, onViewDoNotServe, onAdminDecisionForPerformer, onAdminChangePerformer, onUpdatePerformer, onCreatePerformer }) => {
   
   const [activeTab, setActiveTab] = useState<AdminTab>('management');
@@ -98,6 +131,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
   const [newPerfEmail, setNewPerfEmail] = useState('');
   const [newPerfPerformerId, setNewPerfPerformerId] = useState('');
   const [userActionLoading, setUserActionLoading] = useState<string | null>(null);
+
+  const [managementPage, setManagementPage] = useState(1);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
+  React.useEffect(() => {
+    setManagementPage(1);
+    setPaymentsPage(1);
+  }, [statusFilter, searchTerm, sortField, sortDirection]);
 
   React.useEffect(() => {
     if (activeTab === 'users') {
@@ -211,7 +253,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         return 0;
     });
   }, [bookings, statusFilter, searchTerm, sortField, sortDirection]);
-  
+
+  const paginatedBookings = useMemo(() => {
+    const start = (managementPage - 1) * ITEMS_PER_PAGE;
+    return filteredBookings.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredBookings, managementPage]);
+
+  const totalManagementPages = Math.ceil(filteredBookings.length / ITEMS_PER_PAGE);
+
   const paymentRelatedBookings = useMemo(() => {
     let result = bookings.filter(b => ['deposit_pending', 'pending_deposit_confirmation', 'confirmed', 'rejected'].includes(b.status));
     
@@ -260,7 +309,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
       return 0;
     });
   }, [bookings, searchTerm, statusFilter, sortField, sortDirection]);
-  
+
+  const paginatedPayments = useMemo(() => {
+    const start = (paymentsPage - 1) * ITEMS_PER_PAGE;
+    return paymentRelatedBookings.slice(start, start + ITEMS_PER_PAGE);
+  }, [paymentRelatedBookings, paymentsPage]);
+
+  const totalPaymentPages = Math.ceil(paymentRelatedBookings.length / ITEMS_PER_PAGE);
+
   const reportingMetrics = useMemo(() => {
     const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
     
@@ -682,7 +738,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                           <Check size={14} /> Approve
                         </button>
                         <button 
-                          onClick={() => onUpdatePerformer(p.id, { status: 'rejected' })}
+                          onClick={() => { if (window.confirm(`Are you sure you want to reject ${p.name}? This cannot be undone.`)) onUpdatePerformer(p.id, { status: 'rejected' }); }}
                           className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 rounded transition-colors flex items-center justify-center gap-1"
                         >
                           <X size={14} /> Reject
@@ -1068,7 +1124,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
       <div className="card-base !p-6">
         <h2 className="text-2xl font-semibold text-white mb-6">All Booking Applications</h2>
         <div className="space-y-4">
-          {filteredBookings.length > 0 ? filteredBookings.map(booking => {
+          {filteredBookings.length > 0 ? paginatedBookings.map(booking => {
             const isLoading = loadingState?.id === booking.id;
             return (
             <div key={booking.id} className={`p-4 rounded-lg border ${statusClasses[booking.status]}`}>
@@ -1122,7 +1178,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                         </button>
                     )}
                      {(booking.status === 'pending_vetting' || booking.status === 'deposit_pending' || booking.status === 'pending_performer_acceptance') && (
-                        <button onClick={() => handleAction('reject', booking.id, () => onUpdateBookingStatus(booking.id, 'rejected'))} disabled={isLoading} className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-20">
+                        <button onClick={() => { if (window.confirm('Are you sure you want to reject this booking? This cannot be undone.')) handleAction('reject', booking.id, () => onUpdateBookingStatus(booking.id, 'rejected')); }} disabled={isLoading} className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-20">
                            {isLoading && loadingState?.type === 'reject' ? <LoaderCircle size={14} className="animate-spin"/> : <><X size={14}/> Reject</>}
                         </button>
                      )}
@@ -1135,7 +1191,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                              </button>
                            )}
                            {booking.status !== 'rejected' && (
-                             <button onClick={() => handleAction('override-decline', booking.id, () => onAdminDecisionForPerformer(booking.id, 'declined'))} disabled={isLoading} className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
+                             <button onClick={() => { if (window.confirm('Are you sure you want to decline this booking on behalf of the performer?')) handleAction('override-decline', booking.id, () => onAdminDecisionForPerformer(booking.id, 'declined')); }} disabled={isLoading} className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 w-36">
                                {isLoading && loadingState?.type === 'override-decline' ? <LoaderCircle size={14} className="animate-spin"/> : <><X size={14}/> Decline for Performer</>}
                              </button>
                            )}
@@ -1171,6 +1227,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
             </div>
           )}) : <p className="text-zinc-400 text-center py-4">No bookings match the current filter.</p>}
         </div>
+        <Pagination currentPage={managementPage} totalPages={totalManagementPages} onPageChange={setManagementPage} totalItems={filteredBookings.length} itemsPerPage={ITEMS_PER_PAGE} />
       </div>
       )}
 
@@ -1190,7 +1247,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                         </tr>
                     </thead>
                     <tbody>
-                        {paymentRelatedBookings.length > 0 ? paymentRelatedBookings.map(booking => {
+                        {paymentRelatedBookings.length > 0 ? paginatedPayments.map(booking => {
                             const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
                             const isLoading = loadingState?.id === booking.id;
                             
@@ -1255,6 +1312,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                         )}
                     </tbody>
                 </table>
+             </div>
+             <div className="px-6 pb-6">
+               <Pagination currentPage={paymentsPage} totalPages={totalPaymentPages} onPageChange={setPaymentsPage} totalItems={paymentRelatedBookings.length} itemsPerPage={ITEMS_PER_PAGE} />
              </div>
         </div>
       )}

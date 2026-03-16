@@ -54,10 +54,10 @@ service cloud.firestore {
       // Validates required fields and restricts initial status
       allow create: if isValidBookingCreate();
 
-      // Only the booking owner or admin can read
+      // Only the booking owner, admin, or verified performer can read
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.client_uid == request.auth.uid)
-        || (isPerformer() && resource.data.performer_uid == request.auth.uid);
+        || isPerformer();
 
       // Only admins can update booking status
       allow update: if isAdmin();
@@ -116,8 +116,8 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // --- Audit Logs (admin read/write) ---
-    match /audit_logs/{logId} {
+    // --- Audit Logs (admin read, system write) ---
+    match /audit_log/{logId} {
       allow read: if isAdmin();
       allow create: if isAdmin();
       allow update, delete: if false;
@@ -132,6 +132,10 @@ service cloud.firestore {
     }
 
     // --- Communications ---
+    // NOTE: Communications are readable by any signed-in user. Ideally access
+    // should be scoped to booking participants, but cross-referencing booking
+    // ownership in security rules is not feasible without denormalizing
+    // participant_uids onto each message. This is a known limitation.
     match /communications/{msgId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();

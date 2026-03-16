@@ -92,7 +92,9 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
   const handleDecision = async (decision: 'accepted' | 'declined') => {
     setIsLoading(decision === 'accepted' ? 'accept' : 'decline');
     try {
-      await onDecision(booking.id, decision, Number(etaValue) || undefined);
+      const rawEta = Number(etaValue);
+      const clampedEta = rawEta ? Math.min(180, Math.max(1, rawEta)) : undefined;
+      await onDecision(booking.id, decision, clampedEta);
     } catch (error) {
       console.error("Failed to process booking decision", error);
     } finally {
@@ -102,9 +104,10 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
 
   const handleUpdateEta = async () => {
     if (!onUpdateEta || !etaValue) return;
+    const clampedEta = Math.min(180, Math.max(1, Number(etaValue)));
     setIsLoading('update_eta');
     try {
-      await onUpdateEta(booking.id, Number(etaValue));
+      await onUpdateEta(booking.id, clampedEta);
     } catch (error) {
       console.error("Failed to update ETA", error);
     } finally {
@@ -191,9 +194,11 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
                       <input
                         type="number"
                         placeholder="ETA (mins)"
-                        title="Estimated time of arrival in minutes"
+                        title="Estimated time of arrival in minutes (1-180)"
                         value={etaValue}
                         onChange={(e) => onEtaChange(booking.id, e.target.value)}
+                        min={1}
+                        max={180}
                         className="bg-zinc-800 border border-zinc-600 text-white text-xs rounded-md focus:ring-1 focus:ring-orange-500 focus:border-orange-500 block w-full pl-8 pr-2 py-1.5 transition-all"
                         disabled={!!isLoading}
                       />
@@ -238,7 +243,14 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
   const systemCommunications = communications.filter(c => c.type !== 'direct_message');
 
   const handleEtaChange = (bookingId: string, value: string) => {
-    setEtas(prev => ({ ...prev, [bookingId]: value }));
+    // Clamp ETA to valid range (1-180 minutes)
+    if (value === '') {
+      setEtas(prev => ({ ...prev, [bookingId]: value }));
+      return;
+    }
+    const numValue = Number(value);
+    const clampedValue = Math.min(180, Math.max(1, numValue));
+    setEtas(prev => ({ ...prev, [bookingId]: String(clampedValue) }));
   };
   
   const handleStatusChange = async (newStatus: PerformerStatus) => {

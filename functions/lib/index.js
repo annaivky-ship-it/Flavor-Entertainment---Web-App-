@@ -272,9 +272,9 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
             throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
         // DNS Check
         const normalizedEmail = formState.email.toLowerCase().trim();
-        const normalizedPhone = formState.phone.replace(/\s+/g, '');
-        const dnsEmailQuery = await transaction.get(db.collection('do_not_serve').where('email', '==', normalizedEmail));
-        const dnsPhoneQuery = await transaction.get(db.collection('do_not_serve').where('phone', '==', normalizedPhone));
+        const normalizedPhone = (formState.phone || formState.mobile || '').replace(/\s+/g, '');
+        const dnsEmailQuery = await transaction.get(db.collection('do_not_serve').where('client_email', '==', normalizedEmail));
+        const dnsPhoneQuery = await transaction.get(db.collection('do_not_serve').where('client_phone', '==', normalizedPhone));
         if (!dnsEmailQuery.empty || !dnsPhoneQuery.empty) {
             throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
         }
