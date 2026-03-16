@@ -92,6 +92,7 @@ export interface Booking {
     client_message?: string | null;
     performer_reassigned_from_id?: number | null;
     performer_eta_minutes?: number | null;
+    is_asap?: boolean;
     performer?: {
         id: number;
         name: string;

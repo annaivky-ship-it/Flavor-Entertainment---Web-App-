@@ -44,6 +44,7 @@ const App: React.FC = () => {
   const [bookingOrigin, setBookingOrigin] = useState<GalleryView>('available_now');
   const [viewedPerformer, setViewedPerformer] = useState<Performer | null>(null);
   const [selectedForBooking, setSelectedForBooking] = useState<Performer[]>([]);
+  const [isASAPBooking, setIsASAPBooking] = useState(false);
 
   const [authedUser, setAuthedUser] = useState<AuthedUser>(null);
   const [showLogin, setShowLogin] = useState(false);
@@ -94,6 +95,7 @@ const App: React.FC = () => {
   const handleReturnToGallery = () => {
     setView(bookingOrigin);
     setViewedPerformer(null);
+    setIsASAPBooking(false);
   };
 
   const handleTogglePerformerSelection = (performer: Performer) => {
@@ -650,6 +652,7 @@ const App: React.FC = () => {
   const handleBookingSubmitted = () => {
     fetchData();
     setSelectedForBooking([]);
+    setIsASAPBooking(false);
     setView('client_dashboard');
   };
 
@@ -682,6 +685,13 @@ const App: React.FC = () => {
 
   const handleBookSinglePerformer = (performer: Performer) => {
     setSelectedForBooking([performer]);
+    setIsASAPBooking(false);
+    handleProceedToBooking();
+  };
+
+  const handleASAPBooking = (performer: Performer) => {
+    setSelectedForBooking([performer]);
+    setIsASAPBooking(true);
     handleProceedToBooking();
   };
 
@@ -833,6 +843,7 @@ const App: React.FC = () => {
             onShowPrivacyPolicy={handleShowPrivacyPolicy}
             onShowTermsOfService={handleShowTermsOfService}
             initialSelectedServices={serviceIdFilter ? [serviceIdFilter] : []}
+            isASAP={isASAPBooking}
           />
         );
       case 'admin_dashboard':
@@ -965,6 +976,7 @@ const App: React.FC = () => {
                   onViewProfile={handleViewProfile}
                   onToggleSelection={handleTogglePerformerSelection}
                   isSelected={selectedForBooking.some(p => p.id === performer.id)}
+                  onASAPBook={performer.status === 'available' ? () => handleASAPBooking(performer) : undefined}
                 />
               ))}
             </div>
