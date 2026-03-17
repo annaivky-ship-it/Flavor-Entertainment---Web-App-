@@ -137,9 +137,22 @@ These are quality and performance issues that should be addressed but are not se
 
 ## Remaining Actions (Post-Fix)
 
-1. **Rotate Firebase API keys** - the keys in `.env.production` were committed to git history
-2. **Scrub git history** - use BFG Repo-Cleaner to remove `.env.production` from all historical commits
-3. **Migrate blacklist hashes** - existing hex-encoded email entries need re-hashing with SHA-256
-4. **Backfill `participant_uids`** - existing communications documents need `participant_uids` added via a migration script
-5. **Backfill `client_uid`** - existing bookings need `client_uid` populated for the new performer-scoped read rules
-6. **Add Supabase RLS policies** - if Supabase is in use, all tables currently have `using (true)` policies
+| # | Action | Status |
+|---|--------|--------|
+| 1 | **Rotate Firebase API keys** | MANUAL — must be done in Firebase Console. Keys were exposed in git history. |
+| 2 | **Scrub git history** | DONE — `git-filter-repo` removed `.env.production` from all commits, force-pushed |
+| 3 | **Migrate blacklist hashes** | DONE — migration ran, 0 entries (collection empty) |
+| 4 | **Backfill `participant_uids`** | DONE — 1 communication document updated |
+| 5 | **Backfill `client_uid`** | DONE — 1 test booking unresolved (test email, no real user) |
+| 6 | **Add Supabase RLS policies** | PENDING — if Supabase is in use, all tables currently have `using (true)` policies |
+
+### Action 1: Rotate Firebase API Keys (Manual)
+
+The following keys were exposed in git history and should be rotated in the Firebase Console:
+
+1. Go to [Firebase Console](https://console.firebase.google.com/project/studio-4495412314-3b1ce/settings/general)
+2. Under "Your apps" → Web app, click the config icon
+3. Click "Rotate API key" or go to [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials?project=studio-4495412314-3b1ce)
+4. Create a new API key with appropriate restrictions (HTTP referrer, API restrictions)
+5. Update your `.env.production` file with the new key
+6. Delete the old API key
