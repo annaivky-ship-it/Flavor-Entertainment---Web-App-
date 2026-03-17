@@ -12,10 +12,35 @@
 
 import * as admin from 'firebase-admin';
 import { createHash } from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as https from 'https';
 
-// Initialize Firebase Admin (uses GOOGLE_APPLICATION_CREDENTIALS or default credentials)
+const PROJECT_ID = 'studio-4495412314-3b1ce';
+// Firebase CLI OAuth client credentials (public, used by all firebase-tools installs)
+const FIREBASE_CLIENT_ID = '563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com';
+const FIREBASE_CLIENT_SECRET = 'j9iVZfS8kkCEFUPaAeJV0sAi';
+
+// Read Firebase CLI refresh token
+const configPath = path.join(process.env.HOME || process.env.USERPROFILE || '', '.config', 'configstore', 'firebase-tools.json');
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+const refreshToken = config.tokens?.refresh_token;
+
+if (!refreshToken) {
+  console.error('No Firebase CLI refresh token found. Run `firebase login` first.');
+  process.exit(1);
+}
+
 if (!admin.apps.length) {
-  admin.initializeApp();
+  admin.initializeApp({
+    projectId: PROJECT_ID,
+    credential: admin.credential.refreshToken({
+      client_id: FIREBASE_CLIENT_ID,
+      client_secret: FIREBASE_CLIENT_SECRET,
+      refresh_token: refreshToken,
+      type: 'authorized_user',
+    } as any),
+  });
 }
 const db = admin.firestore();
 
