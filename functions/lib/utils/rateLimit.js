@@ -31,8 +31,8 @@ async function checkRateLimit(identifier, options) {
                 });
                 return true;
             }
-            // Filter timestamps within the window
-            const validTimestamps = data.timestamps.filter((ts) => ts > windowStart);
+            // Filter timestamps within the window, cap array to prevent unbounded growth
+            const validTimestamps = data.timestamps.filter((ts) => ts > windowStart).slice(-maxRequests);
             if (validTimestamps.length >= maxRequests) {
                 return false; // Rate limited
             }

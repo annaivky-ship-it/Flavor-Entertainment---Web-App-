@@ -285,7 +285,10 @@ export const api = {
             formState: {
               ...formState,
               phone: formState.mobile, // Cloud Function expects 'phone'
-              is_asap: formState.isASAP || false,
+              durationHours: formState.duration, // Cloud Function expects 'durationHours'
+              servicesRequested: formState.selectedServices, // Cloud Function expects 'servicesRequested'
+              clientMessage: formState.client_message, // Cloud Function expects 'clientMessage'
+              isAsap: formState.isASAP || false,
               performer_eta_minutes: formState.isASAP ? 60 : null,
             },
             performerIds: performers.map(p => p.id)
