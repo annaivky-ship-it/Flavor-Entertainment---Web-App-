@@ -44,10 +44,10 @@ export async function checkRateLimit(
         return true;
       }
 
-      // Filter timestamps within the window
+      // Filter timestamps within the window, cap array to prevent unbounded growth
       const validTimestamps = (data.timestamps as number[]).filter(
         (ts) => ts > windowStart
-      );
+      ).slice(-maxRequests);
 
       if (validTimestamps.length >= maxRequests) {
         return false; // Rate limited

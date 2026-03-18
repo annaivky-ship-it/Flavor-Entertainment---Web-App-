@@ -829,7 +829,6 @@ const App: React.FC = () => {
       case 'profile':
         return viewedPerformer && <PerformerProfile performer={viewedPerformer} onBack={handleReturnToGallery} onBook={handleBookSinglePerformer} />;
       case 'booking':
-        const approvedDNS = doNotServeList.filter(e => e.status === 'approved');
         return selectedForBooking.length > 0 && (
           <BookingProcess
             performers={selectedForBooking}
@@ -838,7 +837,6 @@ const App: React.FC = () => {
             bookings={bookings}
             onUpdateBookingStatus={handleUpdateBookingStatus}
             onBookingRequest={handleBookingRequest}
-            doNotServeList={approvedDNS}
             addCommunication={addCommunication}
             onShowPrivacyPolicy={handleShowPrivacyPolicy}
             onShowTermsOfService={handleShowTermsOfService}
@@ -1032,13 +1030,15 @@ const App: React.FC = () => {
         onNavigate={handleNavigate}
       >
         <div className="flex items-center gap-2 sm:gap-4">
-          <RoleSwitcher
-            currentRole={authedUser?.role || 'user'}
-            onRoleChange={handleRoleChange}
-            performers={performers}
-            currentPerformerId={(authedUser?.role === 'performer' && authedUser.id) ? authedUser.id : null}
-            onPerformerChange={handlePerformerChange}
-          />
+          {isDemoMode && (
+            <RoleSwitcher
+              currentRole={authedUser?.role || 'user'}
+              onRoleChange={handleRoleChange}
+              performers={performers}
+              currentPerformerId={(authedUser?.role === 'performer' && authedUser.id) ? authedUser.id : null}
+              onPerformerChange={handlePerformerChange}
+            />
+          )}
           {authedUser ? (
             <>
               <span className="text-sm text-zinc-300 hidden sm:block">Welcome, <strong className="font-semibold text-white">{authedUser.name}</strong></span>

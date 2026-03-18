@@ -101,10 +101,9 @@ const PayIDInstructions: React.FC<{ totalCost: number; depositAmount: number }> 
 
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings, onUpdateBookingStatus }) => {
   const [clientEmail, setClientEmail] = useState<string | null>(() => {
-    return localStorage.getItem('clientEmail') || sessionStorage.getItem('clientEmail');
+    return sessionStorage.getItem('clientEmail');
   });
   const [emailInput, setEmailInput] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -144,11 +143,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
     lookupTimeoutRef.current = window.setTimeout(() => {
       const foundBookings = bookings.some(b => b.client_email.toLowerCase() === emailInput.toLowerCase());
       if (foundBookings) {
-        if (rememberMe) {
-          localStorage.setItem('clientEmail', emailInput);
-        } else {
-          sessionStorage.setItem('clientEmail', emailInput);
-        }
+        sessionStorage.setItem('clientEmail', emailInput);
         setClientEmail(emailInput);
       } else {
         setError('No bookings found for this email address.');
@@ -168,7 +163,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
 
   const handleLogout = () => {
     sessionStorage.removeItem('clientEmail');
-    localStorage.removeItem('clientEmail');
     setClientEmail(null);
     setEmailInput('');
   };
@@ -245,17 +239,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
             <p className="text-zinc-400 mt-2 mb-6">Enter your email to view your booking history and status.</p>
             <form onSubmit={handleLookup} className="space-y-4">
                 <InputField icon={<User />} type="email" name="email" placeholder="Your booking email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} required error={error} />
-                <label className="flex items-center gap-3 cursor-pointer select-none group">
-                  <div className="relative flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-orange-500 accent-orange-500 cursor-pointer"
-                    />
-                  </div>
-                  <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">Remember me on this device</span>
-                </label>
                 <button type="submit" disabled={isLoading} className="btn-primary w-full flex items-center justify-center gap-2">
                     {isLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : <Search className="h-5 w-5"/>}
                     Find My Bookings

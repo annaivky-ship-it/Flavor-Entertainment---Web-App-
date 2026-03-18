@@ -39,7 +39,7 @@ interface BookingProcessProps {
   bookings: Booking[];
   onUpdateBookingStatus?: (bookingId: string, status: BookingStatus) => Promise<void>;
   onBookingRequest: (formState: BookingFormState, performers: Performer[]) => Promise<{success: boolean; message: string; bookingIds?: string[]}>;
-  doNotServeList: DoNotServeEntry[];
+  doNotServeList?: DoNotServeEntry[]; // Deprecated: DNS check moved server-side
   addCommunication: (commData: Omit<Communication, 'id' | 'created_at' | 'read'>) => Promise<void>;
   onShowPrivacyPolicy: () => void;
   onShowTermsOfService: () => void;
@@ -448,20 +448,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             return;
         }
 
-        const normalizedEmail = form.email.toLowerCase().trim();
-        const normalizedPhone = form.mobile.replace(/\s+/g, '');
-        // Note: This client-side check is a UX convenience only. 
-        // The actual security gate is implemented server-side in Cloud Functions.
-        const isBanned = doNotServeList.some(e => 
-            e.client_email.toLowerCase().trim() === normalizedEmail || 
-            e.client_phone.replace(/\s+/g, '') === normalizedPhone
-        );
-
-        if (isBanned) {
-            setStage('rejected');
-            setIsSubmitting(false);
-            return;
-        }
+        // DNS check is enforced server-side in Cloud Functions.
+        // No client-side pre-check to avoid leaking the blocklist to the browser.
 
         try {
             const result = await onBookingRequest(form, performers);
