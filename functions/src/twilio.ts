@@ -1,12 +1,8 @@
 
 import { Twilio, validateRequest } from 'twilio';
 
-// TODO: Ensure these environment variables are set in Firebase:
-//   TWILIO_SID           — Twilio Account SID (legacy notificationsWorker)
-//   TWILIO_TOKEN         — Twilio Auth Token (legacy notificationsWorker + webhook verification)
-//   TWILIO_SMS_FROM      — Twilio SMS sender number (E.164 format)
-//   TWILIO_WHATSAPP_FROM — Twilio WhatsApp sender number
-
+// Unified Twilio credentials — uses TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN (primary)
+// with fallback to legacy TWILIO_SID/TWILIO_TOKEN for backward compatibility
 let _client: Twilio | null = null;
 
 function maskPhone(phone: string): string {
@@ -15,14 +11,18 @@ function maskPhone(phone: string): string {
 
 function getClient(): Twilio {
   if (!_client) {
-    const accountSid = process.env.TWILIO_SID;
-    const authToken = process.env.TWILIO_TOKEN;
+    const accountSid = process.env.TWILIO_ACCOUNT_SID || process.env.TWILIO_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_TOKEN;
     if (!accountSid || !authToken) {
-      throw new Error('Twilio credentials not configured (TWILIO_SID, TWILIO_TOKEN)');
+      throw new Error('Twilio credentials not configured (TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN or TWILIO_SID/TWILIO_TOKEN)');
     }
     _client = new Twilio(accountSid, authToken);
   }
   return _client;
+}
+
+function getAuthToken(): string | undefined {
+  return process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_TOKEN;
 }
 
 export const sendWhatsApp = async (to: string, body: string) => {
@@ -39,8 +39,8 @@ export const sendWhatsApp = async (to: string, body: string) => {
 };
 
 export const sendSms = async (to: string, body: string) => {
-  const smsFrom = process.env.TWILIO_SMS_FROM;
-  if (!smsFrom) throw new Error('TWILIO_SMS_FROM not configured');
+  const smsFrom = process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_SMS_FROM;
+  if (!smsFrom) throw new Error('TWILIO_FROM_NUMBER/TWILIO_SMS_FROM not configured');
   console.log('[SMS] Sending to:', maskPhone(to));
   const message = await getClient().messages.create({
     from: smsFrom,
@@ -52,9 +52,9 @@ export const sendSms = async (to: string, body: string) => {
 };
 
 export const verifyTwilioSignature = (req: { headers: Record<string, string>; get: (name: string) => string; originalUrl: string; body: Record<string, string> }) => {
-  const authToken = process.env.TWILIO_TOKEN;
+  const authToken = getAuthToken();
   if (!authToken) {
-    console.error('TWILIO_TOKEN not configured — rejecting signature verification');
+    console.error('TWILIO_AUTH_TOKEN not configured — rejecting signature verification');
     return false;
   }
   const twilioSignature = req.headers['x-twilio-signature'];
