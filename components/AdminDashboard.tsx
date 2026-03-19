@@ -386,6 +386,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
   const totalBookings = bookings.length;
   const confirmedBookingsCount = bookings.filter(b => b.status === 'confirmed').length;
   const pendingBookings = totalBookings - confirmedBookingsCount - bookings.filter(b => b.status === 'rejected').length;
+  const depositPendingCount = bookings.filter(b => b.status === 'deposit_pending').length;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todaysBookingsCount = bookings.filter(b => b.event_date?.startsWith(todayStr)).length;
+
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  React.useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  const handleMarkPaid = async (booking: Booking) => {
+    const { depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
+    const amount = depositAmount > 0 ? `$${depositAmount.toFixed(2)}` : 'deposit';
+    if (!window.confirm(`Confirm payment received for ${booking.client_name} — ${amount}?`)) return;
+
+    await handleAction('mark-paid', booking.id, async () => {
+      await onUpdateBookingStatus(booking.id, 'confirmed');
+      await api.createAuditLog('PAYMENT_CONFIRMED_QUICK', 'admin', {
+        bookingId: booking.id,
+        clientName: booking.client_name,
+        amount: depositAmount,
+      }, 'admin');
+      setToastMessage({ type: 'success', text: `Payment confirmed for ${booking.client_name}` });
+    });
+  };
 
 
   return (
@@ -419,10 +447,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card-base !p-6 flex items-center gap-4"><BarChart className="w-10 h-10 text-orange-500" /><div><p className="text-zinc-400 text-sm">Total Bookings</p><p className="text-3xl font-bold text-white">{totalBookings}</p></div></div>
-        <div className="card-base !p-6 flex items-center gap-4"><ShieldCheck className="w-10 h-10 text-green-500" /><div><p className="text-zinc-400 text-sm">Confirmed</p><p className="text-3xl font-bold text-white">{confirmedBookingsCount}</p></div></div>
-        <div className="card-base !p-6 flex items-center gap-4"><ShieldAlert className="w-10 h-10 text-yellow-500" /><div><p className="text-zinc-400 text-sm">Pending Actions</p><p className="text-3xl font-bold text-white">{pendingDnsEntries.length + pendingBookings}</p></div></div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="card-base !p-4 flex items-center gap-3"><BarChart className="w-8 h-8 text-orange-500 flex-shrink-0" /><div><p className="text-zinc-400 text-xs">Total Bookings</p><p className="text-2xl font-bold text-white">{totalBookings}</p></div></div>
+        <div className="card-base !p-4 flex items-center gap-3"><ShieldCheck className="w-8 h-8 text-green-500 flex-shrink-0" /><div><p className="text-zinc-400 text-xs">Confirmed</p><p className="text-2xl font-bold text-white">{confirmedBookingsCount}</p></div></div>
+        <div className="card-base !p-4 flex items-center gap-3"><DollarSign className="w-8 h-8 text-orange-400 flex-shrink-0" /><div><p className="text-zinc-400 text-xs">Awaiting Payment</p><p className="text-2xl font-bold text-white">{depositPendingCount}</p></div></div>
+        <div className="card-base !p-4 flex items-center gap-3"><Calendar className="w-8 h-8 text-blue-400 flex-shrink-0" /><div><p className="text-zinc-400 text-xs">Today's Bookings</p><p className="text-2xl font-bold text-white">{todaysBookingsCount}</p></div></div>
+        <div className="card-base !p-4 flex items-center gap-3"><ShieldAlert className="w-8 h-8 text-yellow-500 flex-shrink-0" /><div><p className="text-zinc-400 text-xs">Pending Actions</p><p className="text-2xl font-bold text-white">{pendingDnsEntries.length + pendingBookings}</p></div></div>
       </div>
 
       {/* Tab Navigation */}
@@ -1177,7 +1207,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                         <span className="flex items-center gap-1.5"><Clock size={14}/> ETA: <span className="font-semibold text-white">{booking.performer_eta_minutes} mins</span></span>
                     )}
                   </div>
-                  <p className={`font-semibold capitalize text-sm mt-1`}>{booking.status.replace(/_/g, ' ')}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className={`font-semibold capitalize text-sm`}>{booking.status.replace(/_/g, ' ')}</p>
+                    {booking.status === 'deposit_pending' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMarkPaid(booking); }}
+                        disabled={isLoading}
+                        className="text-xs bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded flex items-center gap-1.5 transition-colors"
+                      >
+                        {isLoading && loadingState?.type === 'mark-paid' ? <LoaderCircle size={12} className="animate-spin"/> : <><DollarSign size={12}/> Mark Paid</>}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="text-sm text-zinc-400 mt-4 md:mt-0 md:text-right flex-shrink-0">
                     <p className="text-white font-medium">Contact Info</p>
@@ -1453,6 +1494,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
               messages={chatMessages}
               onSendMessage={handleSendMessage}
           />
+      )}
+
+      {/* Toast notification */}
+      {toastMessage && (
+        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg shadow-xl border animate-fade-in ${
+          toastMessage.type === 'success'
+            ? 'bg-green-900/90 border-green-700 text-green-200'
+            : 'bg-red-900/90 border-red-700 text-red-200'
+        }`}>
+          {toastMessage.type === 'success' ? <CheckCircle size={18} /> : <X size={18} />}
+          <span className="text-sm font-medium">{toastMessage.text}</span>
+          <button onClick={() => setToastMessage(null)} className="ml-2 opacity-60 hover:opacity-100">
+            <X size={14} />
+          </button>
+        </div>
       )}
     </div>
   );
