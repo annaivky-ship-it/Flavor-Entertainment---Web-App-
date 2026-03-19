@@ -18,7 +18,7 @@ export async function sendMessage(params: SendMessageParams): Promise<void> {
   const normalizedTo = normalizePhone(params.to);
   
   if (!normalizedTo) {
-    console.error(`Invalid phone number: ${params.to}`);
+    console.error('[SMS] Invalid phone number:', params.to?.replace(/\d(?=\d{4})/g, '*'));
     return;
   }
 

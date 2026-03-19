@@ -1,7 +1,17 @@
 
 import { Twilio, validateRequest } from 'twilio';
 
+// TODO: Ensure these environment variables are set in Firebase:
+//   TWILIO_SID           — Twilio Account SID (legacy notificationsWorker)
+//   TWILIO_TOKEN         — Twilio Auth Token (legacy notificationsWorker + webhook verification)
+//   TWILIO_SMS_FROM      — Twilio SMS sender number (E.164 format)
+//   TWILIO_WHATSAPP_FROM — Twilio WhatsApp sender number
+
 let _client: Twilio | null = null;
+
+function maskPhone(phone: string): string {
+  return phone.replace(/\d(?=\d{4})/g, '*');
+}
 
 function getClient(): Twilio {
   if (!_client) {
@@ -18,21 +28,27 @@ function getClient(): Twilio {
 export const sendWhatsApp = async (to: string, body: string) => {
   const whatsappFrom = process.env.TWILIO_WHATSAPP_FROM;
   if (!whatsappFrom) throw new Error('TWILIO_WHATSAPP_FROM not configured');
-  return getClient().messages.create({
+  console.log('[SMS] Sending WhatsApp to:', maskPhone(to));
+  const message = await getClient().messages.create({
     from: `whatsapp:${whatsappFrom}`,
     to: `whatsapp:${to}`,
     body
   });
+  console.log('[SMS] Success: SID', message.sid);
+  return message;
 };
 
 export const sendSms = async (to: string, body: string) => {
   const smsFrom = process.env.TWILIO_SMS_FROM;
   if (!smsFrom) throw new Error('TWILIO_SMS_FROM not configured');
-  return getClient().messages.create({
+  console.log('[SMS] Sending to:', maskPhone(to));
+  const message = await getClient().messages.create({
     from: smsFrom,
     to,
     body
   });
+  console.log('[SMS] Success: SID', message.sid);
+  return message;
 };
 
 export const verifyTwilioSignature = (req: { headers: Record<string, string>; get: (name: string) => string; originalUrl: string; body: Record<string, string> }) => {

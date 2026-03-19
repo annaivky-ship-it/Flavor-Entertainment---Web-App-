@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 import { getFirestore } from 'firebase-admin/firestore';
 import { sendWhatsApp, sendSms, verifyTwilioSignature } from './twilio';
 import { sendMessage } from './messaging/send';
-import { renderTemplate } from './messaging/templates';
+import { renderTemplate, TemplateKey } from './messaging/templates';
 import { checkAndSetIdempotency } from './utils/idempotency';
 import { GoogleGenAI, Type } from "@google/genai";
 import { createKycSession, processKycResult, verifyWebhookSignature } from './didit';
@@ -418,32 +418,45 @@ export const onBookingCreated = fns.firestore
 
     // Notify Admin
     for (const adminNum of adminNumbers) {
-      await sendMessage({
-        bookingId,
-        templateKey: 'NEW_BOOKING_ADMIN',
-        to: adminNum,
-        body: renderTemplate('NEW_BOOKING_ADMIN', data)
-      });
+      try {
+        await sendMessage({
+          bookingId,
+          templateKey: 'NEW_BOOKING_ADMIN',
+          to: adminNum,
+          body: renderTemplate('NEW_BOOKING_ADMIN', data)
+        });
+      } catch (smsErr: any) {
+        console.error('[SMS] Failed:', smsErr.message, { bookingId, phone: adminNum?.replace(/\d(?=\d{4})/g, '*') });
+      }
     }
 
     // Notify Performer
     if (data.performerPhone) {
-      await sendMessage({
-        bookingId,
-        templateKey: 'NEW_BOOKING_PERFORMER',
-        to: data.performerPhone,
-        body: renderTemplate('NEW_BOOKING_PERFORMER', data)
-      });
+      try {
+        await sendMessage({
+          bookingId,
+          templateKey: 'NEW_BOOKING_PERFORMER',
+          to: data.performerPhone,
+          body: renderTemplate('NEW_BOOKING_PERFORMER', data)
+        });
+      } catch (smsErr: any) {
+        console.error('[SMS] Failed:', smsErr.message, { bookingId, phone: data.performerPhone?.replace(/\d(?=\d{4})/g, '*') });
+      }
     }
 
     // Notify Client
     if (data.clientPhone || data.phone) {
-      await sendMessage({
-        bookingId,
-        templateKey: 'RECEIVED_CLIENT',
-        to: data.clientPhone || data.phone,
-        body: renderTemplate('RECEIVED_CLIENT', data)
-      });
+      try {
+        await sendMessage({
+          bookingId,
+          templateKey: 'RECEIVED_CLIENT',
+          to: data.clientPhone || data.phone,
+          body: renderTemplate('RECEIVED_CLIENT', data)
+        });
+      } catch (smsErr: any) {
+        const phone = (data.clientPhone || data.phone)?.replace(/\d(?=\d{4})/g, '*');
+        console.error('[SMS] Failed:', smsErr.message, { bookingId, phone });
+      }
     }
   });
 
@@ -527,58 +540,30 @@ export const onBookingStatusChanged = fns.firestore
     const clientPhone = after.clientPhone || after.phone;
     const performerPhone = after.performerPhone;
 
+    // Helper to send SMS without failing the booking flow
+    const safeSend = async (templateKey: TemplateKey, to: string, templateData: any) => {
+      try {
+        await sendMessage({
+          bookingId,
+          templateKey,
+          to,
+          body: renderTemplate(templateKey, templateData)
+        });
+      } catch (smsErr: any) {
+        console.error('[SMS] Failed:', smsErr.message, { bookingId, phone: to?.replace(/\d(?=\d{4})/g, '*') });
+      }
+    };
+
     if (after.status === 'deposit_pending' || after.status === 'APPROVED') {
-      if (clientPhone) {
-        await sendMessage({
-          bookingId,
-          templateKey: 'APPROVED_PAYID_CLIENT',
-          to: clientPhone,
-          body: renderTemplate('APPROVED_PAYID_CLIENT', after)
-        });
-      }
+      if (clientPhone) await safeSend('APPROVED_PAYID_CLIENT', clientPhone, after);
     } else if (after.status === 'confirmed' || after.status === 'CONFIRMED') {
-      if (clientPhone) {
-        await sendMessage({
-          bookingId,
-          templateKey: 'CONFIRMED_CLIENT',
-          to: clientPhone,
-          body: renderTemplate('CONFIRMED_CLIENT', after)
-        });
-      }
-      if (performerPhone) {
-        await sendMessage({
-          bookingId,
-          templateKey: 'CONFIRMED_PERFORMER',
-          to: performerPhone,
-          body: renderTemplate('CONFIRMED_PERFORMER', after)
-        });
-      }
+      if (clientPhone) await safeSend('CONFIRMED_CLIENT', clientPhone, after);
+      if (performerPhone) await safeSend('CONFIRMED_PERFORMER', performerPhone, after);
     } else if (after.status === 'rejected' || after.status === 'DECLINED') {
-      if (clientPhone) {
-        await sendMessage({
-          bookingId,
-          templateKey: 'DECLINED_CLIENT',
-          to: clientPhone,
-          body: renderTemplate('DECLINED_CLIENT', after)
-        });
-      }
+      if (clientPhone) await safeSend('DECLINED_CLIENT', clientPhone, after);
     } else if (after.status === 'cancelled' || after.status === 'CANCELLED') {
-      if (clientPhone) {
-        await sendMessage({
-          bookingId,
-          templateKey: 'CANCELLED_ALL',
-          to: clientPhone,
-          body: renderTemplate('CANCELLED_ALL', after)
-        });
-      }
-      if (performerPhone) {
-        await sendMessage({
-          bookingId,
-          templateKey: 'CANCELLED_ALL',
-          to: performerPhone,
-          body: renderTemplate('CANCELLED_ALL', after)
-        });
-      }
+      if (clientPhone) await safeSend('CANCELLED_ALL', clientPhone, after);
+      if (performerPhone) await safeSend('CANCELLED_ALL', performerPhone, after);
     }
   });
 
@@ -630,20 +615,24 @@ export const diditKycWebhook = fns.https.onRequest(async (req: any, res: any) =>
       const clientPhone = booking?.clientPhone || booking?.phone || booking?.client_phone;
 
       if (clientPhone) {
-        if (result.kycResult === 'PASS' && result.newStatus === 'CONFIRMED') {
-          await sendMessage({
-            bookingId: result.bookingId,
-            templateKey: 'CONFIRMED_CLIENT',
-            to: clientPhone,
-            body: renderTemplate('CONFIRMED_CLIENT', booking)
-          });
-        } else if (result.kycResult === 'FAIL') {
-          await sendMessage({
-            bookingId: result.bookingId,
-            templateKey: 'DECLINED_CLIENT',
-            to: clientPhone,
-            body: renderTemplate('DECLINED_CLIENT', booking)
-          });
+        try {
+          if (result.kycResult === 'PASS' && result.newStatus === 'CONFIRMED') {
+            await sendMessage({
+              bookingId: result.bookingId,
+              templateKey: 'CONFIRMED_CLIENT',
+              to: clientPhone,
+              body: renderTemplate('CONFIRMED_CLIENT', booking)
+            });
+          } else if (result.kycResult === 'FAIL') {
+            await sendMessage({
+              bookingId: result.bookingId,
+              templateKey: 'DECLINED_CLIENT',
+              to: clientPhone,
+              body: renderTemplate('DECLINED_CLIENT', booking)
+            });
+          }
+        } catch (smsErr: any) {
+          console.error('[SMS] Failed:', smsErr.message, { bookingId: result.bookingId, phone: clientPhone?.replace(/\d(?=\d{4})/g, '*') });
         }
       }
     }
@@ -752,16 +741,20 @@ export const submitIncidentReport = fns.https.onCall(async (data: any, context: 
     booking_id: booking_id || null,
   });
 
-  // Notify admins
+  // Notify admins — SMS failure should not block incident report creation
   const settingsDoc = await db.collection('settings').doc('messaging').get();
   const adminNumbers = settingsDoc.data()?.adminNotifyNumbers || [];
   for (const num of adminNumbers) {
-    await sendMessage({
-      bookingId: booking_id || 'incident',
-      templateKey: 'KYC_FLAGGED_ADMIN' as any,
-      to: num,
-      body: `[Flavor Entertainers] ⚠️ New incident report: ${client_name} (${risk_level}). "${incident_description.substring(0, 80)}..." Review in admin dashboard.`,
-    });
+    try {
+      await sendMessage({
+        bookingId: booking_id || 'incident',
+        templateKey: 'KYC_FLAGGED_ADMIN' as any,
+        to: num,
+        body: `[Flavor Entertainers] ⚠️ New incident report: ${client_name} (${risk_level}). "${incident_description.substring(0, 80)}..." Review in admin dashboard.`,
+      });
+    } catch (smsErr: any) {
+      console.error('[SMS] Failed:', smsErr.message, { bookingId: booking_id || 'incident', phone: num?.replace(/\d(?=\d{4})/g, '*') });
+    }
   }
 
   return { success: true, reportId };
