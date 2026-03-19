@@ -48,5 +48,8 @@
   },
   "optionalDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.59.0"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.4"
   }
 }
