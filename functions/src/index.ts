@@ -16,7 +16,7 @@ import { logger } from './utils/logger';
 
 admin.initializeApp();
 const db = getFirestore('default');
-const fns = functions as any;
+const fns = functions.region('australia-southeast1') as any;
 
 export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: any) => {
   if (!context.auth) {
