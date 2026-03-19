@@ -340,12 +340,14 @@ export const api = {
   /** Direct Firestore write fallback when Cloud Function is unavailable */
   async _createBookingsDirect(formState: BookingFormState, performers: Performer[]): Promise<string[]> {
     if (!db) throw new Error('Firebase not initialized');
+    if (!auth?.currentUser) throw new Error('Authentication required to create bookings');
     const bookingIds: string[] = [];
 
     for (const performer of performers) {
       const bookingData = {
         performer_id: performer.id,
         performer: { id: performer.id, name: performer.name },
+        client_uid: auth.currentUser!.uid,
         client_name: formState.fullName,
         client_email: formState.email.toLowerCase().trim(),
         client_phone: formState.mobile,
