@@ -4,6 +4,7 @@ import { allServices } from '../data/mockData';
 import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone, Upload, Image } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
 import { resetDemoData, isDemoMode, api } from '../services/api';
+import { useToast } from './Toast';
 import ChatDialog from './ChatDialog';
 
 interface AdminDashboardProps {
@@ -390,14 +391,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
   const todayStr = new Date().toISOString().split('T')[0];
   const todaysBookingsCount = bookings.filter(b => b.event_date?.startsWith(todayStr)).length;
 
-  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  React.useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => setToastMessage(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toastMessage]);
+  const { toast } = useToast();
 
   const handleMarkPaid = async (booking: Booking) => {
     const { depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
@@ -411,7 +405,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         clientName: booking.client_name,
         amount: depositAmount,
       }, 'admin');
-      setToastMessage({ type: 'success', text: `Payment confirmed for ${booking.client_name}` });
+      toast('success', `Payment confirmed for ${booking.client_name}`);
     });
   };
 
@@ -1496,20 +1490,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           />
       )}
 
-      {/* Toast notification */}
-      {toastMessage && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg shadow-xl border animate-fade-in ${
-          toastMessage.type === 'success'
-            ? 'bg-green-900/90 border-green-700 text-green-200'
-            : 'bg-red-900/90 border-red-700 text-red-200'
-        }`}>
-          {toastMessage.type === 'success' ? <CheckCircle size={18} /> : <X size={18} />}
-          <span className="text-sm font-medium">{toastMessage.text}</span>
-          <button onClick={() => setToastMessage(null)} className="ml-2 opacity-60 hover:opacity-100">
-            <X size={14} />
-          </button>
-        </div>
-      )}
     </div>
   );
 };
