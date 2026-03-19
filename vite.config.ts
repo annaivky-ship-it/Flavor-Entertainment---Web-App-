@@ -17,6 +17,19 @@ export default defineConfig(({ mode }) => {
         VitePWA({
           registerType: 'autoUpdate',
           includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+          workbox: {
+            navigateFallback: '/index.html',
+            runtimeCaching: [
+              {
+                urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'firebase-storage-cache',
+                  expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                },
+              },
+            ],
+          },
           manifest: {
             name: 'Flavor Entertainers',
             short_name: 'Flavor',
