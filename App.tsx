@@ -26,6 +26,7 @@ const FAQ = React.lazy(() => import('./components/FAQ'));
 const PerformerOnboarding = React.lazy(() => import('./components/PerformerOnboarding'));
 const WalkthroughOverlay = React.lazy(() => import('./components/WalkthroughOverlay'));
 import { api, resetDemoData, isDemoMode } from './services/api';
+import { setUser as setErrorTrackingUser } from './services/errorTracking';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
 import { calculateBookingCost } from './utils/bookingUtils';
@@ -283,6 +284,7 @@ const App: React.FC = () => {
 
   const handleLogin = (user: NonNullable<AuthedUser>) => {
     setAuthedUser(user);
+    setErrorTrackingUser({ id: user.id?.toString() || user.name, role: user.role });
     setShowLogin(false);
     if (user.role === 'admin') {
       setView('admin_dashboard');
