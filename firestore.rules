@@ -1,5 +1,39 @@
 rules_version = '2';
 
+// ============================================================
+// Firestore Security Rules — Flavor Entertainers
+// Last audited: 2026-03-19
+// ============================================================
+//
+// Collection Access Summary:
+//
+//   performers        — Public read (catalogue browsing), admin write only
+//   services          — Public read, admin write only
+//   bookings          — Authenticated create (validated), owner/performer/admin read, admin update, no delete
+//   dns_entries       — Admin only (read/write)
+//   do_not_serve      — Admin only (read/write)
+//   blacklist         — Admin only (read/write, legacy)
+//   blocklist         — Cloud Functions only (no client access)
+//   kyc_sessions      — Admin read, Cloud Functions write only
+//   risk_scores       — Admin read, Cloud Functions write only
+//   consents          — Authenticated create (validated), admin read, no update/delete
+//   incident_reports  — Performer create, performer/admin read, admin update, no delete
+//   audit_log         — Admin read/create, no update/delete
+//   vetting_applications — Authenticated create, owner/admin read, owner (draft only)/admin update
+//   communications    — Participant/admin read, authenticated create (validated), participant update (read status only)
+//   admins            — Admin/owner read, admin write
+//   settings          — Authenticated read, admin write
+//   notifications     — Owner/admin read, owner update, Cloud Functions create only
+//   performers_auth   — Owner/admin read, admin write
+//   booking_slots     — Admin read, Cloud Functions write only
+//   rate_limits       — Cloud Functions only (no client access)
+//   idempotency_keys  — Cloud Functions only (no client access)
+//   message_logs      — Admin read, Cloud Functions write only
+//   notificationsQueue — Admin read, Cloud Functions write only
+//
+// Default: deny all reads and writes for unlisted collections
+// ============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -29,14 +63,15 @@ service cloud.firestore {
 
     function isValidBookingCreate() {
       let data = request.resource.data;
-      return data.keys().hasAll(['client_name', 'client_email', 'client_phone', 'status'])
+      return isSignedIn()
+        && data.keys().hasAll(['client_name', 'client_email', 'client_phone', 'status'])
         && data.client_name is string && data.client_name.size() > 0 && data.client_name.size() <= 200
         && data.client_email is string && data.client_email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$')
         && data.client_phone is string && data.client_phone.size() >= 8 && data.client_phone.size() <= 20
         && data.status in ['pending_performer_acceptance', 'PENDING'];
     }
 
-    // --- Performers (public read, admin write) ---
+    // --- Performers (public read for catalogue, admin write) ---
     match /performers/{performerId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
@@ -50,8 +85,8 @@ service cloud.firestore {
 
     // --- Bookings ---
     match /bookings/{bookingId} {
-      // Clients can create bookings via Cloud Functions (preferred) or public form
-      // Validates required fields and restricts initial status
+      // Authenticated users can create bookings with validated fields
+      // Unauthenticated booking creation must go through Cloud Functions
       allow create: if isValidBookingCreate();
 
       // Only the booking owner, admin, or the assigned performer can read
@@ -81,6 +116,12 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // --- Blocklist (Cloud Functions only) ---
+    match /blocklist/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // --- KYC Sessions (admin only — sensitive data) ---
     match /kyc_sessions/{sessionId} {
       allow read: if isAdmin();
@@ -95,8 +136,9 @@ service cloud.firestore {
 
     // --- Consents ---
     match /consents/{consentId} {
-      // Require at least a booking_id and consent_text for valid consent
-      allow create: if request.resource.data.keys().hasAll(['booking_id', 'consent_text'])
+      // Authenticated users can record consent with required fields
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['booking_id', 'consent_text'])
         && request.resource.data.booking_id is string
         && request.resource.data.consent_text is string;
       allow read: if isAdmin();
@@ -116,7 +158,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // --- Audit Logs (admin read, system write) ---
+    // --- Audit Logs (admin read/create, no update/delete) ---
     match /audit_log/{logId} {
       allow read: if isAdmin();
       allow create: if isAdmin();
@@ -133,14 +175,12 @@ service cloud.firestore {
 
     // --- Communications ---
     // Access scoped to booking participants via denormalized participant_uids array.
-    // Each message must include participant_uids containing all allowed reader UIDs.
     match /communications/{msgId} {
       // Only participants of the conversation or admins can read
       allow read: if isAdmin()
         || (isSignedIn() && request.auth.uid in resource.data.participant_uids);
 
-      // Creator must be authenticated and must be listed in participant_uids.
-      // sender_uid must match the authenticated user to prevent impersonation.
+      // Creator must be authenticated, sender_uid must match to prevent impersonation
       allow create: if isSignedIn()
         && request.resource.data.sender_uid == request.auth.uid
         && request.auth.uid in request.resource.data.participant_uids
@@ -186,9 +226,14 @@ service cloud.firestore {
       allow write: if false; // Only Cloud Functions write
     }
 
-    // --- Idempotency Keys (system only) ---
+    // --- Rate Limits (Cloud Functions only — no client access) ---
+    match /rate_limits/{limitId} {
+      allow read, write: if false;
+    }
+
+    // --- Idempotency Keys (Cloud Functions only) ---
     match /idempotency_keys/{keyId} {
-      allow read, write: if false; // Only Cloud Functions
+      allow read, write: if false;
     }
 
     // --- Message Logs (admin read-only) ---
@@ -197,7 +242,7 @@ service cloud.firestore {
       allow write: if false; // Only Cloud Functions
     }
 
-    // --- Notification Queue (system only) ---
+    // --- Notification Queue (Cloud Functions only) ---
     match /notificationsQueue/{queueId} {
       allow read: if isAdmin();
       allow write: if false; // Only Cloud Functions
