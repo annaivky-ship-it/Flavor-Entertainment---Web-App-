@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import { Briefcase, ChevronDown, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
+import { Briefcase, ChevronDown, Radio, LoaderCircle, CalendarCheck, Clock, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -167,8 +167,8 @@ const App: React.FC = () => {
       if (aData.error) throw new Error(`Audit Logs Error: ${aData.error.message}`);
       setAuditLogs(aData.data as AuditLog[] || []);
 
-    } catch (err: any) {
-      setError(`Backend initialization error: ${err.message}.`);
+    } catch (err: unknown) {
+      setError(`Backend initialization error: ${err instanceof Error ? err.message : String(err)}.`);
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -240,7 +240,7 @@ const App: React.FC = () => {
       unsubscribeDNS();
       unsubscribeAudit();
     };
-  }, [addNotification, showPhoneMessage]);
+  }, [addNotification, showPhoneMessage, authedUser?.role]);
 
   useEffect(() => {
     fetchData();
@@ -646,8 +646,8 @@ const App: React.FC = () => {
         });
       }, 6000);
       return { success: true, message: 'Booking submitted', bookingIds: newBookings!.map(b => b.id) };
-    } catch (err: any) {
-      return { success: false, message: err.message || 'An unknown error occurred.' };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : 'An unknown error occurred.' };
     }
   };
 
@@ -861,7 +861,7 @@ const App: React.FC = () => {
           onUpdatePerformer={handleUpdatePerformer}
           onCreatePerformer={handleCreatePerformer}
         />;
-      case 'performer_dashboard':
+      case 'performer_dashboard': {
         if (authedUser?.role !== 'performer') return <AccessDenied />;
         const currentPerformer = performers.find(p => p.id === authedUser.id);
         const performerBookings = bookings.filter(b => b.performer_id === authedUser.id);
@@ -883,13 +883,14 @@ const App: React.FC = () => {
         ) : (
           <p className="text-center text-gray-400">Select a performer to view their dashboard.</p>
         );
+      }
       case 'client_dashboard':
         return <ClientDashboard bookings={bookings} onBrowsePerformers={() => setView('available_now')} onShowSettings={() => setView('settings')} />;
       case 'settings':
         return <UserSettings settings={settings} onSettingsChange={setSettings} onBack={() => setView('client_dashboard')} />;
       case 'faq':
         return <FAQ onBack={() => setView('available_now')} />;
-      case 'do_not_serve':
+      case 'do_not_serve': {
         if (!authedUser || role === 'user') return <AccessDenied />;
         const performerSubmitting = performers.find(p => p.id === authedUser.id);
         return <DoNotServe
@@ -899,7 +900,8 @@ const App: React.FC = () => {
           onBack={handleBackToDashboard}
           onCreateEntry={handleCreateDoNotServeEntry}
           addCommunication={addCommunication}
-        />
+        />;
+      }
       case 'performer_onboarding':
         return <PerformerOnboarding onSubmit={handleCreatePerformer} onCancel={() => setView('available_now')} />;
       case 'services':
@@ -911,7 +913,7 @@ const App: React.FC = () => {
         );
       case 'available_now':
       case 'future_bookings':
-      default:
+      default: {
         const isAvailableNow = view === 'available_now';
         return (
           <div className="animate-fade-in">
@@ -989,6 +991,7 @@ const App: React.FC = () => {
             )}
           </div>
         );
+      }
     }
   };
 
@@ -996,7 +999,7 @@ const App: React.FC = () => {
     if (targetView === 'bookings') {
       setView(authedUser ? (authedUser.role === 'admin' ? 'admin_dashboard' : authedUser.role === 'performer' ? 'performer_dashboard' : 'client_dashboard') : 'client_dashboard');
     } else {
-      setView(targetView as any);
+      setView(targetView as typeof view);
     }
   };
 

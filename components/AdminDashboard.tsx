@@ -352,7 +352,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
       totalRevenue += totalCost;
       totalDeposits += depositAmount;
       
-      if (booking.performer?.name && performerBookings.hasOwnProperty(booking.performer.name)) {
+      if (booking.performer?.name && Object.prototype.hasOwnProperty.call(performerBookings, booking.performer.name)) {
         performerBookings[booking.performer.name]++;
       }
       
@@ -708,7 +708,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 <button
                   disabled={isUploadingPhoto}
                   onClick={async () => {
-                    let finalForm = { ...performerForm };
+                    const finalForm = { ...performerForm };
 
                     // Upload photo file to Firebase Storage if selected
                     if (photoFile) {

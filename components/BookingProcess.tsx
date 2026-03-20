@@ -3,7 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebaseClient';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { DEPOSIT_PERCENTAGE, ASAP_DEFAULT_DURATION_HOURS, ASAP_MAX_ETA_MINUTES, ASAP_SURCHARGE_MULTIPLIER, PAY_ID_NAME, PAY_ID_EMAIL } from '../constants';
+import { ASAP_DEFAULT_DURATION_HOURS, ASAP_MAX_ETA_MINUTES, ASAP_SURCHARGE_MULTIPLIER, PAY_ID_NAME, PAY_ID_EMAIL } from '../constants';
 import { getBookingDurationInfo, calculateBookingCost } from '../utils/bookingUtils';
 import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
@@ -161,7 +161,7 @@ const ProgressIndicator: React.FC<{ currentStep: number; steps: WizardStep[]; on
 );
 
 
-const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onBookingSubmitted, bookings, onUpdateBookingStatus, onBookingRequest, doNotServeList, addCommunication, onShowPrivacyPolicy, onShowTermsOfService, initialSelectedServices = [], isASAP = false }) => {
+const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onBookingSubmitted, bookings, onUpdateBookingStatus: _onUpdateBookingStatus, onBookingRequest, doNotServeList: _doNotServeList, addCommunication: _addCommunication, onShowPrivacyPolicy, onShowTermsOfService, initialSelectedServices = [], isASAP = false }) => {
     const [stage, setStage] = useState<BookingStage>('form');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
@@ -201,6 +201,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         if (stage === 'deposit_pending' && !isPayIdModalOpen) {
             setIsPayIdModalOpen(true);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stage]);
 
     useEffect(() => {
