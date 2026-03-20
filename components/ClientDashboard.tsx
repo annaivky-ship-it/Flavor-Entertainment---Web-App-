@@ -46,7 +46,7 @@ const statusNextStep: Partial<Record<Booking['status'], { text: string }>> = {
   in_progress:                  { text: "The show is on! Enjoy your event." },
 };
 
-const PayIDInstructions: React.FC<{ totalCost: number; depositAmount: number }> = ({ totalCost, depositAmount }) => {
+const PayIDInstructions: React.FC<{ totalCost: number; depositAmount: number }> = ({ totalCost: _totalCost, depositAmount }) => {
   const [copied, setCopied] = useState<string | null>(null);
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -544,7 +544,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
               isOpen={!!activeChatBooking}
               onClose={() => { setActiveChatBooking(null); setChatError(''); }}
               booking={activeChatBooking}
-              currentUser={{ name: activeChatBooking.client_name } as any}
+              currentUser={{ name: activeChatBooking.client_name }}
               messages={chatMessages}
               onSendMessage={handleSendMessage}
           />

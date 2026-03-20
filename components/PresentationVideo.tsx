@@ -87,12 +87,12 @@ const PresentationVideo: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const intervalRef = useRef<number | null>(null);
 
   const sceneData = useMemo(() => {
-    let cumulativeTime = 0;
-    const sceneBoundaries = scenes.map(scene => {
-      const startTime = cumulativeTime;
-      cumulativeTime += scene.duration;
-      return { ...scene, startTime, endTime: cumulativeTime };
-    });
+    const sceneBoundaries = scenes.reduce<Array<typeof scenes[0] & { startTime: number; endTime: number }>>((acc, scene) => {
+      const startTime = acc.length > 0 ? acc[acc.length - 1].endTime : 0;
+      const endTime = startTime + scene.duration;
+      acc.push({ ...scene, startTime, endTime });
+      return acc;
+    }, []);
 
     const currentElapsedTime = (progress / 100) * TOTAL_DURATION;
     const currentIndex = sceneBoundaries.findIndex(s => currentElapsedTime >= s.startTime && currentElapsedTime < s.endTime);
@@ -103,7 +103,7 @@ const PresentationVideo: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     };
   }, [progress]);
 
-  const { currentScene, sceneIndex } = sceneData;
+  const { sceneIndex } = sceneData;
 
   const startTimer = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);

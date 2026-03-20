@@ -5,7 +5,7 @@ declare module '@tailwindcss/vite' {
 
 declare module 'vite-plugin-pwa' {
     import { Plugin } from 'vite';
-    export function VitePWA(options?: any): Plugin;
+    export function VitePWA(options?: Record<string, unknown>): Plugin;
 }
 
 declare module 'virtual:pwa-register' {
@@ -15,7 +15,7 @@ declare module 'virtual:pwa-register' {
         onOfflineReady?: () => void;
         onRegistered?: (registration: ServiceWorkerRegistration | undefined) => void;
         onRegisteredSW?: (swUrl: string, registration: ServiceWorkerRegistration | undefined) => void;
-        onRegisterError?: (error: any) => void;
+        onRegisterError?: (error: unknown) => void;
     };
 
     export function registerSW(options?: RegisterSWOptions): (reloadPage?: boolean) => Promise<void>;

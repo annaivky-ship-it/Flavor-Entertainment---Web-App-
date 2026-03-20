@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * One-time migration script to fix security-related data issues.
  *
@@ -14,7 +15,6 @@ import * as admin from 'firebase-admin';
 import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as https from 'https';
 
 const PROJECT_ID = 'studio-4495412314-3b1ce';
 // Firebase CLI OAuth client credentials (public, used by all firebase-tools installs)
@@ -39,6 +39,7 @@ if (!admin.apps.length) {
       client_secret: FIREBASE_CLIENT_SECRET,
       refresh_token: refreshToken,
       type: 'authorized_user',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any),
   });
 }

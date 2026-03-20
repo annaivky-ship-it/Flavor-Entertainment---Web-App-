@@ -9,7 +9,7 @@
  *   2. Set VITE_SENTRY_DSN in .env.production
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
 let sentry: any = null;
 let initialized = false;
 

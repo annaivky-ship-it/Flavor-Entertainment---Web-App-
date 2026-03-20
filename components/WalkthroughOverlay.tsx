@@ -269,7 +269,7 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 // --- Main Walkthrough Overlay ---
 
 const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
-    isActive, onClose, onRoleChange, onNavigate
+    isActive, onClose, onRoleChange, onNavigate: _onNavigate
 }) => {
     const [currentStep, setCurrentStep] = useState(0);
     const [showScenarios, setShowScenarios] = useState(false);
@@ -315,6 +315,7 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
             window.addEventListener('keydown', handleKey);
         }
         return () => window.removeEventListener('keydown', handleKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isActive, currentStep]);
 
     if (!isActive) return null;

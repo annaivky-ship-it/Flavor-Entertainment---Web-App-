@@ -26,7 +26,10 @@ const DiditVerification: React.FC<DiditVerificationProps> = ({ onSuccess, onCanc
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const onSuccessRef = useRef(onSuccess);
-  onSuccessRef.current = onSuccess;
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
 
   useEffect(() => {
     if (step === 'processing') {

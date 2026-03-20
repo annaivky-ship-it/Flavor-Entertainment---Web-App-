@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
@@ -125,13 +126,13 @@ export async function createKycSession(bookingId: string): Promise<DiditSessionR
 
         console.log(`KYC session created for booking ${bookingId}: ${sessionData.session_id}`);
         return sessionData;
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Failed to create Didit KYC session:', error);
 
         // Mark booking as KYC failed so admin can retry
         await getDb().collection('bookings').doc(bookingId).update({
             kyc_status: 'ERROR',
-            kyc_error: error.message || 'Unknown error creating KYC session',
+            kyc_error: error instanceof Error ? error.message : 'Unknown error creating KYC session',
         });
 
         throw error;

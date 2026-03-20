@@ -5,7 +5,7 @@ import { httpsCallable } from 'firebase/functions';
 /**
  * Analyzes booking data for automated vetting suggestions.
  */
-export async function analyzeVettingRisk(bookingDetails: any) {
+export async function analyzeVettingRisk(bookingDetails: Record<string, unknown>) {
   if (!functions) {
     console.warn("Firebase Functions not initialized. Skipping risk analysis.");
     return null;

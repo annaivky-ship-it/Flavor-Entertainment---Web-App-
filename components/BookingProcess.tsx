@@ -460,8 +460,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             } else {
                 setError(result.message);
             }
-        } catch (err: any) {
-            setError(err.message || 'Submission failed.');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Submission failed.');
         } finally {
             setIsSubmitting(false);
         }
@@ -755,7 +755,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
                             <div className="flex items-center gap-2">
-                                {wizardSteps.map((step, idx) => (
+                                {wizardSteps.map((step, _idx) => (
                                     <div key={step.id} className={`h-1.5 rounded-full transition-all duration-300 ${step.id === currentStep ? 'w-8 bg-orange-500' : step.id < currentStep ? 'w-4 bg-orange-500/50' : 'w-4 bg-zinc-700'}`} />
                                 ))}
                             </div>

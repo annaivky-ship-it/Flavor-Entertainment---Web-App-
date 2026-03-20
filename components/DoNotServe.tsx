@@ -50,7 +50,7 @@ const DoNotServe: React.FC<DoNotServeProps> = ({ role, currentPerformer, doNotSe
             };
             await onCreateEntry(newEntry, currentPerformer.name);
             setForm({ client_name: '', client_email: '', client_phone: '', reason: '' });
-        } catch (err) {
+        } catch {
             setError('Failed to submit entry. Please try again.');
         } finally {
             setIsSubmitting(false);

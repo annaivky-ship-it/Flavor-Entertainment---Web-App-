@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, Upload, CheckCircle, ArrowRight, User, Tag, Image, X } from 'lucide-react';
+import { Camera, CheckCircle, ArrowRight, User, Tag, X } from 'lucide-react';
 import type { Performer, ServiceArea } from '../types';
 import { api } from '../services/api';
 import InputField from './InputField';
@@ -41,14 +41,14 @@ const PerformerOnboarding: React.FC<PerformerOnboardingProps> = ({ onSubmit, onC
       await onSubmit({
         ...formData,
         photo_url: photoUrl,
-        status: 'pending_verification' as any,
+        status: 'offline' as const,
         rating: 5.0,
         review_count: 0,
         created_at: new Date().toISOString()
       });
       setStep(3); // Success step
-    } catch (err: any) {
-      setError(err.message || 'Failed to submit application');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit application');
     } finally {
       setIsSubmitting(false);
     }

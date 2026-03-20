@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import type { PhoneMessage } from '../types';
 import { Wifi, BatteryFull, X } from 'lucide-react';
 
@@ -8,13 +8,7 @@ interface DemoPhoneProps {
 }
 
 const DemoPhone: React.FC<DemoPhoneProps> = ({ message, onClose }) => {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    if (message) {
-      setIsVisible(true);
-    }
-  }, [message]);
+  const [isVisible, setIsVisible] = useState(!!message);
 
   const handleClose = () => {
     setIsVisible(false);

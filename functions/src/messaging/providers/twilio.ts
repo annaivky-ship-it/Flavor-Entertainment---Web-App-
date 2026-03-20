@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Twilio } from 'twilio';
 
 // TODO: Ensure these environment variables are set in Firebase:

@@ -56,7 +56,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
     }, 800);
   };
 
-  const Content = () => {
+  const renderContent = () => {
     switch (status) {
       case 'processing':
         return (
@@ -207,7 +207,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
         <button onClick={onClose} disabled={status === 'processing'} className="absolute top-4 right-4 text-zinc-600 hover:text-white transition-colors p-2">
             <X className="h-6 w-6" />
         </button>
-        <Content />
+        {renderContent()}
       </div>
     </div>
   );

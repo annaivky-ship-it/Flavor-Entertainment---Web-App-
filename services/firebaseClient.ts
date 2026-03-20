@@ -1,6 +1,6 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import type { FirebaseApp } from 'firebase/app';
-import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import type { Auth } from 'firebase/auth';

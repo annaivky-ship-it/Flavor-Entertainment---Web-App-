@@ -76,16 +76,18 @@ export async function sendMessage(params: SendMessageParams): Promise<void> {
         attempt,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`Attempt ${attempt} failed with ${currentProvider}:`, error);
-      
+
       if (attempt === 3 && fallback && fallback !== primary) {
         currentProvider = fallback; // Switch to fallback for final attempt
       } else if (attempt === 4) {
+        const errCode = error instanceof Error && 'code' in error ? (error as { code: string }).code : 'UNKNOWN';
+        const errMessage = error instanceof Error ? error.message : String(error);
         await logRef.update({
           status: 'FAILED',
-          errorCode: error.code || 'UNKNOWN',
-          errorMessage: error.message,
+          errorCode: errCode,
+          errorMessage: errMessage,
           attempt,
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });

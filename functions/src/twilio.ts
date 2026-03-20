@@ -1,4 +1,4 @@
-
+/* eslint-disable no-console */
 import { Twilio, validateRequest } from 'twilio';
 
 // Unified Twilio credentials — uses TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN (primary)

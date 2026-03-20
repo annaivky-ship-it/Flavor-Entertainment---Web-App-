@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Structured logger for Cloud Functions.
  * Outputs JSON logs compatible with Cloud Logging / Stackdriver.

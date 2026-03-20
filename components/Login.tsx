@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, LogIn, Mail, Lock } from 'lucide-react';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { auth, db } from '../services/firebaseClient';
 import type { Performer, Role } from '../types';
@@ -47,7 +48,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  const handleAuthSuccess = async (user: any) => {
+  const handleAuthSuccess = async (user: FirebaseUser) => {
     const displayName = user.displayName || user.email?.split('@')[0] || 'User';
 
     // 1. Check custom claims first (fastest)
@@ -83,7 +84,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
             role: 'admin',
             createdAt: new Date().toISOString()
           });
-          console.log('First admin bootstrapped:', user.uid);
+          // First admin bootstrapped successfully
           onLogin({ name: displayName, role: 'admin' });
           return;
         }
@@ -123,9 +124,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       await handleAuthSuccess(userCredential.user);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
-      setError(err.message || 'Invalid email or password.');
+      setError(err instanceof Error ? err.message : 'Invalid email or password.');
     } finally {
       setIsLoading(false);
     }
@@ -142,12 +143,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       await handleAuthSuccess(result.user);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Google login error:', err);
-      if (err.message?.includes('projectconfigservice.getprojectconfig-are-blocked')) {
+      const message = err instanceof Error ? err.message : '';
+      if (message.includes('projectconfigservice.getprojectconfig-are-blocked')) {
         setError('Google Identity Toolkit API is blocked. Please ensure it is enabled in your Google Cloud Console and that your API key has the correct permissions.');
       } else {
-        setError(err.message || 'Failed to sign in with Google');
+        setError(message || 'Failed to sign in with Google');
       }
     } finally {
       setIsLoading(false);

@@ -309,7 +309,7 @@ export async function shouldSkipKyc(emailHash: string, phoneHash: string): Promi
 
 // --- Failed Verification Count ---
 
-async function getFailedVerificationCount(email: string, phone: string): Promise<number> {
+async function getFailedVerificationCount(email: string, _phone: string): Promise<number> {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const failedQuery = await getDb().collection('kyc_sessions')
@@ -323,7 +323,7 @@ async function getFailedVerificationCount(email: string, phone: string): Promise
 
 // --- Behavior Anomaly Detection ---
 
-async function detectBehaviorAnomalies(email: string, phone: string): Promise<{
+async function detectBehaviorAnomalies(email: string, _phone: string): Promise<{
     score: number;
     reasons: string[];
 }> {
@@ -361,7 +361,7 @@ async function detectBehaviorAnomalies(email: string, phone: string): Promise<{
 
 // --- Device/IP Risk ---
 
-async function checkDeviceRisk(fingerprint: string, ipAddress?: string): Promise<{
+async function checkDeviceRisk(fingerprint: string, _ipAddress?: string): Promise<{
     score: number;
     reasons: string[];
 }> {

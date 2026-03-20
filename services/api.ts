@@ -22,6 +22,7 @@ import { signInAnonymously } from 'firebase/auth';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PerformerStatus, AuditLog, VettingApplication } from '../types';
 import { BookingFormState } from '../components/BookingProcess';
 import { mockPerformers, mockBookings, mockDoNotServeList, mockCommunications } from '../data/mockData';
+import { captureException, captureMessage } from './errorTracking';
 
 /** Whether the app is running in demo mode (mock data, no real Firebase writes) */
 export const isDemoMode = import.meta.env.VITE_APP_MODE === 'demo';
@@ -67,7 +68,7 @@ export const resetDemoData = async () => {
     // Seed complete — reload
     window.location.reload();
   } catch (error) {
-    console.error("Error seeding database:", error);
+    captureException(error, { context: 'seeding database' });
   }
 };
 
@@ -86,25 +87,26 @@ export const api = {
       };
     }
 
-    const fetchCollection = async (name: string, q: any) => {
+    const fetchCollection = async (name: string, q: Parameters<typeof getDocs>[0]) => {
       try {
         const snap = await getDocs(q);
-        return { data: snap.docs.map(d => ({ ...(d.data() as any), id: name === 'performers' ? Number(d.id) : d.id })), error: null };
-      } catch (err: any) {
-        console.error(`Error fetching ${name}:`, err);
+        return { data: snap.docs.map(d => ({ ...(d.data() as Record<string, unknown>), id: name === 'performers' ? Number(d.id) : d.id })), error: null };
+      } catch (err: unknown) {
+        captureException(err);
+        const firebaseErr = err as { code?: string; message?: string };
         // Permission errors are expected when not logged in — return empty, not an error
-        if (err.code === 'permission-denied' || err.message?.includes('Missing or insufficient permissions')) {
-          console.warn(`No permission for ${name} — user may not be logged in yet.`);
+        if (firebaseErr.code === 'permission-denied' || firebaseErr.message?.includes('Missing or insufficient permissions')) {
+          captureMessage(`No permission for ${name} — user may not be logged in yet.`, 'warning');
           return { data: [], error: null };
         }
-        if (err.code === 'unavailable') {
-          console.warn(`Firestore is currently offline or unreachable. Returning mock data for ${name} if available.`);
+        if (firebaseErr.code === 'unavailable') {
+          captureMessage(`Firestore is currently offline or unreachable. Returning mock data for ${name} if available.`, 'warning');
           if (name === 'performers') return { data: mockPerformers, error: null };
           if (name === 'bookings') return { data: mockBookings, error: null };
           if (name === 'do_not_serve') return { data: mockDoNotServeList, error: null };
           if (name === 'communications') return { data: mockCommunications, error: null };
         }
-        return { data: [], error: err };
+        return { data: [], error: err instanceof Error ? err : new Error(String(err)) };
       }
     };
 
@@ -132,7 +134,7 @@ export const api = {
       const bookings = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Booking[];
       callback(bookings);
     }, (err) => {
-      console.error("Error subscribing to bookings:", err);
+      captureException(err);
     });
   },
 
@@ -143,7 +145,7 @@ export const api = {
       const comms = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Communication[];
       callback(comms);
     }, (err) => {
-      console.error("Error subscribing to communications:", err);
+      captureException(err);
     });
   },
 
@@ -154,7 +156,7 @@ export const api = {
       const performers = snap.docs.map(d => ({ ...d.data(), id: Number(d.id) })) as Performer[];
       callback(performers);
     }, (err) => {
-      console.error("Error subscribing to performers:", err);
+      captureException(err);
     });
   },
 
@@ -165,7 +167,7 @@ export const api = {
       const entries = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DoNotServeEntry[];
       callback(entries);
     }, (err) => {
-      console.error("Error subscribing to do_not_serve:", err);
+      captureException(err);
     });
   },
 
@@ -176,7 +178,7 @@ export const api = {
       const logs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as AuditLog[];
       callback(logs);
     }, (err) => {
-      console.error("Error subscribing to audit_log:", err);
+      captureException(err);
     });
   },
 
@@ -192,7 +194,7 @@ export const api = {
   },
 
   // Fix: Added createAuditLog to allow manual logging of actions to the audit_log collection.
-  async createAuditLog(action: string, actorUid: string, details: any = {}, actorRole: 'client' | 'admin' | 'system' = 'system') {
+  async createAuditLog(action: string, actorUid: string, details: Record<string, unknown> = {}, actorRole: 'client' | 'admin' | 'system' = 'system') {
     if (!db) return { id: null, error: new Error('Firebase not initialized') };
     try {
       const docRef = await addDoc(collection(db, 'audit_log'), {
@@ -203,9 +205,9 @@ export const api = {
         createdAt: serverTimestamp()
       });
       return { id: docRef.id, error: null };
-    } catch (err: any) {
-      console.error("Error creating audit log:", err);
-      return { id: null, error: err };
+    } catch (err: unknown) {
+      captureException(err);
+      return { id: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -262,7 +264,7 @@ export const api = {
 
   async createBookingRequest(formState: BookingFormState, performers: Performer[]) {
     if (!db) {
-      console.warn('Firebase not initialized. Simulating booking request.');
+      captureMessage('Firebase not initialized. Simulating booking request.', 'warning');
       return { data: [], error: null };
     }
     try {
@@ -271,7 +273,7 @@ export const api = {
         try {
           await signInAnonymously(auth);
         } catch (authErr) {
-          console.warn('Anonymous auth not available, proceeding without auth:', authErr);
+          captureMessage(`Anonymous auth not available, proceeding without auth: ${authErr}`, 'warning');
         }
       }
 
@@ -294,8 +296,8 @@ export const api = {
             performerIds: performers.map(p => p.id)
           }) as { data: { success: boolean; bookingIds: string[] } };
           bookingIds = result.data.bookingIds;
-        } catch (cfErr: any) {
-          console.warn('Cloud Function failed, using direct Firestore write:', cfErr.message);
+        } catch (cfErr: unknown) {
+          captureMessage(`Cloud Function failed, using direct Firestore write: ${cfErr instanceof Error ? cfErr.message : String(cfErr)}`, 'warning');
           bookingIds = await this._createBookingsDirect(formState, performers);
         }
       } else {
@@ -332,8 +334,8 @@ export const api = {
       }));
 
       return { data: newBookings, error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -379,7 +381,7 @@ export const api = {
     return bookingIds;
   },
 
-  async updateBookingStatus(bookingId: string, status: BookingStatus, updates: any = {}) {
+  async updateBookingStatus(bookingId: string, status: BookingStatus, updates: Record<string, unknown> = {}) {
     if (!db) return { error: new Error('Firebase not initialized') };
     try {
       const docRef = doc(db, 'bookings', bookingId);
@@ -389,8 +391,8 @@ export const api = {
         ...(status === 'confirmed' ? { verified_at: new Date().toISOString() } : {})
       });
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -400,8 +402,8 @@ export const api = {
       const q = query(collection(db, 'communications'), where('booking_id', '==', bookingId), orderBy('created_at', 'asc'));
       const snap = await getDocs(q);
       return { data: snap.docs.map(d => ({ ...d.data(), id: d.id })) as Communication[], error: null };
-    } catch (err: any) {
-      return { data: [], error: err };
+    } catch (err: unknown) {
+      return { data: [], error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -423,8 +425,8 @@ export const api = {
       });
       const newDoc = await getDoc(docRef);
       return { data: [{ ...newDoc.data(), id: newDoc.id }] as Communication[], error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -434,8 +436,8 @@ export const api = {
       const docRef = doc(db, 'performers', String(performerId));
       await updateDoc(docRef, { status });
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -450,8 +452,8 @@ export const api = {
       const newPerformer = { ...performerData, id: newId };
       await setDoc(docRef, newPerformer);
       return { data: newPerformer, error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -461,8 +463,8 @@ export const api = {
       const docRef = doc(db, 'performers', String(performerId));
       await setDoc(docRef, updates, { merge: true });
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -474,8 +476,8 @@ export const api = {
       await updateDoc(docRef, { status: 'offline' }); // Soft delete/Deactivate
       // Or hard delete: await deleteDoc(docRef);
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -485,8 +487,8 @@ export const api = {
       const docRef = doc(db, 'do_not_serve', entryId);
       await updateDoc(docRef, { status });
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -500,8 +502,8 @@ export const api = {
       });
       const newDoc = await getDoc(docRef);
       return { data: [{ ...newDoc.data(), id: newDoc.id }] as DoNotServeEntry[], error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -518,8 +520,8 @@ export const api = {
         data: res.data ? res.data[0] : null,
         error: res.error
       };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -533,8 +535,8 @@ export const api = {
       const admins = adminsSnap.docs.map(d => ({ uid: d.id, ...d.data() })) as Array<{ uid: string; email?: string; grantedAt?: string }>;
       const performerAuths = perfAuthSnap.docs.map(d => ({ uid: d.id, ...d.data() })) as Array<{ uid: string; performerId?: number; email?: string; grantedAt?: string }>;
       return { admins, performerAuths };
-    } catch (err) {
-      console.error('Error fetching users:', err);
+    } catch (err: unknown) {
+      captureException(err);
       return { admins: [], performerAuths: [] };
     }
   },
@@ -574,8 +576,8 @@ export const api = {
         };
       }
       return { auto_confirm_enabled: false, auto_confirm_delay_minutes: 0 };
-    } catch (err) {
-      console.error('Error fetching payment settings:', err);
+    } catch (err: unknown) {
+      captureException(err);
       return { auto_confirm_enabled: false, auto_confirm_delay_minutes: 0 };
     }
   },

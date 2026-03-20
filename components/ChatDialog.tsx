@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, LoaderCircle, User, Check, CheckCheck } from 'lucide-react';
+import { X, Send, LoaderCircle, User, CheckCheck } from 'lucide-react';
 import type { Communication, Booking } from '../types';
 
 interface ChatDialogProps {
@@ -159,7 +159,7 @@ const ChatDialog: React.FC<ChatDialogProps> = ({ isOpen, onClose, booking, curre
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        handleSubmit(e as any);
+                        handleSubmit(e as React.FormEvent);
                     }
                   }}
                   placeholder="Type a message..."

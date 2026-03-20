@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Inline the logger logic since functions/ has a separate build

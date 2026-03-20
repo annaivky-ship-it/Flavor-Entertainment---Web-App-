@@ -16,8 +16,8 @@ export async function checkAndSetIdempotency(key: string): Promise<boolean> {
       });
     });
     return true;
-  } catch (e: any) {
-    if (e.message === 'ALREADY_PROCESSED') {
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === 'ALREADY_PROCESSED') {
       return false;
     }
     throw e;

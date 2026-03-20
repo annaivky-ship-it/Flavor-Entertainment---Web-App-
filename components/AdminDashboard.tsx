@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, Service } from '../types';
+import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, Service, PerformerStatus } from '../types';
 import { allServices } from '../data/mockData';
 import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone, Upload, Image } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
@@ -161,8 +161,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     if (activeTab === 'users') {
       setIsLoadingUsers(true);
       api.getUsers().then(({ admins, performerAuths }) => {
-        setAdminUsers(admins as any);
-        setPerformerAuthUsers(performerAuths as any);
+        setAdminUsers(admins);
+        setPerformerAuthUsers(performerAuths);
       }).finally(() => setIsLoadingUsers(false));
     }
   }, [activeTab]);
@@ -238,9 +238,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     }
 
     return result.sort((a, b) => {
-        let valA: any = '';
-        let valB: any = '';
-        
+        let valA: string | number = '';
+        let valB: string | number = '';
+
         switch (sortField) {
             case 'event_date':
                 valA = new Date(a.event_date).getTime();
@@ -263,7 +263,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 valB = getPaymentStatusWeight(b.payment_status);
                 break;
         }
-        
+
         if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
         if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
         return 0;
@@ -295,9 +295,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
 
     // Apply sorting to payments table too
     return result.sort((a, b) => {
-      let valA: any = '';
-      let valB: any = '';
-      
+      let valA: string | number = '';
+      let valB: string | number = '';
+
       switch (sortField) {
           case 'event_date':
               valA = new Date(a.event_date).getTime();
@@ -319,7 +319,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
               valA = a.client_name.toLowerCase();
               valB = b.client_name.toLowerCase();
       }
-      
+
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
@@ -515,7 +515,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                 <select
                     value={sortField}
-                    onChange={(e) => setSortField(e.target.value as any)}
+                    onChange={(e) => setSortField(e.target.value as typeof sortField)}
                     className="input-base !py-2 !pl-9 !pr-8 !text-sm !w-auto"
                 >
                     <option value="event_date">Sort by Date</option>
@@ -673,7 +673,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   <label className="text-sm text-zinc-400">Status</label>
                   <select 
                     value={performerForm.status} 
-                    onChange={e => setPerformerForm({...performerForm, status: e.target.value as any})}
+                    onChange={e => setPerformerForm({...performerForm, status: e.target.value as PerformerStatus})}
                     className="input-base w-full"
                   >
                     <option value="available">Available</option>

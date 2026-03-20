@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { createHash } from 'crypto';
@@ -8,7 +9,7 @@ import { renderTemplate, TemplateKey } from './messaging/templates';
 import { checkAndSetIdempotency } from './utils/idempotency';
 import { GoogleGenAI, Type } from "@google/genai";
 import { createKycSession, processKycResult, verifyWebhookSignature } from './didit';
-import { calculateRiskScore, shouldSkipKyc } from './risk/scoring';
+import { calculateRiskScore } from './risk/scoring';
 import { createIncidentReport, approveIncidentReport, rejectIncidentReport } from './incidents/reporting';
 import { recordConsent, CONSENT_TEXT } from './consent';
 import { checkRateLimit, cleanupRateLimits } from './utils/rateLimit';
@@ -190,7 +191,7 @@ export const reviewApplicationApprove = fns.https.onCall(async (data: any, conte
  * Automatically delete files after specified periods.
  * Scheduled for every 24 hours.
  */
-export const scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').onRun(async (context: any) => {
+export const scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').onRun(async (_context: any) => {
   const now = admin.firestore.Timestamp.now();
 
   // 1. Find rejected apps older than 30 days
