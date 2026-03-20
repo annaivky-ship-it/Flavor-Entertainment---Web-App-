@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle, LoaderCircle, AlertTriangle, X } from 'lucide-react';
 
-interface FrankieOneVerificationProps {
+interface DiditVerificationProps {
   onSuccess: () => void;
   onCancel: () => void;
   clientName: string;
 }
 
-const FrankieOneVerification: React.FC<FrankieOneVerificationProps> = ({ onSuccess, onCancel, clientName }) => {
+const DiditVerification: React.FC<DiditVerificationProps> = ({ onSuccess, onCancel, clientName }) => {
   const [step, setStep] = useState<'intro' | 'scanning' | 'processing' | 'success' | 'error'>('intro');
 
   useEffect(() => {
@@ -28,7 +28,7 @@ const FrankieOneVerification: React.FC<FrankieOneVerificationProps> = ({ onSucce
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
-        <button 
+        <button
           onClick={onCancel}
           className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors"
           disabled={step === 'scanning' || step === 'processing' || step === 'success'}
@@ -44,22 +44,22 @@ const FrankieOneVerification: React.FC<FrankieOneVerificationProps> = ({ onSucce
           </div>
 
           <h2 className="text-2xl font-bold text-white mb-2">
-            FrankieOne Verification
+            Didit Verification
           </h2>
 
           {step === 'intro' && (
             <div className="animate-fade-in">
               <p className="text-zinc-400 mb-8">
-                Hi {clientName}, we use FrankieOne to securely verify your identity. You will need your government-issued ID.
+                Hi {clientName}, we use Didit to securely verify your identity. You will need your government-issued ID.
               </p>
-              <button 
+              <button
                 onClick={() => setStep('scanning')}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors"
               >
                 Start Verification
               </button>
               <p className="text-xs text-zinc-500 mt-4">
-                By proceeding, you agree to FrankieOne's Terms of Service and Privacy Policy.
+                By proceeding, you agree to Didit's Terms of Service and Privacy Policy.
               </p>
             </div>
           )}
@@ -67,7 +67,7 @@ const FrankieOneVerification: React.FC<FrankieOneVerificationProps> = ({ onSucce
           {step === 'scanning' && (
             <div className="animate-fade-in py-8">
               <LoaderCircle className="h-12 w-12 text-blue-500 animate-spin mx-auto mb-4" />
-              <p className="text-lg font-medium text-white mb-2">Connecting to FrankieOne...</p>
+              <p className="text-lg font-medium text-white mb-2">Connecting to Didit...</p>
               <p className="text-sm text-zinc-400">Preparing secure environment</p>
             </div>
           )}
@@ -96,7 +96,7 @@ const FrankieOneVerification: React.FC<FrankieOneVerificationProps> = ({ onSucce
               <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
               <p className="text-xl font-bold text-white mb-2">Verification Failed</p>
               <p className="text-sm text-zinc-400 mb-6">We could not verify your identity at this time.</p>
-              <button 
+              <button
                 onClick={() => setStep('intro')}
                 className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-xl transition-colors"
               >
@@ -105,14 +105,14 @@ const FrankieOneVerification: React.FC<FrankieOneVerificationProps> = ({ onSucce
             </div>
           )}
         </div>
-        
+
         <div className="bg-zinc-950 px-6 py-4 border-t border-zinc-800 flex items-center justify-center gap-2">
           <Shield className="h-4 w-4 text-zinc-500" />
-          <span className="text-xs text-zinc-500 font-medium">Secured by FrankieOne</span>
+          <span className="text-xs text-zinc-500 font-medium">Secured by Didit</span>
         </div>
       </div>
     </div>
   );
 };
 
-export default FrankieOneVerification;
+export default DiditVerification;

@@ -10,7 +10,7 @@ import { createKycSession, processKycResult, verifyWebhookSignature } from './di
 import { calculateRiskScore, shouldSkipKyc } from './risk/scoring';
 import { createIncidentReport, approveIncidentReport, rejectIncidentReport } from './incidents/reporting';
 import { recordConsent, CONSENT_TEXT } from './consent';
-
+import { dnsLookup, normalizeEmail, normalizePhoneToE164, sha256 } from './dns';
 // Fix: Declaring Buffer to resolve 'Cannot find name Buffer' error in environments without node types.
 declare const Buffer: any;
 
@@ -214,18 +214,19 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
   const { formState, performerIds } = request.data;
 
   return db.runTransaction(async (transaction: any) => {
-    const emailHash = Buffer.from(formState.email.toLowerCase()).toString('hex');
-    const blacklistDoc = await transaction.get(db.collection('blacklist').doc(emailHash));
+    // DNS Check
+    const normalizedEmail = normalizeEmail(formState.email);
+    const normalizedPhone = normalizePhoneToE164(formState.phone || formState.mobile);
+
+    const emailHash = sha256(normalizedEmail);
+    const phoneHash = sha256(normalizedPhone);
+
+    const blacklistDoc = await transaction.get(db.collection('blacklist').doc(Buffer.from(formState.email.toLowerCase()).toString('hex')));
     if (blacklistDoc.exists) throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
 
-    // DNS Check
-    const normalizedEmail = formState.email.toLowerCase().trim();
-    const normalizedPhone = formState.phone.replace(/\s+/g, '');
+    const isBlocked = await dnsLookup(emailHash, phoneHash);
 
-    const dnsEmailQuery = await transaction.get(db.collection('do_not_serve').where('email', '==', normalizedEmail));
-    const dnsPhoneQuery = await transaction.get(db.collection('do_not_serve').where('phone', '==', normalizedPhone));
-
-    if (!dnsEmailQuery.empty || !dnsPhoneQuery.empty) {
+    if (isBlocked) {
       throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
     }
 
@@ -277,6 +278,24 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
     return { success: true, bookingIds: newBookings.map(b => b.id) };
   });
 });
+
+export const initializeDiditSession = fns.https.onCall(async (data: { bookingId: string }, context: any) => {
+  const { bookingId } = data;
+  if (!bookingId) {
+    throw new fns.https.HttpsError('invalid-argument', 'Booking ID is required.');
+  }
+
+  try {
+    const session = await createKycSession(bookingId);
+    if (!session) {
+      throw new Error('Could not create KYC session (Didit missing or disabled).');
+    }
+    return { success: true, url: session.verification_url, sessionId: session.session_id };
+  } catch (error: any) {
+    throw new fns.https.HttpsError('internal', error.message || 'Error occurred initializing KYC.');
+  }
+});
+
 
 export const notificationsWorker = fns.firestore
   .document('notificationsQueue/{id}')
@@ -698,4 +717,28 @@ export const assessBookingRisk = fns.https.onCall(async (data: any, context: any
       reasons: assessment.reasons,
     },
   };
+});
+
+export const addAnnaTest = fns.https.onRequest(async (req: any, res: any) => {
+  try {
+    const newPerformer = {
+      id: 6,
+      name: 'Anna Ivky',
+      tagline: 'Sophistication and a hint of mystery.',
+      photo_url: 'https://picsum.photos/seed/anna/800/1200',
+      bio: 'Anna is the epitome of grace and professionalism. Her experience with exclusive, private events makes her the ideal choice for clients seeking a discreet yet impactful presence. Her poise and charm elevate any gathering.',
+      service_ids: ['waitress-lingerie', 'show-toy', 'show-works-greek', 'show-absolute-works'],
+      service_areas: ['Perth South', 'Southwest'],
+      status: 'available',
+      rating: 5.0,
+      review_count: 89,
+      min_booking_duration_hours: 3,
+      created_at: admin.firestore.FieldValue.serverTimestamp()
+    };
+    await db.collection('performers').doc('6').set(newPerformer);
+    res.json({ success: true, message: 'Anna added properly' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: String(error) });
+  }
 });

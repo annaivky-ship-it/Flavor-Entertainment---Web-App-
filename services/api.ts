@@ -449,5 +449,21 @@ export const api = {
     } catch (err: any) {
       return { data: null, error: err };
     }
+  },
+
+  async initializeDiditSession(bookingId: string) {
+    if (!functions) return { verificationUrl: null, error: new Error('Firebase functions not initialized') };
+    try {
+      const initDidit = httpsCallable(functions, 'initializeDiditSession');
+      const result = await initDidit({ bookingId });
+      const data = result.data as any;
+      if (data.success && data.url) {
+        return { verificationUrl: data.url, sessionId: data.sessionId, error: null };
+      }
+      return { verificationUrl: null, error: new Error(data.message || 'Failed to initialize Didit session') };
+    } catch (error: any) {
+      console.error('Error initializing Didit API:', error);
+      return { verificationUrl: null, error };
+    }
   }
 };

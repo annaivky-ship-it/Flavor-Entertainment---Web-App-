@@ -9,100 +9,42 @@ import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
-import FrankieOneVerification from './FrankieOneVerification';
 import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, UploadCloud, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, FileText, LoaderCircle, Users as UsersIcon, Shield, Camera, Wallet, Briefcase } from 'lucide-react';
+import { api } from '../services/api';
 
 export interface BookingFormState {
-  fullName: string;
-  email: string;
-  mobile: string;
-  dob: string;
-  eventDate: string;
-  eventTime: string;
-  eventAddress: string;
-  eventType: string;
-  duration: string;
-  numberOfGuests: string;
-  selectedServices: string[];
-  idDocument: File | null;
-  selfieDocument: File | null;
-  client_message: string;
+    fullName: string;
+    email: string;
+    mobile: string;
+    dob: string;
+    eventDate: string;
+    eventTime: string;
+    eventAddress: string;
+    eventType: string;
+    duration: string;
+    numberOfGuests: string;
+    selectedServices: string[];
+    client_message: string;
 }
 
 interface BookingProcessProps {
-  performers: Performer[];
-  onBack: () => void;
-  onBookingSubmitted: () => void;
-  bookings: Booking[];
-  onUpdateBookingStatus?: (bookingId: string, status: BookingStatus) => Promise<void>;
-  onBookingRequest: (formState: BookingFormState, performers: Performer[]) => Promise<{success: boolean; message: string; bookingIds?: string[]}>;
-  doNotServeList: DoNotServeEntry[];
-  addCommunication: (commData: Omit<Communication, 'id' | 'created_at' | 'read'>) => Promise<void>;
-  onShowPrivacyPolicy: () => void;
-  onShowTermsOfService: () => void;
-  initialSelectedServices?: string[];
+    performers: Performer[];
+    onBack: () => void;
+    onBookingSubmitted: () => void;
+    bookings: Booking[];
+    onUpdateBookingStatus?: (bookingId: string, status: BookingStatus) => Promise<void>;
+    onBookingRequest: (formState: BookingFormState, performers: Performer[]) => Promise<{ success: boolean; message: string; bookingIds?: string[] }>;
+    doNotServeList: DoNotServeEntry[];
+    addCommunication: (commData: Omit<Communication, 'id' | 'created_at' | 'read'>) => Promise<void>;
+    onShowPrivacyPolicy: () => void;
+    onShowTermsOfService: () => void;
+    initialSelectedServices?: string[];
 }
 
 type BookingStage = 'form' | 'performer_acceptance_pending' | 'vetting_pending' | 'deposit_pending' | 'deposit_confirmation_pending' | 'confirmed' | 'rejected';
 
 
 const eventTypes = ['Bucks Party', 'Birthday Party', 'Corporate Event', 'Hens Party', 'Private Gathering', 'Other'];
-
-interface FileUploadFieldProps {
-  file: File | null;
-  setFile: (f: File | null) => void;
-  id: string;
-  label: string;
-  accept: string;
-  error?: string;
-  icon?: React.ReactNode;
-}
-
-const FileUploadField: React.FC<FileUploadFieldProps> = ({ file, setFile, id, label, accept, error, icon }) => {
-    const [internalError, setInternalError] = useState('');
-    
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            if (selectedFile.size > 10 * 1024 * 1024) { // 10MB limit
-                setInternalError('File size must be under 10MB.');
-                setFile(null);
-            } else {
-                setInternalError('');
-                setFile(selectedFile);
-            }
-        }
-    };
-
-    const displayError = internalError || error;
-
-    return (
-        <div className="flex-1 min-w-[280px]">
-            <label htmlFor={id} className="block text-sm font-semibold text-zinc-300 mb-2">{label}</label>
-            <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 transition-all duration-300 ${displayError ? 'border-red-500 bg-red-900/10' : file ? 'border-green-500 bg-green-900/10' : 'border-zinc-700 bg-zinc-900/50 hover:border-orange-500 hover:bg-zinc-800/50'}`}>
-                {file ? (
-                  <div className="text-center animate-fade-in">
-                    <CheckCircle className="mx-auto h-10 w-10 text-green-500 mb-2" />
-                    <p className="text-sm font-bold text-white truncate max-w-[200px]">{file.name}</p>
-                    <button onClick={() => setFile(null)} className="text-xs text-zinc-500 hover:text-red-400 mt-2 underline">Remove</button>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                      {icon || <UploadCloud className={`mx-auto h-10 w-10 ${displayError ? 'text-red-400' : 'text-zinc-500'}`} />}
-                      <div className="mt-3 flex flex-col text-sm leading-6 text-zinc-400">
-                          <label htmlFor={id} className="relative cursor-pointer rounded-md font-semibold text-orange-500 hover:text-orange-400 transition-colors">
-                              <span>Upload Photo</span>
-                              <input id={id} name={id} type="file" className="sr-only" onChange={handleFileChange} accept={accept} />
-                          </label>
-                          <p className="text-xs text-zinc-500">JPG, PNG up to 10MB</p>
-                      </div>
-                  </div>
-                )}
-            </div>
-            {displayError && <p className="text-xs mt-2 text-red-400 font-medium animate-slide-in-up">{displayError}</p>}
-        </div>
-    );
-};
 
 const ErrorDisplay = ({ message }: { message: string | null }) => message ? (
     <div className="p-4 mb-6 text-sm text-red-200 bg-red-900/50 rounded-lg border border-red-500 flex items-start gap-3 animate-fade-in" role="alert">
@@ -114,27 +56,27 @@ const ErrorDisplay = ({ message }: { message: string | null }) => message ? (
 ) : null;
 
 interface StatusScreenProps {
-  icon: React.ElementType;
-  title: string;
-  children: React.ReactNode;
-  bgColor: string;
-  buttonText: string;
-  onButtonClick: () => void;
+    icon: React.ElementType;
+    title: string;
+    children: React.ReactNode;
+    bgColor: string;
+    buttonText: string;
+    onButtonClick: () => void;
 }
-    
+
 const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children, bgColor, buttonText, onButtonClick }) => (
-  <div className={`flex flex-col items-center justify-center min-h-[60vh] text-center p-4 animate-fade-in ${bgColor}`}>
-    <div className="bg-black/40 backdrop-blur-md p-8 sm:p-12 rounded-2xl border border-white/10 shadow-2xl max-w-2xl w-full">
-        <Icon className={`mx-auto h-20 w-20 mb-6 ${Icon === LoaderCircle ? 'animate-spin text-orange-500' : 'text-orange-400'}`} />
-        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">{title}</h2>
-        <div className="text-zinc-300 mt-2 mb-8 max-w-lg mx-auto leading-relaxed">
-          {children}
+    <div className={`flex flex-col items-center justify-center min-h-[60vh] text-center p-4 animate-fade-in ${bgColor}`}>
+        <div className="bg-black/40 backdrop-blur-md p-8 sm:p-12 rounded-2xl border border-white/10 shadow-2xl max-w-2xl w-full">
+            <Icon className={`mx-auto h-20 w-20 mb-6 ${Icon === LoaderCircle ? 'animate-spin text-orange-500' : 'text-orange-400'}`} />
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">{title}</h2>
+            <div className="text-zinc-300 mt-2 mb-8 max-w-lg mx-auto leading-relaxed">
+                {children}
+            </div>
+            <button onClick={onButtonClick} className="btn-primary px-8 py-3 text-lg">
+                {buttonText}
+            </button>
         </div>
-        <button onClick={onButtonClick} className="btn-primary px-8 py-3 text-lg">
-            {buttonText}
-        </button>
     </div>
-  </div>
 );
 
 
@@ -173,31 +115,29 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const [form, setForm] = useState<BookingFormState>({
-        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, idDocument: null, selfieDocument: null, client_message: ''
+        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, client_message: ''
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [agreedTerms, setAgreedTerms] = useState(false);
     const [isVerifiedBooker, setIsVerifiedBooker] = useState(false);
-    const [isFrankieOneVerified, setIsFrankieOneVerified] = useState(false);
-    const [showFrankieOneModal, setShowFrankieOneModal] = useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
     const [isPayIdModalOpen, setIsPayIdModalOpen] = useState(false);
 
     useEffect(() => {
-      const checkVerifiedBooker = () => {
-        if(!form.email && !form.mobile) return setIsVerifiedBooker(false);
-        const hasConfirmedBooking = bookings.some(b => 
-          b.status === 'confirmed' && (
-            (form.email && b.client_email.toLowerCase() === form.email.toLowerCase()) ||
-            (form.mobile && b.client_phone.replace(/\s+/g, '') === form.mobile.replace(/\s+/g, ''))
-          )
-        );
-        setIsVerifiedBooker(hasConfirmedBooking);
-      };
-      const debounceTimer = setTimeout(checkVerifiedBooker, 500);
-      return () => clearTimeout(debounceTimer);
+        const checkVerifiedBooker = () => {
+            if (!form.email && !form.mobile) return setIsVerifiedBooker(false);
+            const hasConfirmedBooking = bookings.some(b =>
+                b.status === 'confirmed' && (
+                    (form.email && b.client_email.toLowerCase() === form.email.toLowerCase()) ||
+                    (form.mobile && b.client_phone.replace(/\s+/g, '') === form.mobile.replace(/\s+/g, ''))
+                )
+            );
+            setIsVerifiedBooker(hasConfirmedBooking);
+        };
+        const debounceTimer = setTimeout(checkVerifiedBooker, 500);
+        return () => clearTimeout(debounceTimer);
     }, [form.email, form.mobile, bookings]);
 
     // Automatically open PayID modal when transition to deposit_pending occurs
@@ -209,13 +149,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
     useEffect(() => {
         if (bookingIds.length === 0 || !db) return;
-        
+
         const bookingRef = doc(db, 'bookings', bookingIds[0]);
         const unsubscribe = onSnapshot(bookingRef, (snap) => {
             if (!snap.exists()) return;
             const data = snap.data() as Booking;
             const currentStatus = data.status;
-            
+
             if (currentStatus === 'pending_performer_acceptance' && stage !== 'performer_acceptance_pending') {
                 setStage('performer_acceptance_pending');
             } else if (currentStatus === 'pending_vetting' && stage !== 'vetting_pending') {
@@ -230,7 +170,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 setStage('rejected');
             }
         });
-        
+
         return () => unsubscribe();
     }, [bookingIds, stage]);
 
@@ -253,7 +193,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             });
         }
     };
-    
+
     const handleServiceChange = (serviceId: string) => {
         setForm(prev => {
             const selectedServices = prev.selectedServices.includes(serviceId)
@@ -269,28 +209,28 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             });
         }
     };
-    
+
     const availableServices = useMemo(() => {
-      const uniqueServiceIds = [...new Set(performers.flatMap(p => p.service_ids))];
-      return allServices.filter(s => uniqueServiceIds.includes(s.id));
+        const uniqueServiceIds = [...new Set(performers.flatMap(p => p.service_ids))];
+        return allServices.filter(s => uniqueServiceIds.includes(s.id));
     }, [performers]);
 
     const servicesByCategory = useMemo(() => {
         return availableServices.reduce((acc, service) => {
-          (acc[service.category] = acc[service.category] || []).push(service);
-          return acc;
+            (acc[service.category] = acc[service.category] || []).push(service);
+            return acc;
         }, {} as Record<string, Service[]>);
     }, [availableServices]);
 
     const { totalCost, depositAmount } = useMemo(() => {
         return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length);
     }, [form.selectedServices, form.duration, performers.length]);
-    
+
     const { formattedTotalDuration } = useMemo(() => getBookingDurationInfo(Number(form.duration), form.selectedServices), [form.duration, form.selectedServices]);
 
     const validateStep = (step: number): boolean => {
         const errors: Record<string, string> = {};
-        
+
         switch (step) {
             case 1:
                 if (!form.fullName.trim()) errors.fullName = "Full name is required.";
@@ -325,7 +265,6 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 break;
             case 4:
                 if (!isVerifiedBooker) {
-                    if (!isFrankieOneVerified) errors.frankieOne = "Identity verification is required.";
                     if (!agreedTerms) errors.agreedTerms = "Agreement required.";
                 }
                 break;
@@ -372,8 +311,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         const normalizedPhone = form.mobile.replace(/\s+/g, '');
         // Note: This client-side check is a UX convenience only. 
         // The actual security gate is implemented server-side in Cloud Functions.
-        const isBanned = doNotServeList.some(e => 
-            e.client_email.toLowerCase().trim() === normalizedEmail || 
+        const isBanned = doNotServeList.some(e =>
+            e.client_email.toLowerCase().trim() === normalizedEmail ||
             e.client_phone.replace(/\s+/g, '') === normalizedPhone
         );
 
@@ -387,6 +326,17 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             const result = await onBookingRequest(form, performers);
             if (result.success && result.bookingIds) {
                 setBookingIds(result.bookingIds);
+
+                if (!isVerifiedBooker) {
+                    const diditRes = await api.initializeDiditSession(result.bookingIds[0]);
+                    if (diditRes.verificationUrl) {
+                        // Redirect directly to Didit verification
+                        window.location.href = diditRes.verificationUrl;
+                        return;
+                    } else {
+                        throw new Error(diditRes.error?.message || "Failed to connect to Didit.");
+                    }
+                }
             } else {
                 setError(result.message);
             }
@@ -398,11 +348,11 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     };
 
     const handlePaymentSuccess = async () => {
-       setIsPayIdModalOpen(false);
-       if(bookingIds.length > 0) {
-          await onUpdateBookingStatus?.(bookingIds[0], 'pending_deposit_confirmation');
-          setStage('deposit_confirmation_pending');
-       }
+        setIsPayIdModalOpen(false);
+        if (bookingIds.length > 0) {
+            await onUpdateBookingStatus?.(bookingIds[0], 'pending_deposit_confirmation');
+            setStage('deposit_confirmation_pending');
+        }
     };
 
     if (stage === 'performer_acceptance_pending') {
@@ -416,15 +366,15 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)}>
                 Booking approved! Pay <strong>${(depositAmount || 0).toFixed(2)}</strong> to secure your date.
                 {isPayIdModalOpen && (
-                    <PayIDSimulationModal 
-                        amount={depositAmount} 
-                        totalAmount={totalCost} 
-                        performerNames={performers.map(p => p.name).join(', ')} 
-                        eventType={form.eventType} 
+                    <PayIDSimulationModal
+                        amount={depositAmount}
+                        totalAmount={totalCost}
+                        performerNames={performers.map(p => p.name).join(', ')}
+                        eventType={form.eventType}
                         eventDate={form.eventDate}
                         eventAddress={form.eventAddress}
-                        onPaymentSuccess={handlePaymentSuccess} 
-                        onClose={() => setIsPayIdModalOpen(false)} 
+                        onPaymentSuccess={handlePaymentSuccess}
+                        onClose={() => setIsPayIdModalOpen(false)}
                     />
                 )}
             </StatusScreen>
@@ -458,7 +408,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 <div className="lg:col-span-2 space-y-8">
                     <div className="card-base !p-6 sm:!p-10 shadow-2xl border-zinc-800/50">
                         <ErrorDisplay message={error} />
-                        
+
                         {currentStep === 1 && (
                             <div className="space-y-6 animate-fade-in">
                                 <div><h2 className="text-2xl font-bold text-white mb-2">Client Details</h2><p className="text-zinc-400">Match these to your identification documents.</p></div>
@@ -474,7 +424,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                         {currentStep === 2 && (
                             <div className="space-y-6 animate-fade-in">
-                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField icon={<Calendar />} label="Event Date" type="date" name="eventDate" min={todayStr} value={form.eventDate} onChange={handleChange} required error={fieldErrors.eventDate} />
                                     <InputField icon={<Clock />} label="Start Time" type="time" name="eventTime" value={form.eventTime} onChange={handleChange} required error={fieldErrors.eventTime} />
                                     <div>
@@ -507,9 +457,9 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         {currentStep === 3 && (
                             <div className="space-y-6 animate-fade-in">
                                 <div className="space-y-8">
-                                     {(Object.entries(servicesByCategory) as [string, Service[]][]).map(([category, services]) => (
+                                    {(Object.entries(servicesByCategory) as [string, Service[]][]).map(([category, services]) => (
                                         <div key={category}>
-                                            <h3 className="text-lg font-semibold text-orange-400 mb-4 flex items-center gap-2"><Briefcase size={18}/> {category}</h3>
+                                            <h3 className="text-lg font-semibold text-orange-400 mb-4 flex items-center gap-2"><Briefcase size={18} /> {category}</h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 {services.map(service => {
                                                     const isSelected = form.selectedServices.includes(service.id);
@@ -520,20 +470,20 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                                                 <p className="text-xs text-zinc-500">{service.description}</p>
                                                             </div>
                                                             <div className="ml-4 text-right flex flex-col items-end gap-1">
-                                                                 <span className="text-sm font-bold block text-zinc-300">${service.rate}{service.rate_type === 'per_hour' ? '/hr' : ''}</span>
-                                                                 {(service.duration_minutes || service.min_duration_hours) && (
-                                                                   <span className="text-xs text-zinc-500 font-medium">
-                                                                     {service.duration_minutes ? `${service.duration_minutes} mins` : `Min ${service.min_duration_hours} hr${service.min_duration_hours! > 1 ? 's' : ''}`}
-                                                                   </span>
-                                                                 )}
-                                                                 {isSelected && <CheckCircle size={18} className="text-orange-400 inline mt-1" />}
+                                                                <span className="text-sm font-bold block text-zinc-300">${service.rate}{service.rate_type === 'per_hour' ? '/hr' : ''}</span>
+                                                                {(service.duration_minutes || service.min_duration_hours) && (
+                                                                    <span className="text-xs text-zinc-500 font-medium">
+                                                                        {service.duration_minutes ? `${service.duration_minutes} mins` : `Min ${service.min_duration_hours} hr${service.min_duration_hours! > 1 ? 's' : ''}`}
+                                                                    </span>
+                                                                )}
+                                                                {isSelected && <CheckCircle size={18} className="text-orange-400 inline mt-1" />}
                                                             </div>
                                                         </div>
                                                     );
                                                 })}
                                             </div>
                                         </div>
-                                     ))}
+                                    ))}
                                 </div>
                                 <div className="mt-8"><label className="block text-sm font-medium text-zinc-400 mb-2">Special Notes (Optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-24 resize-none" /></div>
                             </div>
@@ -543,54 +493,27 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                             <div className="space-y-8 animate-fade-in">
                                 <div className="mb-6"><h2 className="text-2xl font-bold text-white mb-2">Safety Verification</h2><p className="text-zinc-400">To protect our performers, we require all new clients to verify their identity.</p></div>
                                 {isVerifiedBooker ? (
-                                   <div className="p-8 bg-green-900/20 border border-green-500/50 rounded-2xl text-center space-y-4"><CheckCircle className="h-16 w-16 text-green-500 mx-auto" /><h3 className="text-2xl font-bold text-white">Verified Trust Status</h3><p className="text-green-200">You are pre-cleared for this booking. Proceed to confirmation.</p></div>
+                                    <div className="p-8 bg-green-900/20 border border-green-500/50 rounded-2xl text-center space-y-4"><CheckCircle className="h-16 w-16 text-green-500 mx-auto" /><h3 className="text-2xl font-bold text-white">Verified Trust Status</h3><p className="text-green-200">You are pre-cleared for this booking. Proceed to confirmation.</p></div>
                                 ) : (
-                                   <div className="space-y-6">
+                                    <div className="space-y-6">
                                         <div className="p-4 bg-blue-950/40 border border-blue-500/50 rounded-xl flex items-start gap-4">
                                             <Shield className="h-6 w-6 text-blue-400 mt-1 flex-shrink-0" />
                                             <div>
                                                 <h4 className="font-bold text-blue-300">Identity Verification Required</h4>
                                                 <p className="text-sm text-blue-200/80 leading-relaxed mt-1">
-                                                    We use FrankieOne to securely verify your identity. This process is quick and ensures the safety of our performers.
+                                                    We use Didit to securely verify your identity. After you submit your booking request, you will be securely redirected to Didit to complete this verification process.
                                                 </p>
                                             </div>
                                         </div>
-                                        
-                                        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-zinc-700 rounded-2xl bg-zinc-900/50">
-                                            {isFrankieOneVerified ? (
-                                                <div className="text-center animate-fade-in">
-                                                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                                                    <h3 className="text-xl font-bold text-white mb-2">Identity Verified</h3>
-                                                    <p className="text-zinc-400">Your identity has been successfully verified via FrankieOne.</p>
-                                                </div>
-                                            ) : (
-                                                <div className="text-center">
-                                                    <ShieldCheck className="h-16 w-16 text-zinc-600 mx-auto mb-4" />
-                                                    <h3 className="text-xl font-bold text-white mb-4">Verify Your Identity</h3>
-                                                    <button
-                                                        onClick={() => setShowFrankieOneModal(true)}
-                                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors flex items-center gap-2 mx-auto"
-                                                    >
-                                                        <Shield size={20} />
-                                                        Verify with FrankieOne
-                                                    </button>
-                                                    {fieldErrors.frankieOne && (
-                                                        <p className="text-red-400 text-sm mt-4 font-medium animate-slide-in-up">
-                                                            {fieldErrors.frankieOne}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
 
                                         <div className="space-y-4 pt-6 border-t border-zinc-800">
-                                             <label className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-700 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors">
+                                            <label className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-700 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors">
                                                 <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-6 w-6 rounded border-zinc-700 bg-zinc-900 text-orange-500 focus:ring-orange-500" />
                                                 <span className="text-sm text-zinc-300">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-orange-400 underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-orange-400 underline">Privacy Policy</a>. I am 18+.</span>
                                             </label>
                                             {fieldErrors.agreedTerms && <p className="text-xs text-red-400 font-medium pl-1">Agreement required.</p>}
                                         </div>
-                                   </div>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -610,13 +533,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                 <div className="lg:col-span-1 space-y-6">
                     <div className="sticky top-8">
-                        <BookingCostCalculator 
-                            selectedServices={form.selectedServices} 
-                            durationHours={Number(form.duration)} 
-                            performers={performers} 
+                        <BookingCostCalculator
+                            selectedServices={form.selectedServices}
+                            durationHours={Number(form.duration)}
+                            performers={performers}
                             onClearAll={currentStep === 3 ? handleClearAll : undefined}
                         />
-                        
+
                         {currentStep > 1 && (
                             <div className="card-base mt-6 !p-6 !bg-zinc-900/50 border-zinc-800/50 animate-fade-in">
                                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -666,22 +589,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             </div>
 
             <BookingConfirmationDialog isOpen={isConfirmDialogOpen} onClose={() => setIsConfirmDialogOpen(false)} onConfirm={handleFinalSubmission} isLoading={isSubmitting} bookingDetails={{ performers, eventDate: form.eventDate, eventTime: form.eventTime, eventAddress: form.eventAddress, selectedServices: form.selectedServices.map(id => allServices.find(s => s.id === id)?.name || id), eventDuration: formattedTotalDuration, totalCost, depositAmount }} />
-            
-            {showFrankieOneModal && (
-                <FrankieOneVerification 
-                    clientName={form.fullName || 'Guest'}
-                    onSuccess={() => {
-                        setIsFrankieOneVerified(true);
-                        setShowFrankieOneModal(false);
-                        setFieldErrors(prev => {
-                            const newErrors = { ...prev };
-                            delete newErrors.frankieOne;
-                            return newErrors;
-                        });
-                    }}
-                    onCancel={() => setShowFrankieOneModal(false)}
-                />
-            )}
+
         </div>
     );
 };

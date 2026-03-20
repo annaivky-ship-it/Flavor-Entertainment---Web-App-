@@ -36,7 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
+exports.addAnnaTest = exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.initializeDiditSession = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
@@ -49,6 +49,7 @@ const didit_1 = require("./didit");
 const scoring_1 = require("./risk/scoring");
 const reporting_1 = require("./incidents/reporting");
 const consent_1 = require("./consent");
+const dns_1 = require("./dns");
 admin.initializeApp();
 const db = (0, firestore_1.getFirestore)('default');
 const fns = functions;
@@ -213,16 +214,16 @@ exports.scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').onRun(
 exports.createBookingRequest = fns.https.onCall(async (request) => {
     const { formState, performerIds } = request.data;
     return db.runTransaction(async (transaction) => {
-        const emailHash = Buffer.from(formState.email.toLowerCase()).toString('hex');
-        const blacklistDoc = await transaction.get(db.collection('blacklist').doc(emailHash));
+        // DNS Check
+        const normalizedEmail = (0, dns_1.normalizeEmail)(formState.email);
+        const normalizedPhone = (0, dns_1.normalizePhoneToE164)(formState.phone || formState.mobile);
+        const emailHash = (0, dns_1.sha256)(normalizedEmail);
+        const phoneHash = (0, dns_1.sha256)(normalizedPhone);
+        const blacklistDoc = await transaction.get(db.collection('blacklist').doc(Buffer.from(formState.email.toLowerCase()).toString('hex')));
         if (blacklistDoc.exists)
             throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
-        // DNS Check
-        const normalizedEmail = formState.email.toLowerCase().trim();
-        const normalizedPhone = formState.phone.replace(/\s+/g, '');
-        const dnsEmailQuery = await transaction.get(db.collection('do_not_serve').where('email', '==', normalizedEmail));
-        const dnsPhoneQuery = await transaction.get(db.collection('do_not_serve').where('phone', '==', normalizedPhone));
-        if (!dnsEmailQuery.empty || !dnsPhoneQuery.empty) {
+        const isBlocked = await (0, dns_1.dnsLookup)(emailHash, phoneHash);
+        if (isBlocked) {
             throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
         }
         const newBookings = [];
@@ -256,6 +257,22 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
         }
         return { success: true, bookingIds: newBookings.map(b => b.id) };
     });
+});
+exports.initializeDiditSession = fns.https.onCall(async (data, context) => {
+    const { bookingId } = data;
+    if (!bookingId) {
+        throw new fns.https.HttpsError('invalid-argument', 'Booking ID is required.');
+    }
+    try {
+        const session = await (0, didit_1.createKycSession)(bookingId);
+        if (!session) {
+            throw new Error('Could not create KYC session (Didit missing or disabled).');
+        }
+        return { success: true, url: session.verification_url, sessionId: session.session_id };
+    }
+    catch (error) {
+        throw new fns.https.HttpsError('internal', error.message || 'Error occurred initializing KYC.');
+    }
 });
 exports.notificationsWorker = fns.firestore
     .document('notificationsQueue/{id}')
@@ -639,5 +656,29 @@ exports.assessBookingRisk = fns.https.onCall(async (data, context) => {
             reasons: assessment.reasons,
         },
     };
+});
+exports.addAnnaTest = fns.https.onRequest(async (req, res) => {
+    try {
+        const newPerformer = {
+            id: 6,
+            name: 'Anna Ivky',
+            tagline: 'Sophistication and a hint of mystery.',
+            photo_url: 'https://picsum.photos/seed/anna/800/1200',
+            bio: 'Anna is the epitome of grace and professionalism. Her experience with exclusive, private events makes her the ideal choice for clients seeking a discreet yet impactful presence. Her poise and charm elevate any gathering.',
+            service_ids: ['waitress-lingerie', 'show-toy', 'show-works-greek', 'show-absolute-works'],
+            service_areas: ['Perth South', 'Southwest'],
+            status: 'available',
+            rating: 5.0,
+            review_count: 89,
+            min_booking_duration_hours: 3,
+            created_at: admin.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection('performers').doc('6').set(newPerformer);
+        res.json({ success: true, message: 'Anna added properly' });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ error: String(error) });
+    }
 });
 //# sourceMappingURL=index.js.map

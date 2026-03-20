@@ -119,6 +119,18 @@ const App: React.FC = () => {
     return Array.from(new Set(allServices.map(s => s.category)));
   }, []);
 
+  useEffect(() => {
+    // Check if returning from Didit KYC webhook/redirect
+    const currentPath = window.location.pathname;
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasBookingId = searchParams.get('bookingId');
+    if (currentPath.includes('kyc-complete') || hasBookingId) {
+       addNotification('Identity Verification submitted! We are processing your booking.', 'success');
+       window.history.replaceState({}, '', '/');
+    }
+  }, [addNotification]);
+
+
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
   };
