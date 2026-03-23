@@ -25,6 +25,8 @@ export interface BookingFormState {
     numberOfGuests: string;
     selectedServices: string[];
     client_message: string;
+    idDocument?: File | null;
+    selfieDocument?: File | null;
 }
 
 interface BookingProcessProps {

@@ -48,6 +48,16 @@ export default defineConfig(({ mode }) => {
       css: {
         transformer: 'lightningcss',
       },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage', 'firebase/functions'],
+              vendor: ['react', 'react-dom'],
+            }
+          }
+        }
+      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
