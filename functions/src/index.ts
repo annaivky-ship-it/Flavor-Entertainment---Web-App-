@@ -328,6 +328,14 @@ export const createBookingRequest = fns.https.onCall(async (request: any, contex
       }
 
       const bookingRef = db.collection('bookings').doc();
+      // Generate a unique booking reference for PayID payments
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let randStr = '';
+      for (let i = 0; i < 4; i++) randStr += chars[Math.floor(Math.random() * chars.length)];
+      const now = new Date();
+      const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+      const bookingRefCode = `FLV-${datePart}-${randStr}`;
+
       // Allowlist booking fields to prevent injection of arbitrary data
       const bookingData = {
         client_name: String(formState.fullName || '').trim(),
@@ -346,6 +354,10 @@ export const createBookingRequest = fns.https.onCall(async (request: any, contex
         is_asap: formState.isAsap === true,
         client_uid: context.auth.uid,
         performer_id: pId,
+        booking_ref: bookingRefCode,
+        amount_deposit: Number(formState.depositAmount) || null,
+        amount_total: Number(formState.totalAmount) || null,
+        payment_status: 'unpaid',
         status: 'pending_performer_acceptance',
         slotLock: slotId,
         created_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -373,7 +385,11 @@ export const createBookingRequest = fns.https.onCall(async (request: any, contex
       });
     }
 
-    return { success: true, bookingIds: newBookings.map(b => b.id) };
+    return {
+      success: true,
+      bookingIds: newBookings.map(b => b.id),
+      bookingRefs: newBookings.map(b => b.booking_ref),
+    };
   });
 });
 
@@ -538,17 +554,33 @@ export const onBookingStatusChanged = fns.firestore
     const idempotencyKey = `booking_status_${bookingId}_${after.status}`;
     if (!(await checkAndSetIdempotency(idempotencyKey))) return;
 
-    const clientPhone = after.clientPhone || after.phone;
+    const clientPhone = after.client_phone || after.clientPhone || after.phone;
     const performerPhone = after.performerPhone;
 
+    // Build template-friendly data from the booking document
+    const templateData: Record<string, string | undefined> = {
+      clientName: after.client_name || after.clientName,
+      performerName: after.performer?.name || after.performerName,
+      eventDate: after.event_date || after.eventDate,
+      eventAddress: after.event_address || after.eventAddress,
+      depositAmount: after.amount_deposit != null
+        ? String(after.amount_deposit)
+        : after.deposit_amount != null
+          ? String(after.deposit_amount)
+          : undefined,
+      payIdDetails: after.payid_email || process.env.PAY_ID_EMAIL || 'payments@flavrentertainers.com.au',
+      payIdReference: after.booking_ref || after.payid_reference || bookingId,
+      id: bookingId,
+    };
+
     // Helper to send SMS without failing the booking flow
-    const safeSend = async (templateKey: TemplateKey, to: string, templateData: any) => {
+    const safeSend = async (templateKey: TemplateKey, to: string, tplData: Record<string, string | undefined>) => {
       try {
         await sendMessage({
           bookingId,
           templateKey,
           to,
-          body: renderTemplate(templateKey, templateData)
+          body: renderTemplate(templateKey, tplData)
         });
       } catch (smsErr: any) {
         console.error('[SMS] Failed:', smsErr.message, { bookingId, phone: to?.replace(/\d(?=\d{4})/g, '*') });
@@ -556,15 +588,15 @@ export const onBookingStatusChanged = fns.firestore
     };
 
     if (after.status === 'deposit_pending' || after.status === 'APPROVED') {
-      if (clientPhone) await safeSend('APPROVED_PAYID_CLIENT', clientPhone, after);
+      if (clientPhone) await safeSend('APPROVED_PAYID_CLIENT', clientPhone, templateData);
     } else if (after.status === 'confirmed' || after.status === 'CONFIRMED') {
-      if (clientPhone) await safeSend('CONFIRMED_CLIENT', clientPhone, after);
-      if (performerPhone) await safeSend('CONFIRMED_PERFORMER', performerPhone, after);
+      if (clientPhone) await safeSend('CONFIRMED_CLIENT', clientPhone, templateData);
+      if (performerPhone) await safeSend('CONFIRMED_PERFORMER', performerPhone, templateData);
     } else if (after.status === 'rejected' || after.status === 'DECLINED') {
-      if (clientPhone) await safeSend('DECLINED_CLIENT', clientPhone, after);
+      if (clientPhone) await safeSend('DECLINED_CLIENT', clientPhone, templateData);
     } else if (after.status === 'cancelled' || after.status === 'CANCELLED') {
-      if (clientPhone) await safeSend('CANCELLED_ALL', clientPhone, after);
-      if (performerPhone) await safeSend('CANCELLED_ALL', performerPhone, after);
+      if (clientPhone) await safeSend('CANCELLED_ALL', clientPhone, templateData);
+      if (performerPhone) await safeSend('CANCELLED_ALL', performerPhone, templateData);
     }
   });
 

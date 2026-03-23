@@ -279,6 +279,7 @@ export const api = {
 
       // Try Cloud Function first, fall back to direct Firestore write
       let bookingIds: string[] = [];
+      let bookingRefs: string[] = [];
 
       if (functions && auth?.currentUser) {
         try {
@@ -292,10 +293,13 @@ export const api = {
               clientMessage: formState.client_message, // Cloud Function expects 'clientMessage'
               isAsap: formState.isASAP || false,
               performer_eta_minutes: formState.isASAP ? 60 : null,
+              depositAmount: formState._depositAmount || null,
+              totalAmount: formState._totalAmount || null,
             },
             performerIds: performers.map(p => p.id)
-          }) as { data: { success: boolean; bookingIds: string[] } };
+          }) as { data: { success: boolean; bookingIds: string[]; bookingRefs?: string[] } };
           bookingIds = result.data.bookingIds;
+          bookingRefs = result.data.bookingRefs || [];
         } catch (cfErr: unknown) {
           captureMessage(`Cloud Function failed, using direct Firestore write: ${cfErr instanceof Error ? cfErr.message : String(cfErr)}`, 'warning');
           bookingIds = await this._createBookingsDirect(formState, performers);
@@ -306,7 +310,7 @@ export const api = {
 
       // Build booking objects from form data instead of reading back
       // (Firestore read rules may block unauthenticated users)
-      const newBookings: Booking[] = bookingIds.map((id, i) => ({
+      const newBookings: (Booking & { booking_ref?: string })[] = bookingIds.map((id, i) => ({
         id,
         performer_id: performers[i].id,
         performer: { id: performers[i].id, name: performers[i].name },
@@ -325,6 +329,7 @@ export const api = {
         didit_verification_id: formState.didit_verification_id || null,
         is_asap: formState.isASAP || false,
         performer_eta_minutes: formState.isASAP ? 60 : null,
+        booking_ref: bookingRefs[i] || undefined,
         status: 'pending_performer_acceptance' as const,
         payment_status: 'unpaid' as const,
         deposit_receipt_path: null,
@@ -346,6 +351,14 @@ export const api = {
     const bookingIds: string[] = [];
 
     for (const performer of performers) {
+      // Generate a booking reference for PayID payments
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let randStr = '';
+      for (let i = 0; i < 4; i++) randStr += chars[Math.floor(Math.random() * chars.length)];
+      const now = new Date();
+      const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+      const bookingRefCode = `FLV-${datePart}-${randStr}`;
+
       const bookingData = {
         performer_id: performer.id,
         performer: { id: performer.id, name: performer.name },
@@ -366,6 +379,9 @@ export const api = {
         didit_verification_id: formState.didit_verification_id || null,
         is_asap: formState.isASAP || false,
         performer_eta_minutes: formState.isASAP ? 60 : null,
+        booking_ref: bookingRefCode,
+        amount_deposit: Number(formState._depositAmount) || null,
+        amount_total: Number(formState._totalAmount) || null,
         status: 'pending_performer_acceptance' as const,
         payment_status: 'unpaid' as const,
         deposit_receipt_path: null,

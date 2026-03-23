@@ -645,7 +645,7 @@ const App: React.FC = () => {
           ]
         });
       }, 6000);
-      return { success: true, message: 'Booking submitted', bookingIds: newBookings!.map(b => b.id) };
+      return { success: true, message: 'Booking submitted', bookingIds: newBookings!.map(b => b.id), bookingRef: (firstBooking as unknown as Record<string, unknown>).booking_ref as string | undefined };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : 'An unknown error occurred.' };
     }

@@ -30,6 +30,8 @@ export interface BookingFormState {
   client_message: string;
   _hp: string;  // honeypot - must remain empty
   isASAP: boolean;
+  _depositAmount?: number;
+  _totalAmount?: number;
 }
 
 interface BookingProcessProps {
@@ -38,7 +40,7 @@ interface BookingProcessProps {
   onBookingSubmitted: () => void;
   bookings: Booking[];
   onUpdateBookingStatus?: (bookingId: string, status: BookingStatus) => Promise<void>;
-  onBookingRequest: (formState: BookingFormState, performers: Performer[]) => Promise<{success: boolean; message: string; bookingIds?: string[]}>;
+  onBookingRequest: (formState: BookingFormState, performers: Performer[]) => Promise<{success: boolean; message: string; bookingIds?: string[]; bookingRef?: string}>;
   doNotServeList?: DoNotServeEntry[]; // Deprecated: DNS check moved server-side
   addCommunication: (commData: Omit<Communication, 'id' | 'created_at' | 'read'>) => Promise<void>;
   onShowPrivacyPolicy: () => void;
@@ -207,12 +209,17 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     useEffect(() => {
         if (bookingIds.length === 0 || !db) return;
         
-        const bookingRef = doc(db, 'bookings', bookingIds[0]);
-        const unsubscribe = onSnapshot(bookingRef, (snap) => {
+        const bookingDocRef = doc(db, 'bookings', bookingIds[0]);
+        const unsubscribe = onSnapshot(bookingDocRef, (snap) => {
             if (!snap.exists()) return;
-            const data = snap.data() as Booking;
+            const data = snap.data() as Booking & { booking_ref?: string };
             const currentStatus = data.status;
-            
+
+            // Sync the booking reference from Firestore if we don't have one locally
+            if (data.booking_ref && !bookingRef) {
+                setBookingRef(data.booking_ref);
+            }
+
             if (currentStatus === 'pending_performer_acceptance' && stage !== 'performer_acceptance_pending') {
                 setStage('performer_acceptance_pending');
             } else if (currentStatus === 'pending_vetting' && stage !== 'vetting_pending') {
@@ -453,10 +460,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         // No client-side pre-check to avoid leaking the blocklist to the browser.
 
         try {
-            const result = await onBookingRequest(form, performers);
+            // Attach deposit/total amounts so they are persisted with the booking
+            const formWithAmounts = { ...form, _depositAmount: depositAmount, _totalAmount: totalCost };
+            const result = await onBookingRequest(formWithAmounts, performers);
             if (result.success && result.bookingIds) {
                 setBookingIds(result.bookingIds);
-                setBookingRef(generateBookingRef());
+                // Use server-returned ref if available, otherwise generate locally
+                setBookingRef(result.bookingRef || generateBookingRef());
             } else {
                 setError(result.message);
             }
@@ -472,7 +482,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
        if(bookingIds.length > 0) {
           await api.updateBookingStatus(bookingIds[0], 'pending_deposit_confirmation', {
             deposit_receipt_ref: receiptRef,
-            deposit_submitted_at: new Date().toISOString()
+            deposit_submitted_at: new Date().toISOString(),
+            payment_status: 'deposit_paid',
           });
           setStage('deposit_confirmation_pending');
        }
