@@ -103,7 +103,7 @@ const PresentationVideo: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     };
   }, [progress]);
 
-  const { currentScene, sceneIndex } = sceneData;
+  const { sceneIndex } = sceneData;
 
   const startTimer = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);

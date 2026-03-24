@@ -207,8 +207,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
 
     // Apply sorting to payments table too
     return result.sort((a, b) => {
-      let valA: any = '';
-      let valB: any = '';
+      let valA: any;
+      let valB: any;
       
       switch (sortField) {
           case 'event_date':
@@ -257,7 +257,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
       totalRevenue += totalCost;
       totalDeposits += depositAmount;
       
-      if (booking.performer?.name && performerBookings.hasOwnProperty(booking.performer.name)) {
+      if (booking.performer?.name && Object.prototype.hasOwnProperty.call(performerBookings, booking.performer.name)) {
         performerBookings[booking.performer.name]++;
       }
       

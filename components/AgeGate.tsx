@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, FileText, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 interface AgeGateProps {
   onVerified: () => void;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Briefcase, ChevronDown, ShoppingCart, Radio, LoaderCircle, CalendarCheck, Clock, Users, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
+import { Briefcase, ChevronDown, ShoppingCart, Radio, LoaderCircle, CalendarCheck, Clock, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PerformerCard from './components/EntertainerCard';
@@ -831,7 +831,7 @@ const App: React.FC = () => {
     switch (view) {
       case 'profile':
         return viewedPerformer && <PerformerProfile performer={viewedPerformer} onBack={handleReturnToGallery} onBook={handleBookSinglePerformer} />;
-      case 'booking':
+      case 'booking': {
         const approvedDNS = doNotServeList.filter(e => e.status === 'approved');
         return selectedForBooking.length > 0 && (
           <BookingProcess
@@ -848,6 +848,7 @@ const App: React.FC = () => {
             initialSelectedServices={serviceIdFilter ? [serviceIdFilter] : []}
           />
         );
+      }
       case 'admin_dashboard':
         if (authedUser?.role !== 'admin') return <AccessDenied />;
         return <AdminDashboard
@@ -863,12 +864,11 @@ const App: React.FC = () => {
           onUpdatePerformer={handleUpdatePerformer}
           onCreatePerformer={handleCreatePerformer}
         />;
-      case 'performer_dashboard':
+      case 'performer_dashboard': {
         if (authedUser?.role !== 'performer') return <AccessDenied />;
         const currentPerformer = performers.find(p => p.id === authedUser.id);
         const performerBookings = bookings.filter(b => b.performer_id === authedUser.id);
         const performerCommunications = communications.filter(c => c.recipient === authedUser.id);
-        // Fix: Use actorUid for filtering audit logs to match the interface.
         const performerAuditLogs = auditLogs.filter(log => log.actorUid === String(authedUser.id));
         return currentPerformer ? (
           <PerformerDashboard
@@ -885,13 +885,14 @@ const App: React.FC = () => {
         ) : (
           <p className="text-center text-gray-400">Select a performer to view their dashboard.</p>
         );
+      }
       case 'client_dashboard':
         return <ClientDashboard bookings={bookings} onBrowsePerformers={() => setView('available_now')} onShowSettings={() => setView('settings')} />;
       case 'settings':
         return <UserSettings settings={settings} onSettingsChange={setSettings} onBack={() => setView('client_dashboard')} />;
       case 'faq':
         return <FAQ onBack={() => setView('available_now')} />;
-      case 'do_not_serve':
+      case 'do_not_serve': {
         if (!authedUser || role === 'user') return <AccessDenied />;
         const performerSubmitting = performers.find(p => p.id === authedUser.id);
         return <DoNotServe
@@ -901,7 +902,8 @@ const App: React.FC = () => {
           onBack={handleBackToDashboard}
           onCreateEntry={handleCreateDoNotServeEntry}
           addCommunication={addCommunication}
-        />
+        />;
+      }
       case 'performer_onboarding':
         return <PerformerOnboarding onSubmit={handleCreatePerformer} onCancel={() => setView('available_now')} />;
       case 'services':
@@ -913,7 +915,7 @@ const App: React.FC = () => {
         );
       case 'available_now':
       case 'future_bookings':
-      default:
+      default: {
         const isAvailableNow = view === 'available_now';
         return (
           <div className="animate-fade-in">
@@ -990,6 +992,7 @@ const App: React.FC = () => {
             )}
           </div>
         );
+      }
     }
   };
 

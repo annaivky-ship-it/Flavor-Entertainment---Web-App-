@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, Upload, CheckCircle, ArrowRight, User, Tag } from 'lucide-react';
+import { CheckCircle, ArrowRight, User, Tag } from 'lucide-react';
 import type { Performer, ServiceArea } from '../types';
 import InputField from './InputField';
 

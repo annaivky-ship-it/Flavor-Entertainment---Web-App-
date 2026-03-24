@@ -1,11 +1,11 @@
+/// <reference types="vitest/config" />
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
+export default defineConfig(({ mode: _mode }) => {
     return {
       server: {
         port: 3000,
@@ -48,10 +48,30 @@ export default defineConfig(({ mode }) => {
       css: {
         transformer: 'lightningcss',
       },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage', 'firebase/functions'],
+              vendor: ['react', 'react-dom'],
+            },
+          },
+        },
+      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
-      }
+      },
+      test: {
+        globals: true,
+        environment: 'jsdom',
+        setupFiles: ['./tests/setup.ts'],
+        include: ['tests/**/*.test.{ts,tsx}'],
+        coverage: {
+          provider: 'v8' as any,
+          include: ['utils/**', 'components/**', 'services/**'],
+        },
+      },
     };
 });

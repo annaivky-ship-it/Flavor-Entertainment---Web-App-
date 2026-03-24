@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, LoaderCircle, User, Check, CheckCheck } from 'lucide-react';
+import { X, Send, LoaderCircle, User, CheckCheck } from 'lucide-react';
 import type { Communication, Booking } from '../types';
 
 interface ChatDialogProps {

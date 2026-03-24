@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, AlertTriangle, CheckCircle, LoaderCircle, Clock } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle, LoaderCircle } from 'lucide-react';
 import type { Performer } from '../types';
 import { DEPOSIT_PERCENTAGE } from '../constants';
 

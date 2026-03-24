@@ -269,7 +269,7 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 // --- Main Walkthrough Overlay ---
 
 const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
-    isActive, onClose, onRoleChange, onNavigate
+    isActive, onClose, onRoleChange, onNavigate: _onNavigate
 }) => {
     const [currentStep, setCurrentStep] = useState(0);
     const [showScenarios, setShowScenarios] = useState(false);
