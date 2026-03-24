@@ -27,6 +27,7 @@ export const isDemoMode = import.meta.env.VITE_APP_MODE === 'demo';
 export const resetDemoData = async () => {
   if (!db) {
     console.error('Database not initialized. Check environment variables.');
+    alert('Database not initialized. Check Firebase config.');
     return;
   }
   console.log("Starting database seed...");
@@ -36,32 +37,23 @@ export const resetDemoData = async () => {
     // Seed Performers
     for (const p of mockPerformers) {
       const pRef = doc(db, 'performers', String(p.id));
-      batch.set(pRef, p);
+      batch.set(pRef, { ...p, created_at: new Date().toISOString() });
     }
 
-    // Seed Bookings
-    for (const b of mockBookings) {
-      const bRef = doc(db, 'bookings', b.id);
-      batch.set(bRef, b);
-    }
-
-    // Seed Do Not Serve
-    for (const dns of mockDoNotServeList) {
-      const dnsRef = doc(db, 'do_not_serve', dns.id);
-      batch.set(dnsRef, dns);
-    }
-
-    // Seed Communications
-    for (const comm of mockCommunications) {
-      const commRef = doc(db, 'communications', comm.id);
-      batch.set(commRef, comm);
+    // Seed Services
+    const { allServices } = await import('../data/mockData');
+    for (const s of allServices) {
+      const sRef = doc(db, 'services', s.id);
+      batch.set(sRef, s);
     }
 
     await batch.commit();
     console.log("Database seeded successfully.");
     window.location.reload();
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error seeding database:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    alert("Seeding failed: " + msg + "\n\nIf permission denied, open Firestore rules temporarily.");
   }
 };
 
