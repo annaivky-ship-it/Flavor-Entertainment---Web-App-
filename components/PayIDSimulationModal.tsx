@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LoaderCircle, CheckCircle, Shield, Building2, X, PartyPopper, User, Calendar, MapPin, DollarSign } from 'lucide-react';
+import { LoaderCircle, CheckCircle, Shield, Building2, X, PartyPopper, User, Calendar, MapPin } from 'lucide-react';
 import { PAY_ID_NAME, PAY_ID_EMAIL } from '../constants';
 
 interface PayIDSimulationModalProps {

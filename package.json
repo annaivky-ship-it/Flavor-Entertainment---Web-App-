@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "test": "vitest",
     "functions:build": "cd functions && npm run build",
     "functions:deploy": "firebase deploy --only functions",
     "deploy": "npm run build:production && firebase deploy --only hosting:production",
@@ -20,7 +21,6 @@
     "deploy:all": "npm run build:production && firebase deploy --only hosting:production && npm run build:demo && firebase deploy --only hosting:demo"
   },
   "dependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.59.0",
     "@tailwindcss/vite": "^4.2.1",
     "firebase": "^12.9.0",
     "lightningcss": "^1.32.0",
@@ -30,13 +30,20 @@
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "jsdom": "^29.0.1",
     "lightningcss": "^1.29.0",
     "typescript": "~5.8.2",
+    "typescript-eslint": "^8.57.2",
     "vite": "^6.2.0",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^4.1.1"
   }
 }

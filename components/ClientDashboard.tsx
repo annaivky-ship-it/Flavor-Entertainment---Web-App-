@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Booking, Communication } from '../types';
-import { Calendar, Clock, User, MessageCircle, MapPin, Wallet, Search, LogOut, Briefcase, LoaderCircle, AlertTriangle, CheckCircle, Archive, History, Info, Settings, Timer, Radio, X } from 'lucide-react';
+import { Calendar, Clock, User, MessageCircle, MapPin, Wallet, Search, LogOut, Briefcase, LoaderCircle, AlertTriangle, CheckCircle, Archive, History, Settings, Timer, Radio, X } from 'lucide-react';
 import ChatDialog from './ChatDialog';
 import { api } from '../services/api';
 import { calculateBookingCost } from '../utils/bookingUtils';
