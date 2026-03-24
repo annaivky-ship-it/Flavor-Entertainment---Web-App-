@@ -237,6 +237,10 @@ export const api = {
       return { data: [], error: null };
     }
     try {
+      if (!performers || performers.length === 0) {
+        throw new Error('No performers selected.');
+      }
+
       const callCreateBooking = httpsCallable(functions, 'createBookingRequest');
 
       let idUrl = null;
@@ -272,10 +276,14 @@ export const api = {
           idDocument: null,
           selfieDocument: null
         },
-        performerIds: performers.map(p => p.id)
+        performerIds: performers.filter(p => p && p.id != null).map(p => p.id)
       }) as { data: { success: boolean; bookingIds: string[] } };
 
-      const { bookingIds } = result.data;
+      const responseData = result.data;
+      if (!responseData?.success || !responseData?.bookingIds?.length) {
+        throw new Error('Booking creation failed — no bookings were returned from the server.');
+      }
+      const { bookingIds } = responseData;
 
       const newBookings = await Promise.all(bookingIds.map(async (id) => {
         const bDoc = await getDoc(doc(db!, 'bookings', id));
