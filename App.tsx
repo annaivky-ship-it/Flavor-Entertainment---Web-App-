@@ -631,20 +631,33 @@ const App: React.FC = () => {
 
   const handleBookingRequest = async (formState: BookingFormState, requestedPerformers: Performer[]) => {
     try {
-      const { data: newBookings, error: apiError } = await api.createBookingRequest(formState, requestedPerformers);
+      if (!requestedPerformers || requestedPerformers.length === 0) {
+        throw new Error('No performers selected for booking.');
+      }
+      const validPerformers = requestedPerformers.filter(p => p && p.id != null);
+      if (validPerformers.length === 0) {
+        throw new Error('Selected performers are invalid. Please go back and re-select.');
+      }
+
+      const { data: newBookings, error: apiError } = await api.createBookingRequest(formState, validPerformers);
       if (apiError) throw apiError;
+      if (!newBookings || newBookings.length === 0) {
+        throw new Error('Booking was not created. Please try again.');
+      }
 
-      localStorage.setItem('clientEmail', formState.email);
-      setBookings(prev => [...newBookings!, ...prev]);
+      sessionStorage.setItem('clientEmail', formState.email);
+      setBookings(prev => [...newBookings, ...prev]);
 
-      const firstBooking = newBookings![0];
-      addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Request Sent! We've notified ${newBookings!.map(b => b.performer?.name).join(', ')} of your request.`, booking_id: firstBooking.id, type: 'booking_update' });
-      addCommunication({ sender: 'System', recipient: 'admin', message: `📥 New Booking Request: for ${formState.fullName} with ${newBookings!.map(b => b.performer?.name).join(', ')}. Awaiting performer acceptance.`, type: 'admin_message' });
+      const firstBooking = newBookings[0];
+      const performerNames = requestedPerformers.map(p => p.name).join(', ');
 
-      showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Request Sent!</strong><br />We've sent your request to <strong>{newBookings!.map(b => b.performer?.name).join(' & ')}</strong>. We'll notify you as soon as they respond!</p> });
+      addCommunication({ sender: 'System', recipient: 'user', message: `🎉 Booking Request Sent! We've notified ${performerNames} of your request.`, booking_id: firstBooking.id, type: 'booking_update' });
+      addCommunication({ sender: 'System', recipient: 'admin', message: `📥 New Booking Request: for ${formState.fullName} with ${performerNames}. Awaiting performer acceptance.`, type: 'admin_message' });
+
+      showPhoneMessage({ for: 'Client', content: <p>🎉 <strong>Request Sent!</strong><br />We've sent your request to <strong>{performerNames}</strong>. We'll notify you as soon as they respond!</p> });
 
       setTimeout(() => {
-        const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested || [], newBookings!.length);
+        const { totalCost, depositAmount } = calculateBookingCost(firstBooking.duration_hours, firstBooking.services_requested || [], newBookings.length);
         showPhoneMessage({
           for: 'Performer',
           content: <p>🎭 <strong>New Booking Request!</strong><br />From: <strong>{firstBooking.client_name}</strong><br />For: {new Date(firstBooking.event_date).toLocaleDateString()}<br />Event: {firstBooking.event_type}<br />Guests: {firstBooking.number_of_guests}<br /><br /><strong>Total Value:</strong> ${(totalCost || 0).toFixed(2)}<br /><strong>Deposit:</strong> ${(depositAmount || 0).toFixed(2)}</p>,
@@ -654,7 +667,7 @@ const App: React.FC = () => {
           ]
         });
       }, 6000);
-      return { success: true, message: 'Booking submitted', bookingIds: newBookings!.map(b => b.id) };
+      return { success: true, message: 'Booking submitted', bookingIds: newBookings.map(b => b.id) };
     } catch (err: any) {
       return { success: false, message: err.message || 'An unknown error occurred.' };
     }
