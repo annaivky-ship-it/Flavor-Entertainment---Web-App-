@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone, Upload, Image, XCircle } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
 import { resetDemoData, isDemoMode, api } from '../services/api';
 import ChatDialog from './ChatDialog';
@@ -77,7 +77,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     name: '',
     tagline: '',
     bio: '',
-    photo_url: 'https://picsum.photos/seed/performer/400/600',
+    photo_url: '',
+    gallery_urls: [],
     status: 'available',
     rating: 5.0,
     review_count: 0,
@@ -85,6 +86,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
     service_areas: [],
     created_at: new Date().toISOString(),
   });
+  const [mainPhotoFile, setMainPhotoFile] = useState<File | null>(null);
+  const [mainPhotoPreview, setMainPhotoPreview] = useState<string>('');
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleAction = async (type: string, id: string, action: () => Promise<void>) => {
     setLoadingState({ type, id });
@@ -440,7 +446,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   name: '',
                   tagline: '',
                   bio: '',
-                  photo_url: 'https://picsum.photos/seed/performer/400/600',
+                  photo_url: '',
+                  gallery_urls: [],
                   status: 'available',
                   rating: 5.0,
                   review_count: 0,
@@ -448,6 +455,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   service_areas: [],
                   created_at: new Date().toISOString(),
                 });
+                setMainPhotoFile(null);
+                setMainPhotoPreview('');
+                setGalleryFiles([]);
+                setGalleryPreviews([]);
                 setIsAddingPerformer(true);
               }}
               className="btn-primary flex items-center gap-2 !py-2 !px-4"
@@ -488,14 +499,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                     className="input-base w-full h-24"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-sm text-zinc-400">Photo URL</label>
-                  <input 
-                    type="text" 
-                    value={performerForm.photo_url} 
-                    onChange={e => setPerformerForm({...performerForm, photo_url: e.target.value})}
-                    className="input-base w-full"
-                  />
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm text-zinc-400">Profile Photo</label>
+                  <div className="flex items-start gap-4">
+                    {(mainPhotoPreview || performerForm.photo_url) && (
+                      <div className="relative flex-shrink-0">
+                        <img src={mainPhotoPreview || performerForm.photo_url} alt="Preview" className="w-24 h-32 rounded-lg object-cover border border-zinc-700" />
+                        {mainPhotoPreview && (
+                          <button onClick={() => { setMainPhotoFile(null); setMainPhotoPreview(''); }} className="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5"><XCircle size={16} /></button>
+                        )}
+                      </div>
+                    )}
+                    <label className="flex-1 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-zinc-600 hover:border-orange-500/50 rounded-lg p-4 cursor-pointer transition-colors">
+                      <Upload size={24} className="text-zinc-500" />
+                      <span className="text-sm text-zinc-400">{mainPhotoFile ? mainPhotoFile.name : 'Click to upload main photo'}</span>
+                      <span className="text-xs text-zinc-500">JPG, PNG up to 10MB</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setMainPhotoFile(file);
+                          setMainPhotoPreview(URL.createObjectURL(file));
+                        }
+                      }} />
+                    </label>
+                  </div>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm text-zinc-400">Gallery Photos</label>
+                  <div className="flex flex-wrap gap-3">
+                    {(performerForm.gallery_urls || []).map((url, i) => (
+                      <div key={`existing-${i}`} className="relative">
+                        <img src={url} alt={`Gallery ${i + 1}`} className="w-20 h-20 rounded-lg object-cover border border-zinc-700" />
+                        <button onClick={() => setPerformerForm({...performerForm, gallery_urls: performerForm.gallery_urls?.filter((_, idx) => idx !== i)})} className="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5"><XCircle size={14} /></button>
+                      </div>
+                    ))}
+                    {galleryPreviews.map((preview, i) => (
+                      <div key={`new-${i}`} className="relative">
+                        <img src={preview} alt={`New ${i + 1}`} className="w-20 h-20 rounded-lg object-cover border border-orange-500/50" />
+                        <button onClick={() => {
+                          setGalleryFiles(prev => prev.filter((_, idx) => idx !== i));
+                          setGalleryPreviews(prev => prev.filter((_, idx) => idx !== i));
+                        }} className="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5"><XCircle size={14} /></button>
+                      </div>
+                    ))}
+                    <label className="w-20 h-20 flex flex-col items-center justify-center border-2 border-dashed border-zinc-600 hover:border-orange-500/50 rounded-lg cursor-pointer transition-colors">
+                      <Image size={20} className="text-zinc-500" />
+                      <span className="text-[10px] text-zinc-500 mt-1">Add</span>
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={e => {
+                        const files = Array.from(e.target.files || []);
+                        setGalleryFiles(prev => [...prev, ...files]);
+                        setGalleryPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
+                      }} />
+                    </label>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm text-zinc-400">Status</label>
@@ -531,19 +587,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 >
                   Cancel
                 </button>
-                <button 
+                <button
+                  disabled={isUploading}
                   onClick={async () => {
-                    if (isAddingPerformer) {
-                      await onCreatePerformer(performerForm);
-                    } else if (editingPerformer) {
-                      await onUpdatePerformer(editingPerformer.id, performerForm);
+                    setIsUploading(true);
+                    try {
+                      let formData = { ...performerForm };
+                      const performerId = editingPerformer?.id ?? 0;
+                      // For new performers, we create first to get the ID, then upload photos
+                      if (isAddingPerformer) {
+                        // If no photo selected and no URL, use placeholder
+                        if (!mainPhotoFile && !formData.photo_url) {
+                          formData.photo_url = `https://picsum.photos/seed/${formData.name.toLowerCase().replace(/\s+/g, '')}/400/600`;
+                        }
+                        await onCreatePerformer(formData);
+                        // After create, if we have files to upload, we need the new ID
+                        // The performer list will update via subscription, so we upload in edit mode next time
+                        if (mainPhotoFile || galleryFiles.length > 0) {
+                          alert('Performer created! Please edit the performer to upload photos (ID needed for storage path).');
+                        }
+                      } else if (editingPerformer) {
+                        // Upload main photo if selected
+                        if (mainPhotoFile) {
+                          const { url, error } = await api.uploadPerformerPhoto(performerId, mainPhotoFile, 'main');
+                          if (error) throw error;
+                          if (url) formData.photo_url = url;
+                        }
+                        // Upload gallery photos
+                        if (galleryFiles.length > 0) {
+                          const uploadResults = await Promise.all(
+                            galleryFiles.map(f => api.uploadPerformerPhoto(performerId, f, 'gallery'))
+                          );
+                          const newUrls = uploadResults.filter(r => r.url).map(r => r.url!);
+                          formData.gallery_urls = [...(formData.gallery_urls || []), ...newUrls];
+                        }
+                        await onUpdatePerformer(editingPerformer.id, formData);
+                      }
+                    } catch (err) {
+                      console.error('Error saving performer:', err);
+                      alert('Error saving performer: ' + (err instanceof Error ? err.message : String(err)));
+                    } finally {
+                      setIsUploading(false);
+                      setMainPhotoFile(null);
+                      setMainPhotoPreview('');
+                      setGalleryFiles([]);
+                      setGalleryPreviews([]);
+                      setIsAddingPerformer(false);
+                      setEditingPerformer(null);
                     }
-                    setIsAddingPerformer(false);
-                    setEditingPerformer(null);
                   }}
-                  className="btn-primary !py-2 !px-6"
+                  className="btn-primary !py-2 !px-6 flex items-center gap-2"
                 >
-                  Save Performer
+                  {isUploading && <LoaderCircle size={16} className="animate-spin" />}
+                  {isUploading ? 'Uploading...' : 'Save Performer'}
                 </button>
               </div>
             </div>
@@ -614,6 +710,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                             tagline: p.tagline,
                             bio: p.bio,
                             photo_url: p.photo_url,
+                            gallery_urls: p.gallery_urls || [],
                             status: p.status,
                             rating: p.rating,
                             review_count: p.review_count,
@@ -621,6 +718,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                             service_areas: p.service_areas,
                             created_at: p.created_at,
                           });
+                          setMainPhotoFile(null);
+                          setMainPhotoPreview('');
+                          setGalleryFiles([]);
+                          setGalleryPreviews([]);
                         }}
                         className="p-1 text-zinc-400 hover:text-orange-500 transition-colors"
                       >

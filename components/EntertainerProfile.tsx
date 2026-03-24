@@ -1,9 +1,9 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 // Fix: Import Service type
 import type { Performer, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { ArrowLeft, Briefcase, MapPin, Sparkles, Star, Clock } from 'lucide-react';
+import { ArrowLeft, Briefcase, MapPin, Sparkles, Star, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PerformerProfileProps {
   performer: Performer;
@@ -12,6 +12,13 @@ interface PerformerProfileProps {
 }
 
 const PerformerProfile: React.FC<PerformerProfileProps> = ({ performer, onBack, onBook }) => {
+  const allPhotos = useMemo(() => {
+    const photos = [performer.photo_url];
+    if (performer.gallery_urls?.length) photos.push(...performer.gallery_urls);
+    return photos;
+  }, [performer.photo_url, performer.gallery_urls]);
+  const [activePhoto, setActivePhoto] = useState(0);
+
   const performerServices = useMemo(() => {
     return allServices.filter(service => performer.service_ids.includes(service.id));
   }, [performer.service_ids]);
@@ -40,13 +47,33 @@ const PerformerProfile: React.FC<PerformerProfileProps> = ({ performer, onBack, 
           <div className="sticky top-28">
             <div className="relative">
                 <img
-                  src={performer.photo_url}
-                  alt={performer.name}
+                  src={allPhotos[activePhoto]}
+                  alt={`${performer.name} - Photo ${activePhoto + 1}`}
                   loading="lazy"
                   className="rounded-2xl shadow-2xl shadow-black/50 w-full h-auto object-cover aspect-[3/4] border-4 border-zinc-800"
                 />
+                {allPhotos.length > 1 && (
+                  <>
+                    <button onClick={() => setActivePhoto(i => (i - 1 + allPhotos.length) % allPhotos.length)} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition-colors"><ChevronLeft size={20} /></button>
+                    <button onClick={() => setActivePhoto(i => (i + 1) % allPhotos.length)} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition-colors"><ChevronRight size={20} /></button>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                      {allPhotos.map((_, i) => (
+                        <button key={i} onClick={() => setActivePhoto(i)} className={`w-2.5 h-2.5 rounded-full transition-colors ${i === activePhoto ? 'bg-orange-500' : 'bg-white/40 hover:bg-white/60'}`} />
+                      ))}
+                    </div>
+                  </>
+                )}
                 <div className="absolute -inset-2 rounded-2xl bg-orange-500/30 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
             </div>
+            {allPhotos.length > 1 && (
+              <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+                {allPhotos.map((url, i) => (
+                  <button key={i} onClick={() => setActivePhoto(i)} className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${i === activePhoto ? 'border-orange-500' : 'border-zinc-700 hover:border-zinc-500'}`}>
+                    <img src={url} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
             <button 
               onClick={() => onBook(performer)}
               className="mt-6 btn-primary w-full py-4 text-lg flex items-center justify-center gap-3 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40"

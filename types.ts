@@ -38,6 +38,7 @@ export interface Performer {
   name:string;
   tagline: string;
   photo_url: string;
+  gallery_urls?: string[];
   bio: string;
   service_ids: string[];
   service_areas: ServiceArea[];
