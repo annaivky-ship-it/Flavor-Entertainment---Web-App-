@@ -302,17 +302,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           <p className="text-xl text-zinc-400 mt-1">Manage bookings and monitor performers.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(import.meta.env.DEV || isDemoMode) && (
-            <button 
+          {(import.meta.env.DEV || isDemoMode || performers.length === 0) && (
+            <button
               onClick={() => {
-                if (confirm('DEV ONLY: Overwrite data with mock data?')) {
+                if (confirm('Seed the database with sample performers and services?')) {
                   resetDemoData();
                 }
               }}
               className="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 border border-zinc-700"
             >
               <Database className="h-5 w-5 text-orange-500" />
-              Seed Database (DEV ONLY)
+              Seed Database
             </button>
           )}
           <button 
