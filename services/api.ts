@@ -25,10 +25,6 @@ import { mockPerformers, mockBookings, mockDoNotServeList, mockCommunications } 
 export const isDemoMode = import.meta.env.VITE_APP_MODE === 'demo';
 
 export const resetDemoData = async () => {
-  if (import.meta.env.PROD && !isDemoMode) {
-    console.error('resetDemoData called in production — blocked.');
-    return;
-  }
   if (!db) {
     console.error('Database not initialized. Check environment variables.');
     return;
