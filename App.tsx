@@ -17,11 +17,11 @@ import ServicesGallery from './components/ServicesGallery';
 import DemoPhone from './components/DemoPhone';
 import UserSettings from './components/UserSettings';
 import PresentationVideo from './components/PresentationVideo';
-import RoleSwitcher from './components/RoleSwitcher';
+
 import FAQ from './components/FAQ';
 import PerformerOnboarding from './components/PerformerOnboarding';
 import WalkthroughOverlay from './components/WalkthroughOverlay';
-import { api, resetDemoData, isDemoMode } from './services/api';
+import { api, resetDemoData } from './services/api';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
 import { calculateBookingCost } from './utils/bookingUtils';
@@ -98,7 +98,6 @@ const App: React.FC = () => {
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState<PerformerStatus | ''>('');
-  const [showDemoBanner, setShowDemoBanner] = useState(isDemoMode);
   const [showWalkthrough, setShowWalkthrough] = useState(() => {
     // Auto-show walkthrough on first visit
     return localStorage.getItem('walkthroughShown') !== 'true';
@@ -302,33 +301,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRoleChange = (role: Role) => {
-    if (role === 'user') {
-      setAuthedUser(null);
-      setView('available_now');
-    } else if (role === 'admin') {
-      setAuthedUser({ name: 'Admin', role: 'admin' });
-      setView('admin_dashboard');
-    } else if (role === 'performer') {
-      const firstPerformer = performers[0];
-      if (firstPerformer) {
-        setAuthedUser({ name: firstPerformer.name, role: 'performer', id: firstPerformer.id });
-        setView('performer_dashboard');
-      } else {
-        setAuthedUser(null);
-      }
-    }
-  };
-
-  const handlePerformerChange = (id: number | null) => {
-    if (id) {
-      const performer = performers.find(p => p.id === id);
-      if (performer) {
-        setAuthedUser({ name: performer.name, role: 'performer', id: performer.id });
-        setView('performer_dashboard');
-      }
-    }
-  };
 
   const handleLogout = () => {
     setAuthedUser(null);
@@ -1019,35 +991,12 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen text-white flex flex-col">
-      {showDemoBanner && performers.length > 0 && (
-        <div className="bg-orange-600 text-white py-2 px-4 text-center text-xs sm:text-sm font-medium relative z-50">
-          <div className="container mx-auto flex items-center justify-center gap-4">
-            <span className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              <strong>Demo Mode Active:</strong> Use the role switcher in the header to explore Client, Performer, and Admin views.
-            </span>
-            <button
-              onClick={() => setShowDemoBanner(false)}
-              className="hover:bg-white/20 rounded p-0.5 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-      <Header
+<Header
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         onNavigate={handleNavigate}
       >
         <div className="flex items-center gap-2 sm:gap-4">
-          <RoleSwitcher
-            currentRole={authedUser?.role || 'user'}
-            onRoleChange={handleRoleChange}
-            performers={performers}
-            currentPerformerId={(authedUser?.role === 'performer' && authedUser.id) ? authedUser.id : null}
-            onPerformerChange={handlePerformerChange}
-          />
           {authedUser ? (
             <>
               <span className="text-sm text-zinc-300 hidden sm:block">Welcome, <strong className="font-semibold text-white">{authedUser.name}</strong></span>
@@ -1124,7 +1073,7 @@ const App: React.FC = () => {
           setShowWalkthrough(false);
           localStorage.setItem('walkthroughShown', 'true');
         }}
-        onRoleChange={(role) => handleRoleChange(role === 'Client' ? 'user' : role.toLowerCase() as Role)}
+        onRoleChange={() => {}}
       />
     </div>
   );
