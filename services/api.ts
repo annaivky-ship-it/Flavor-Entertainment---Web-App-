@@ -357,6 +357,23 @@ export const api = {
     }
   },
 
+  async uploadPerformerPhoto(performerId: number, file: File, type: 'main' | 'gallery' = 'main'): Promise<{ url: string | null; error: Error | null }> {
+    if (!storage) return { url: null, error: new Error('Storage not initialized') };
+    try {
+      const timestamp = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = type === 'main'
+        ? `performers/${performerId}/main_${timestamp}_${safeName}`
+        : `performers/${performerId}/gallery_${timestamp}_${safeName}`;
+      const storageRef = ref(storage, path);
+      const result = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(result.ref);
+      return { url, error: null };
+    } catch (err: any) {
+      return { url: null, error: err };
+    }
+  },
+
   async createPerformer(performerData: Omit<Performer, 'id'>) {
     if (!db) return { data: null, error: new Error('Firebase not initialized') };
     try {
