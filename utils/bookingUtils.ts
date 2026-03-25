@@ -1,9 +1,10 @@
 import { allServices } from '../data/mockData';
-import { DEPOSIT_PERCENTAGE } from '../constants';
+import { DEPOSIT_PERCENTAGE, TRAVEL_FEE_THRESHOLD_KM, TRAVEL_FEE_RATE_PER_KM } from '../constants';
+import { calculateTravelFee, getSuburbDistance } from '../data/suburbs';
 
-export const calculateBookingCost = (durationHours: number, serviceIds: string[], numPerformers: number) => {
-    if (!serviceIds || serviceIds.length === 0 || numPerformers === 0) return { totalCost: 0, depositAmount: 0 };
-        
+export const calculateBookingCost = (durationHours: number, serviceIds: string[], numPerformers: number, suburbName?: string) => {
+    if (!serviceIds || serviceIds.length === 0 || numPerformers === 0) return { totalCost: 0, depositAmount: 0, travelFee: 0 };
+
     const durationNum = durationHours || 0;
     let hourlyCost = 0;
     let flatCost = 0;
@@ -19,10 +20,13 @@ export const calculateBookingCost = (durationHours: number, serviceIds: string[]
             hourlyCost += service.rate * hours;
         }
     });
-    
-    const totalCost = (hourlyCost * numPerformers) + flatCost;
+
+    const distanceKm = suburbName ? getSuburbDistance(suburbName) : null;
+    const travelFee = distanceKm !== null ? calculateTravelFee(distanceKm, TRAVEL_FEE_THRESHOLD_KM, TRAVEL_FEE_RATE_PER_KM) : 0;
+
+    const totalCost = (hourlyCost * numPerformers) + flatCost + travelFee;
     const depositAmount = totalCost * DEPOSIT_PERCENTAGE;
-    return { totalCost, depositAmount };
+    return { totalCost, depositAmount, travelFee };
 };
 
 

@@ -3,8 +3,8 @@ import { calculateBookingCost, formatMinutesToHoursAndMinutes, getBookingDuratio
 
 describe('calculateBookingCost', () => {
   it('returns zero when no services or performers', () => {
-    expect(calculateBookingCost(2, [], 1)).toEqual({ totalCost: 0, depositAmount: 0 });
-    expect(calculateBookingCost(2, ['waitress-topless'], 0)).toEqual({ totalCost: 0, depositAmount: 0 });
+    expect(calculateBookingCost(2, [], 1)).toEqual({ totalCost: 0, depositAmount: 0, travelFee: 0 });
+    expect(calculateBookingCost(2, ['waitress-topless'], 0)).toEqual({ totalCost: 0, depositAmount: 0, travelFee: 0 });
   });
 
   it('calculates per-hour service correctly', () => {
@@ -12,6 +12,7 @@ describe('calculateBookingCost', () => {
     const result = calculateBookingCost(3, ['waitress-topless'], 1);
     expect(result.totalCost).toBe(480); // 160 * 3
     expect(result.depositAmount).toBe(120); // 25% of 480
+    expect(result.travelFee).toBe(0);
   });
 
   it('enforces minimum duration for per-hour services', () => {
@@ -46,6 +47,36 @@ describe('calculateBookingCost', () => {
     const result = calculateBookingCost(2, ['waitress-lingerie'], 1);
     // 110 * 2 = 220
     expect(result.depositAmount).toBe(result.totalCost * 0.25);
+  });
+
+  it('adds no travel fee for suburbs within 50km', () => {
+    const result = calculateBookingCost(2, ['waitress-topless'], 1, 'Perth CBD');
+    expect(result.travelFee).toBe(0);
+    expect(result.totalCost).toBe(320); // 160 * 2, no travel fee
+  });
+
+  it('adds no travel fee for suburbs at exactly 50km', () => {
+    const result = calculateBookingCost(2, ['waitress-topless'], 1, 'Two Rocks');
+    expect(result.travelFee).toBe(0);
+    expect(result.totalCost).toBe(320);
+  });
+
+  it('adds $1/km travel fee for suburbs beyond 50km', () => {
+    // Mandurah is 72km from CBD => 72 - 50 = $22 travel fee
+    const result = calculateBookingCost(2, ['waitress-topless'], 1, 'Mandurah');
+    expect(result.travelFee).toBe(22);
+    expect(result.totalCost).toBe(342); // 320 + 22
+    expect(result.depositAmount).toBe(342 * 0.25);
+  });
+
+  it('adds no travel fee when suburb is not provided', () => {
+    const result = calculateBookingCost(2, ['waitress-topless'], 1);
+    expect(result.travelFee).toBe(0);
+  });
+
+  it('adds no travel fee for unknown suburb', () => {
+    const result = calculateBookingCost(2, ['waitress-topless'], 1, 'Unknown Place');
+    expect(result.travelFee).toBe(0);
   });
 });
 

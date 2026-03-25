@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, AlertTriangle, CheckCircle, LoaderCircle } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle, LoaderCircle, Navigation } from 'lucide-react';
 import type { Performer } from '../types';
 import { DEPOSIT_PERCENTAGE } from '../constants';
 
@@ -14,10 +14,12 @@ interface BookingConfirmationDialogProps {
     eventTime: string;
 
     eventAddress: string;
+    eventSuburb?: string;
     selectedServices: string[];
     eventDuration: string;
     totalCost: number;
     depositAmount: number;
+    travelFee?: number;
   };
 }
 
@@ -48,7 +50,7 @@ const BookingConfirmationDialog: React.FC<BookingConfirmationDialogProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
                     <div><strong className="text-zinc-400 block">Performer(s):</strong> <span className="text-white">{bookingDetails.performers.map(p => p.name).join(', ')}</span></div>
                     <div><strong className="text-zinc-400 block">Date & Time:</strong> <span className="text-white">{new Date(bookingDetails.eventDate).toLocaleDateString()} at {bookingDetails.eventTime}</span></div>
-                    <div className="col-span-full"><strong className="text-zinc-400 block">Address:</strong> <span className="text-white">{bookingDetails.eventAddress}</span></div>
+                    <div className="col-span-full"><strong className="text-zinc-400 block">Address:</strong> <span className="text-white">{bookingDetails.eventAddress}{bookingDetails.eventSuburb ? `, ${bookingDetails.eventSuburb}` : ''}</span></div>
                     <div className="col-span-full"><strong className="text-zinc-400 block">Services:</strong> <span className="text-white">{bookingDetails.selectedServices.join(', ')}</span></div>
                      <div><strong className="text-zinc-400 block">Est. Total Duration:</strong> <span className="text-white">{bookingDetails.eventDuration}</span></div>
                 </div>
@@ -61,6 +63,12 @@ const BookingConfirmationDialog: React.FC<BookingConfirmationDialogProps> = ({
                         <span>Total Booking Cost:</span>
                         <span className="font-bold text-2xl text-white">${(bookingDetails.totalCost || 0).toFixed(2)}</span>
                     </div>
+                    {(bookingDetails.travelFee ?? 0) > 0 && (
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="flex items-center gap-1.5 text-blue-300/70"><Navigation size={14} /> Travel Fee (incl. in total):</span>
+                            <span className="font-medium text-blue-400">${(bookingDetails.travelFee || 0).toFixed(2)}</span>
+                        </div>
+                    )}
                     <div className="flex justify-between items-center">
                         <span>Deposit Due ({DEPOSIT_PERCENTAGE * 100}%):</span>
                         <span className="font-semibold text-xl text-orange-400">${(bookingDetails.depositAmount || 0).toFixed(2)}</span>
