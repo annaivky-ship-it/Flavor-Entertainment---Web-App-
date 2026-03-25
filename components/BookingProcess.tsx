@@ -8,8 +8,9 @@ import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
-import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation } from 'lucide-react';
 import { api } from '../services/api';
+import { perthSuburbs } from '../data/suburbs';
 
 export interface BookingFormState {
     fullName: string;
@@ -19,6 +20,7 @@ export interface BookingFormState {
     eventDate: string;
     eventTime: string;
     eventAddress: string;
+    eventSuburb: string;
     eventType: string;
     duration: string;
     numberOfGuests: string;
@@ -116,7 +118,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const [form, setForm] = useState<BookingFormState>({
-        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, client_message: ''
+        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventSuburb: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, client_message: ''
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -223,9 +225,9 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }, {} as Record<string, Service[]>);
     }, [availableServices]);
 
-    const { totalCost, depositAmount } = useMemo(() => {
-        return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length);
-    }, [form.selectedServices, form.duration, performers.length]);
+    const { totalCost, depositAmount, travelFee } = useMemo(() => {
+        return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length, form.eventSuburb || undefined);
+    }, [form.selectedServices, form.duration, performers.length, form.eventSuburb]);
 
     const { formattedTotalDuration } = useMemo(() => getBookingDurationInfo(Number(form.duration), form.selectedServices), [form.duration, form.selectedServices]);
 
@@ -258,6 +260,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 if (!form.eventDate) errors.eventDate = "Date required.";
                 if (!form.eventTime) errors.eventTime = "Time required.";
                 if (!form.eventAddress.trim()) errors.eventAddress = "Address required.";
+                if (!form.eventSuburb) errors.eventSuburb = "Suburb required.";
                 if (!form.eventType) errors.eventType = "Event type required.";
                 if (!form.numberOfGuests) errors.numberOfGuests = "Guest count required.";
                 break;
@@ -441,6 +444,27 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                     <InputField icon={<UsersIcon />} label="Guest Count" type="number" name="numberOfGuests" value={form.numberOfGuests} onChange={handleChange} required error={fieldErrors.numberOfGuests} />
                                     <InputField icon={<MapPin />} label="Event Address" name="eventAddress" value={form.eventAddress} onChange={handleChange} required error={fieldErrors.eventAddress} />
                                     <div>
+                                        <label className="block text-sm font-medium text-zinc-400 mb-1">Suburb / Area</label>
+                                        <div className="relative">
+                                            <select name="eventSuburb" value={form.eventSuburb} onChange={handleChange} className="input-base !pl-12 appearance-none">
+                                                <option value="">Select suburb</option>
+                                                {perthSuburbs.map(s => (
+                                                    <option key={s.name} value={s.name}>
+                                                        {s.name} ({s.distanceFromCBD}km from CBD)
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <Navigation className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                        </div>
+                                        {travelFee > 0 && form.eventSuburb && (
+                                            <p className="mt-1.5 text-xs text-orange-400 flex items-center gap-1">
+                                                <Info size={12} /> A ${travelFee.toFixed(0)} travel fee applies for this location
+                                            </p>
+                                        )}
+                                        {fieldErrors.eventSuburb && <p className="mt-1 text-xs text-red-400">{fieldErrors.eventSuburb}</p>}
+                                    </div>
+                                    <div>
                                         <label className="block text-sm font-medium text-zinc-400 mb-1">Event Type</label>
                                         <div className="relative">
                                             <select name="eventType" value={form.eventType} onChange={handleChange} className="input-base !pl-12 appearance-none">
@@ -538,6 +562,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                             selectedServices={form.selectedServices}
                             durationHours={Number(form.duration)}
                             performers={performers}
+                            suburbName={form.eventSuburb || undefined}
                             onClearAll={currentStep === 3 ? handleClearAll : undefined}
                         />
 
@@ -589,7 +614,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 </div>
             </div>
 
-            <BookingConfirmationDialog isOpen={isConfirmDialogOpen} onClose={() => setIsConfirmDialogOpen(false)} onConfirm={handleFinalSubmission} isLoading={isSubmitting} bookingDetails={{ performers, eventDate: form.eventDate, eventTime: form.eventTime, eventAddress: form.eventAddress, selectedServices: form.selectedServices.map(id => allServices.find(s => s.id === id)?.name || id), eventDuration: formattedTotalDuration, totalCost, depositAmount }} />
+            <BookingConfirmationDialog isOpen={isConfirmDialogOpen} onClose={() => setIsConfirmDialogOpen(false)} onConfirm={handleFinalSubmission} isLoading={isSubmitting} bookingDetails={{ performers, eventDate: form.eventDate, eventTime: form.eventTime, eventAddress: form.eventAddress, eventSuburb: form.eventSuburb, selectedServices: form.selectedServices.map(id => allServices.find(s => s.id === id)?.name || id), eventDuration: formattedTotalDuration, totalCost, depositAmount, travelFee }} />
 
         </div>
     );

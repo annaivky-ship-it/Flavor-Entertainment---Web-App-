@@ -2,13 +2,14 @@ import React, { useMemo } from 'react';
 import type { Performer } from '../types';
 import { calculateBookingCost, getBookingDurationInfo } from '../utils/bookingUtils';
 import { DEPOSIT_PERCENTAGE } from '../constants';
-import { DollarSign, Clock, AlertTriangle } from 'lucide-react';
+import { DollarSign, Clock, AlertTriangle, Navigation } from 'lucide-react';
 import { allServices } from '../data/mockData';
 
 interface BookingCostCalculatorProps {
   selectedServices: string[];
   durationHours: number;
   performers: Performer[];
+  suburbName?: string;
   className?: string;
   onClearAll?: () => void;
 }
@@ -17,12 +18,13 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
   selectedServices,
   durationHours,
   performers,
+  suburbName,
   className = '',
   onClearAll,
 }) => {
-  const { totalCost, depositAmount } = useMemo(() => {
-    return calculateBookingCost(durationHours, selectedServices, performers.length);
-  }, [selectedServices, durationHours, performers]);
+  const { totalCost, depositAmount, travelFee } = useMemo(() => {
+    return calculateBookingCost(durationHours, selectedServices, performers.length, suburbName);
+  }, [selectedServices, durationHours, performers, suburbName]);
 
   const { formattedTotalDuration } = useMemo(() => {
     return getBookingDurationInfo(durationHours, selectedServices);
@@ -74,7 +76,17 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
             ${(totalCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
-        
+
+        {travelFee > 0 && (
+          <div className="flex justify-between items-center p-2.5 bg-blue-500/5 rounded-xl border border-blue-500/10">
+            <span className="text-sm text-blue-200/70 flex items-center gap-1.5">
+              <Navigation size={14} className="text-blue-400" />
+              Travel Fee (incl.)
+            </span>
+            <span className="font-semibold text-blue-400">${travelFee.toFixed(2)}</span>
+          </div>
+        )}
+
         <div className="flex justify-between items-center p-3 bg-orange-500/5 rounded-xl border border-orange-500/10">
           <span className="text-sm font-medium text-orange-200/70">Deposit Due ({DEPOSIT_PERCENTAGE * 100}%)</span>
           <span className="font-bold text-xl text-orange-500">
