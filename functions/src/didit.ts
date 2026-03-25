@@ -8,7 +8,7 @@ const getDb = () => getFirestore('default');
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY || '';
 const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '';
 const DIDIT_API_BASE = process.env.DIDIT_API_BASE || 'https://verification.didit.me';
-const DIDIT_APP_URL = process.env.DIDIT_APP_URL || 'https://flavorentertainers.com.au';
+const DIDIT_APP_URL = process.env.DIDIT_APP_URL || 'https://flavorentertainers.com';
 const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || '';
 
 // --- Types ---

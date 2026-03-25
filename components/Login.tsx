@@ -32,10 +32,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
     } catch (err) {
       console.error('Error getting custom claims:', err);
       // Fallback for development/testing if claims aren't set up yet
-      if (user.email === 'admin@flavorentertainers.com.au') {
+      if (user.email === 'admin@flavorentertainers.com') {
         onLogin({ name: 'Admin', role: 'admin' });
       } else {
-        const performer = performers.find(p => `${p.name.toLowerCase().split(' ')[0]}@flavorentertainers.com.au` === user.email?.toLowerCase());
+        const performer = performers.find(p => `${p.name.toLowerCase().split(' ')[0]}@flavorentertainers.com` === user.email?.toLowerCase());
         if (performer) {
           onLogin({ name: performer.name, role: 'performer', id: performer.id });
         } else {
@@ -126,7 +126,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
             <InputField icon={<Mail />} type="email" name="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <InputField icon={<Lock />} type="password" name="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             {error && <p className="text-sm text-red-400 text-center">{error}</p>}
-            <p className="text-xs text-zinc-500 text-center !mt-2">Demo password is 'password'. Performer emails are `firstname@flavorentertainers.com.au` (e.g., `april@...`).</p>
+            <p className="text-xs text-zinc-500 text-center !mt-2">Demo password is 'password'. Performer emails are `firstname@flavorentertainers.com` (e.g., `april@...`).</p>
             <button type="submit" disabled={isLoading} className="btn-primary w-full text-lg flex items-center justify-center gap-2 disabled:opacity-50">
                 <LogIn />
                 Login

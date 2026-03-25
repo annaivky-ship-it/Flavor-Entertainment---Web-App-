@@ -3,7 +3,7 @@
 ## Project Overview
 Premium entertainment booking platform for Western Australia (Perth). Clients browse performer profiles, select services, book and pay deposits via PayID. Includes admin dashboard, performer dashboard, KYC identity verification (Didit), SMS/WhatsApp notifications (Twilio + ClickSend), and Do Not Serve list.
 
-**Live site:** flavorentertainers.com.au
+**Live site:** flavorentertainers.com
 **Firebase Project ID:** studio-4495412314-3b1ce
 **Region:** us-central1 (functions), australia-southeast1 (Firestore)
 
@@ -117,7 +117,7 @@ DIDIT_API_KEY
 DIDIT_WORKFLOW_ID
 DIDIT_WEBHOOK_SECRET
 DIDIT_API_BASE (default: https://verification.didit.me)
-DIDIT_APP_URL (default: https://flavorentertainers.com.au)
+DIDIT_APP_URL (default: https://flavorentertainers.com)
 ```
 
 ## Commands Reference
