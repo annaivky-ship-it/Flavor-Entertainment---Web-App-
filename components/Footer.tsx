@@ -31,7 +31,7 @@ const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfServi
               <a href="https://www.instagram.com/flavorentertainers" target="_blank" rel="noopener noreferrer" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
                 <Instagram size={18} className="text-zinc-400 group-hover:text-orange-400 transition-colors" />
               </a>
-              <a href="mailto:bookings@flavorentertainers.com.au" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
+              <a href="mailto:bookings@flavorentertainers.com" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
                 <Mail size={18} className="text-zinc-400 group-hover:text-orange-400 transition-colors" />
               </a>
               <a href="tel:+61400000000" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
