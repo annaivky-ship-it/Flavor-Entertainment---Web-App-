@@ -62,8 +62,9 @@ const Header: React.FC<HeaderProps> = ({ children, searchQuery, onSearchChange, 
             
             <div className="flex items-center gap-2">
               {children}
-              <button 
+              <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
                 className="lg:hidden p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
               >
                 {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

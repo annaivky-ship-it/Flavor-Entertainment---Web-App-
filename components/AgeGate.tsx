@@ -44,8 +44,24 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
       return;
     }
 
-    const birthDate = new Date(Number(dob.year), Number(dob.month) - 1, Number(dob.day));
+    const day = Number(dob.day);
+    const month = Number(dob.month);
+    const year = Number(dob.year);
+
+    // Validate the date is real (e.g. not Feb 30)
+    const birthDate = new Date(year, month - 1, day);
+    if (birthDate.getFullYear() !== year || birthDate.getMonth() !== month - 1 || birthDate.getDate() !== day) {
+      setError('Please enter a valid date of birth.');
+      return;
+    }
+
+    // Reject future dates
     const today = new Date();
+    if (birthDate > today) {
+      setError('Date of birth cannot be in the future.');
+      return;
+    }
+
     let age = today.getFullYear() - birthDate.getFullYear();
     const m = today.getMonth() - birthDate.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
@@ -78,7 +94,7 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
   const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" aria-label="Age verification" className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full text-white shadow-2xl shadow-black/50 animate-fade-in ring-1 ring-white/10">
         <div className="text-center mb-6 sm:mb-8">
             <div className="flex flex-col items-center cursor-pointer no-underline group mb-4 sm:mb-6">

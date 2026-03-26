@@ -46,10 +46,10 @@ const BookingStickyFooter: React.FC<{
           <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
             <div className="flex -space-x-3 sm:-space-x-4 flex-shrink-0">
               {performers.slice(0, 3).map(p => (
-                <img key={p.id} src={p.photo_url} alt={p.name} loading="lazy" className="h-10 w-10 sm:h-12 sm:h-12 rounded-full object-cover border-2 border-zinc-900 shadow-lg" />
+                <img key={p.id} src={p.photo_url} alt={p.name} loading="lazy" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover border-2 border-zinc-900 shadow-lg" />
               ))}
               {performers.length > 3 && (
-                <div className="h-10 w-10 sm:h-12 sm:h-12 rounded-full bg-zinc-800 border-2 border-zinc-900 flex items-center justify-center text-[10px] sm:text-xs font-bold text-white">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-zinc-800 border-2 border-zinc-900 flex items-center justify-center text-[10px] sm:text-xs font-bold text-white">
                   +{performers.length - 3}
                 </div>
               )}
@@ -258,8 +258,9 @@ const App: React.FC = () => {
       if (aData.error) throw new Error(`Audit Logs Error: ${aData.error.message}`);
       setAuditLogs(aData.data as AuditLog[] || []);
 
-    } catch (err: any) {
-      setError(`Backend initialization error: ${err.message}.`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Backend initialization error: ${msg}.`);
       console.error(err);
     } finally {
       setIsLoading(false);

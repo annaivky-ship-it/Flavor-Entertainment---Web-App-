@@ -72,24 +72,26 @@ export const api = {
       };
     }
 
-    const isPermissionError = (err: any) =>
-      err.code === 'permission-denied' ||
-      err.code === 'PERMISSION_DENIED' ||
-      err.message?.includes('Missing or insufficient permissions') ||
-      err.message?.includes('permission-denied');
+    const isPermissionError = (err: unknown): boolean => {
+      const e = err as { code?: string; message?: string };
+      return e.code === 'permission-denied' ||
+        e.code === 'PERMISSION_DENIED' ||
+        !!e.message?.includes('Missing or insufficient permissions') ||
+        !!e.message?.includes('permission-denied');
+    };
 
     const fetchCollection = async (name: string, q: any) => {
       try {
         const snap = await getDocs(q);
         return { data: snap.docs.map(d => ({ ...(d.data() as any), id: name === 'performers' ? Number(d.id) : d.id })), error: null };
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Permission errors are expected for restricted collections — return empty, not an error
         if (isPermissionError(err)) {
           console.warn(`No permission for ${name} — returning empty.`);
           return { data: [], error: null };
         }
         console.error(`Error fetching ${name}:`, err);
-        if (err.code === 'unavailable') {
+        if ((err as { code?: string }).code === 'unavailable') {
           console.warn(`Firestore is currently offline or unreachable. Returning mock data for ${name} if available.`);
           // Fallback to mock data if connection is unavailable
           if (name === 'performers') return { data: mockPerformers, error: null };
@@ -97,7 +99,7 @@ export const api = {
           if (name === 'do_not_serve') return { data: mockDoNotServeList, error: null };
           if (name === 'communications') return { data: mockCommunications, error: null };
         }
-        return { data: [], error: err };
+        return { data: [], error: err instanceof Error ? err : new Error(String(err)) };
       }
     };
 
@@ -127,16 +129,16 @@ export const api = {
       fetchCollection('performers', query(collection(db, 'performers'))),
       bookingsQuery
         ? fetchCollection('bookings', bookingsQuery)
-        : Promise.resolve({ data: [] as any[], error: null }),
+        : Promise.resolve({ data: [] as any[], error: null as Error | null }),
       role === 'admin'
         ? fetchCollection('do_not_serve', query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc')))
-        : Promise.resolve({ data: [] as any[], error: null }),
+        : Promise.resolve({ data: [] as any[], error: null as Error | null }),
       commsQuery
         ? fetchCollection('communications', commsQuery)
-        : Promise.resolve({ data: [] as any[], error: null }),
+        : Promise.resolve({ data: [] as any[], error: null as Error | null }),
       role === 'admin'
         ? fetchCollection('audit_logs', query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50)))
-        : Promise.resolve({ data: [] as any[], error: null }),
+        : Promise.resolve({ data: [] as any[], error: null as Error | null }),
     ]);
 
     return {
@@ -254,9 +256,9 @@ export const api = {
         createdAt: serverTimestamp()
       });
       return { id: docRef.id, error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error creating audit log:", err);
-      return { id: null, error: err };
+      return { id: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -284,6 +286,18 @@ export const api = {
     if (!db || !auth || !storage) throw new Error("Firebase not initialized");
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required");
+
+    // Validate file types and sizes
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    for (const file of [idFile, selfieFile]) {
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(`Invalid file type: ${file.type}. Allowed: JPEG, PNG, WebP, PDF.`);
+      }
+      if (file.size > maxSize) {
+        throw new Error(`File "${file.name}" exceeds 10MB limit.`);
+      }
+    }
 
     const idPath = `vetting/${user.uid}/${applicationId}/id_${idFile.name}`;
     const selfiePath = `vetting/${user.uid}/${applicationId}/selfie_${selfieFile.name}`;
@@ -334,13 +348,21 @@ export const api = {
       const userUid = user.uid;
       const submissionId = `booking_kyc_${timestamp}`;
 
+      // Validate and upload files
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      const maxFileSize = 10 * 1024 * 1024; // 10MB
+
       if (formState.idDocument) {
+        if (!allowedTypes.includes(formState.idDocument.type)) throw new Error(`Invalid ID file type: ${formState.idDocument.type}`);
+        if (formState.idDocument.size > maxFileSize) throw new Error('ID document exceeds 10MB limit.');
         const idPath = `vetting/${userUid}/${submissionId}/id_${formState.idDocument.name}`;
         const idRef = ref(storage, idPath);
         uploadPromises.push(uploadBytes(idRef, formState.idDocument).then(async res => idUrl = await getDownloadURL(res.ref)));
       }
 
       if (formState.selfieDocument) {
+        if (!allowedTypes.includes(formState.selfieDocument.type)) throw new Error(`Invalid selfie file type: ${formState.selfieDocument.type}`);
+        if (formState.selfieDocument.size > maxFileSize) throw new Error('Selfie document exceeds 10MB limit.');
         const selfiePath = `vetting/${userUid}/${submissionId}/selfie_${formState.selfieDocument.name}`;
         const selfieRef = ref(storage, selfiePath);
         uploadPromises.push(uploadBytes(selfieRef, formState.selfieDocument).then(async res => selfieUrl = await getDownloadURL(res.ref)));
@@ -371,8 +393,8 @@ export const api = {
       }));
 
       return { data: newBookings, error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -389,8 +411,8 @@ export const api = {
         ...(status === 'confirmed' ? { verified_at: new Date().toISOString() } : {})
       });
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -400,8 +422,8 @@ export const api = {
       const q = query(collection(db, 'communications'), where('booking_id', '==', bookingId), orderBy('created_at', 'asc'));
       const snap = await getDocs(q);
       return { data: snap.docs.map(d => ({ ...d.data(), id: d.id })) as Communication[], error: null };
-    } catch (err: any) {
-      return { data: [], error: err };
+    } catch (err: unknown) {
+      return { data: [], error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -418,8 +440,8 @@ export const api = {
       });
       const newDoc = await getDoc(docRef);
       return { data: [{ ...newDoc.data(), id: newDoc.id }] as Communication[], error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -432,14 +454,21 @@ export const api = {
       const docRef = doc(db, 'performers', String(performerId));
       await updateDoc(docRef, { status });
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
   async uploadPerformerPhoto(performerId: number, file: File, type: 'main' | 'gallery' = 'main'): Promise<{ url: string | null; error: Error | null }> {
     if (!storage) return { url: null, error: new Error('Storage not initialized') };
     try {
+      const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedImageTypes.includes(file.type)) {
+        return { url: null, error: new Error(`Invalid image type: ${file.type}. Use JPEG, PNG, or WebP.`) };
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        return { url: null, error: new Error('Image exceeds 5MB limit.') };
+      }
       const timestamp = Date.now();
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = type === 'main'
@@ -449,8 +478,8 @@ export const api = {
       const result = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(result.ref);
       return { url, error: null };
-    } catch (err: any) {
-      return { url: null, error: err };
+    } catch (err: unknown) {
+      return { url: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -468,8 +497,8 @@ export const api = {
       const newPerformer = { ...performerData, id: newId };
       await setDoc(docRef, newPerformer);
       return { data: newPerformer, error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -479,8 +508,8 @@ export const api = {
       const docRef = doc(db, 'performers', String(performerId));
       await updateDoc(docRef, updates);
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -492,8 +521,8 @@ export const api = {
       await updateDoc(docRef, { status: 'offline' }); // Soft delete/Deactivate
       // Or hard delete: await deleteDoc(docRef);
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -506,8 +535,8 @@ export const api = {
       const docRef = doc(db, 'do_not_serve', entryId);
       await updateDoc(docRef, { status });
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -521,8 +550,8 @@ export const api = {
       });
       const newDoc = await getDoc(docRef);
       return { data: [{ ...newDoc.data(), id: newDoc.id }] as DoNotServeEntry[], error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -539,8 +568,8 @@ export const api = {
         data: res.data ? res.data[0] : null,
         error: res.error
       };
-    } catch (err: any) {
-      return { data: null, error: err };
+    } catch (err: unknown) {
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
   },
 
@@ -554,9 +583,9 @@ export const api = {
         return { verificationUrl: data.url, sessionId: data.sessionId, error: null };
       }
       return { verificationUrl: null, error: new Error(data.message || 'Failed to initialize Didit session') };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error initializing Didit API:', error);
-      return { verificationUrl: null, error };
+      return { verificationUrl: null, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
 };

@@ -106,9 +106,15 @@ service cloud.firestore {
     }
 
     // --- Audit Logs (admin read-only, system write) ---
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin(); // Admin dashboard + Cloud Functions
+    }
+
+    // Legacy alias — keep for any existing data
     match /audit_log/{logId} {
       allow read: if isAdmin();
-      allow write: if false; // Only Cloud Functions write
+      allow write: if false;
     }
 
     // --- Vetting Applications ---
@@ -121,9 +127,12 @@ service cloud.firestore {
 
     // --- Communications ---
     match /communications/{msgId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.participant_uids is list && request.auth.uid in resource.data.participant_uids);
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
+      allow update: if isAdmin()
+        || (isSignedIn() && resource.data.participant_uids is list && request.auth.uid in resource.data.participant_uids
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
       allow delete: if false;
     }
 

@@ -347,8 +347,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             } else {
                 setError(result.message);
             }
-        } catch (err: any) {
-            setError(err.message || 'Submission failed.');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Submission failed.');
         } finally {
             setIsSubmitting(false);
         }
