@@ -58,7 +58,7 @@ export const resetDemoData = async () => {
 };
 
 export const api = {
-  async getInitialData() {
+  async getInitialData(role?: string, uid?: string, performerId?: number) {
     const isMock = isDemoMode || import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '';
 
     if (isMock || !db) {
@@ -72,11 +72,22 @@ export const api = {
       };
     }
 
+    const isPermissionError = (err: any) =>
+      err.code === 'permission-denied' ||
+      err.code === 'PERMISSION_DENIED' ||
+      err.message?.includes('Missing or insufficient permissions') ||
+      err.message?.includes('permission-denied');
+
     const fetchCollection = async (name: string, q: any) => {
       try {
         const snap = await getDocs(q);
         return { data: snap.docs.map(d => ({ ...(d.data() as any), id: name === 'performers' ? Number(d.id) : d.id })), error: null };
       } catch (err: any) {
+        // Permission errors are expected for restricted collections — return empty, not an error
+        if (isPermissionError(err)) {
+          console.warn(`No permission for ${name} — returning empty.`);
+          return { data: [], error: null };
+        }
         console.error(`Error fetching ${name}:`, err);
         if (err.code === 'unavailable') {
           console.warn(`Firestore is currently offline or unreachable. Returning mock data for ${name} if available.`);
@@ -90,12 +101,42 @@ export const api = {
       }
     };
 
+    // Build role-scoped booking query
+    let bookingsQuery;
+    if (role === 'admin') {
+      bookingsQuery = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+    } else if (role === 'performer' && performerId) {
+      bookingsQuery = query(collection(db, 'bookings'), where('performer_id', '==', performerId), orderBy('created_at', 'desc'));
+    } else if (uid) {
+      bookingsQuery = query(collection(db, 'bookings'), where('client_uid', '==', uid), orderBy('created_at', 'desc'));
+    } else {
+      bookingsQuery = null;
+    }
+
+    // Build role-scoped communications query
+    let commsQuery;
+    if (role === 'admin') {
+      commsQuery = query(collection(db, 'communications'), orderBy('created_at', 'desc'));
+    } else if (uid) {
+      commsQuery = query(collection(db, 'communications'), where('participant_uids', 'array-contains', uid), orderBy('created_at', 'desc'));
+    } else {
+      commsQuery = null;
+    }
+
     const [pRes, bRes, dRes, cRes, aRes] = await Promise.all([
       fetchCollection('performers', query(collection(db, 'performers'))),
-      fetchCollection('bookings', query(collection(db, 'bookings'), orderBy('created_at', 'desc'))),
-      fetchCollection('do_not_serve', query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc'))),
-      fetchCollection('communications', query(collection(db, 'communications'), orderBy('created_at', 'desc'))),
-      fetchCollection('audit_logs', query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50))),
+      bookingsQuery
+        ? fetchCollection('bookings', bookingsQuery)
+        : Promise.resolve({ data: [] as any[], error: null }),
+      role === 'admin'
+        ? fetchCollection('do_not_serve', query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc')))
+        : Promise.resolve({ data: [] as any[], error: null }),
+      commsQuery
+        ? fetchCollection('communications', commsQuery)
+        : Promise.resolve({ data: [] as any[], error: null }),
+      role === 'admin'
+        ? fetchCollection('audit_logs', query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50)))
+        : Promise.resolve({ data: [] as any[], error: null }),
     ]);
 
     return {
@@ -107,25 +148,52 @@ export const api = {
     };
   },
 
-  subscribeToBookings(callback: (bookings: Booking[]) => void) {
+  subscribeToBookings(callback: (bookings: Booking[]) => void, role?: string, uid?: string, performerId?: number) {
     if (!db) return () => { };
-    const q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+    // Scope query to match Firestore security rules:
+    // - Admins can read all bookings
+    // - Performers can only read bookings where performer_id matches
+    // - Clients can only read bookings where client_uid matches
+    // An unscoped query will be rejected by Firestore for non-admins
+    let q;
+    if (role === 'admin') {
+      q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+    } else if (role === 'performer' && performerId) {
+      q = query(collection(db, 'bookings'), where('performer_id', '==', performerId), orderBy('created_at', 'desc'));
+    } else if (uid) {
+      q = query(collection(db, 'bookings'), where('client_uid', '==', uid), orderBy('created_at', 'desc'));
+    } else {
+      // Not authenticated — return empty, don't query
+      callback([]);
+      return () => { };
+    }
     return onSnapshot(q, (snap) => {
       const bookings = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Booking[];
       callback(bookings);
     }, (err) => {
-      console.error("Error subscribing to bookings:", err);
+      console.warn("Bookings subscription error (likely auth issue):", err.message);
+      callback([]);
     });
   },
 
-  subscribeToCommunications(callback: (comms: Communication[]) => void) {
+  subscribeToCommunications(callback: (comms: Communication[]) => void, role?: string, uid?: string) {
     if (!db) return () => { };
-    const q = query(collection(db, 'communications'), orderBy('created_at', 'desc'));
+    // Admins see all; others see only their conversations
+    let q;
+    if (role === 'admin') {
+      q = query(collection(db, 'communications'), orderBy('created_at', 'desc'));
+    } else if (uid) {
+      q = query(collection(db, 'communications'), where('participant_uids', 'array-contains', uid), orderBy('created_at', 'desc'));
+    } else {
+      callback([]);
+      return () => { };
+    }
     return onSnapshot(q, (snap) => {
       const comms = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Communication[];
       callback(comms);
     }, (err) => {
-      console.error("Error subscribing to communications:", err);
+      console.warn("Communications subscription error:", err.message);
+      callback([]);
     });
   },
 
@@ -140,25 +208,37 @@ export const api = {
     });
   },
 
-  subscribeToDoNotServe(callback: (entries: DoNotServeEntry[]) => void) {
+  subscribeToDoNotServe(callback: (entries: DoNotServeEntry[]) => void, role?: string) {
     if (!db) return () => { };
+    // Only admins can read do_not_serve
+    if (role !== 'admin') {
+      callback([]);
+      return () => { };
+    }
     const q = query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc'));
     return onSnapshot(q, (snap) => {
       const entries = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DoNotServeEntry[];
       callback(entries);
     }, (err) => {
-      console.error("Error subscribing to do_not_serve:", err);
+      console.warn("DNS subscription error:", err.message);
+      callback([]);
     });
   },
 
-  subscribeToAuditLogs(callback: (logs: AuditLog[]) => void) {
+  subscribeToAuditLogs(callback: (logs: AuditLog[]) => void, role?: string) {
     if (!db) return () => { };
+    // Only admins can read audit logs
+    if (role !== 'admin') {
+      callback([]);
+      return () => { };
+    }
     const q = query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(50));
     return onSnapshot(q, (snap) => {
       const logs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as AuditLog[];
       callback(logs);
     }, (err) => {
-      console.error("Error subscribing to audit_logs:", err);
+      console.warn("Audit log subscription error:", err.message);
+      callback([]);
     });
   },
 

@@ -22,6 +22,9 @@ import FAQ from './components/FAQ';
 import PerformerOnboarding from './components/PerformerOnboarding';
 import WalkthroughOverlay from './components/WalkthroughOverlay';
 import { api, resetDemoData } from './services/api';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from './services/firebaseClient';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
 import { allServices } from './data/mockData';
 import { calculateBookingCost } from './utils/bookingUtils';
@@ -78,6 +81,8 @@ const App: React.FC = () => {
   const [selectedForBooking, setSelectedForBooking] = useState<Performer[]>([]);
 
   const [authedUser, setAuthedUser] = useState<AuthedUser>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showPresentation, setShowPresentation] = useState(false);
   const [settings, setSettings] = useState({ bookingUpdates: true, confirmations: true });
@@ -186,11 +191,57 @@ const App: React.FC = () => {
   }, []);
 
 
+  // Restore auth state from Firebase on page load
+  useEffect(() => {
+    if (!auth) {
+      setAuthReady(true);
+      return;
+    }
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setFirebaseUid(firebaseUser.uid);
+        // Determine role from custom claims and Firestore docs
+        try {
+          const token = await firebaseUser.getIdTokenResult();
+          if (token.claims.role === 'admin' || token.claims.admin === true) {
+            setAuthedUser({ name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Admin', role: 'admin' });
+          } else if (token.claims.role === 'performer' && token.claims.performerId) {
+            setAuthedUser({ name: firebaseUser.displayName || 'Performer', role: 'performer', id: Number(token.claims.performerId) });
+          } else if (db) {
+            // Check admin doc
+            const adminDoc = await getDoc(doc(db, 'admins', firebaseUser.uid));
+            if (adminDoc.exists()) {
+              setAuthedUser({ name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Admin', role: 'admin' });
+            } else {
+              // Check performer_auth doc
+              const perfDoc = await getDoc(doc(db, 'performers_auth', firebaseUser.uid));
+              if (perfDoc.exists()) {
+                const perfData = perfDoc.data();
+                setAuthedUser({ name: perfData.name || firebaseUser.displayName || 'Performer', role: 'performer', id: perfData.performerId || undefined });
+              } else {
+                // Regular client
+                setAuthedUser({ name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Client', role: 'user' });
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Error determining user role:', err);
+          setAuthedUser({ name: firebaseUser.displayName || 'User', role: 'user' });
+        }
+      } else {
+        setFirebaseUid(null);
+        setAuthedUser(null);
+      }
+      setAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = await api.getInitialData();
+      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = await api.getInitialData(authedUser?.role, firebaseUid || undefined, authedUser?.id);
 
       if (pData.error) throw new Error(`Performers Error: ${pData.error.message}`);
       setPerformers(pData.data as Performer[] || []);
@@ -213,9 +264,12 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [authedUser?.role, firebaseUid, authedUser?.id]);
 
   useEffect(() => {
+    const role = authedUser?.role;
+    const uid = firebaseUid || undefined;
+
     const unsubscribeBookings = api.subscribeToBookings((newBookings) => {
       // Check for status changes to notify
       if (prevBookingsRef.current.length > 0) {
@@ -255,11 +309,11 @@ const App: React.FC = () => {
       }
       prevBookingsRef.current = newBookings;
       setBookings(newBookings);
-    });
+    }, role, uid, authedUser?.id);
 
     const unsubscribeComms = api.subscribeToCommunications((newComms) => {
       setCommunications(newComms);
-    });
+    }, role, uid);
 
     const unsubscribePerformers = api.subscribeToPerformers((newPerformers) => {
       setPerformers(newPerformers);
@@ -267,11 +321,11 @@ const App: React.FC = () => {
 
     const unsubscribeDNS = api.subscribeToDoNotServe((newEntries) => {
       setDoNotServeList(newEntries);
-    });
+    }, role);
 
     const unsubscribeAudit = api.subscribeToAuditLogs((newLogs) => {
       setAuditLogs(newLogs);
-    });
+    }, role);
 
     return () => {
       unsubscribeBookings();
@@ -280,11 +334,12 @@ const App: React.FC = () => {
       unsubscribeDNS();
       unsubscribeAudit();
     };
-  }, [addNotification, showPhoneMessage]);
+  }, [addNotification, showPhoneMessage, authedUser?.role, firebaseUid, authedUser?.id]);
 
+  // Wait for auth state to resolve before fetching data
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (authReady) fetchData();
+  }, [fetchData, authReady]);
 
   const handleAgeVerified = () => {
     localStorage.setItem('ageVerified', 'true');

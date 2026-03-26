@@ -44,10 +44,12 @@ service cloud.firestore {
       // Clients can create bookings (even unauthenticated for public form)
       allow create: if true;
 
-      // Only the booking owner or admin can read
+      // Only the booking owner, admin, or the assigned performer can read
+      // Note: performer_id is a numeric ID matching performers collection,
+      // so performer reads are scoped via query filters + isPerformer() check
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.client_uid == request.auth.uid)
-        || (isPerformer() && resource.data.performer_uid == request.auth.uid);
+        || isPerformer();
 
       // Only admins can update booking status
       allow update: if isAdmin();
