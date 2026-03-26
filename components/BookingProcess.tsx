@@ -10,6 +10,7 @@ import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
 import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation } from 'lucide-react';
 import { api } from '../services/api';
+import DiditVerification from './DiditVerification';
 import { perthSuburbs } from '../data/suburbs';
 
 export interface BookingFormState {
@@ -44,7 +45,7 @@ interface BookingProcessProps {
     initialSelectedServices?: string[];
 }
 
-type BookingStage = 'form' | 'performer_acceptance_pending' | 'vetting_pending' | 'deposit_pending' | 'deposit_confirmation_pending' | 'confirmed' | 'rejected';
+type BookingStage = 'form' | 'kyc_verifying' | 'performer_acceptance_pending' | 'vetting_pending' | 'deposit_pending' | 'deposit_confirmation_pending' | 'confirmed' | 'rejected';
 
 
 const eventTypes = ['Bucks Party', 'Birthday Party', 'Corporate Event', 'Hens Party', 'Private Gathering', 'Other'];
@@ -126,6 +127,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [agreedTerms, setAgreedTerms] = useState(false);
     const [isVerifiedBooker, setIsVerifiedBooker] = useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+    const [kycVerificationUrl, setKycVerificationUrl] = useState<string | null>(null);
     const [isPayIdModalOpen, setIsPayIdModalOpen] = useState(false);
 
     useEffect(() => {
@@ -334,8 +336,9 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 if (!isVerifiedBooker) {
                     const diditRes = await api.initializeDiditSession(result.bookingIds[0]);
                     if (diditRes.verificationUrl) {
-                        // Redirect directly to Didit verification
-                        window.location.href = diditRes.verificationUrl;
+                        setKycVerificationUrl(diditRes.verificationUrl);
+                        setStage('kyc_verifying');
+                        setIsSubmitting(false);
                         return;
                     } else {
                         throw new Error(diditRes.error?.message || "Failed to connect to Didit.");
@@ -358,6 +361,26 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             setStage('deposit_confirmation_pending');
         }
     };
+
+    if (stage === 'kyc_verifying' && kycVerificationUrl && bookingIds.length > 0) {
+        return (
+            <DiditVerification
+                verificationUrl={kycVerificationUrl}
+                bookingId={bookingIds[0]}
+                clientName={form.fullName}
+                onSuccess={() => {
+                    setKycVerificationUrl(null);
+                    setStage('performer_acceptance_pending');
+                    onBookingSubmitted?.();
+                }}
+                onCancel={() => {
+                    setKycVerificationUrl(null);
+                    setStage('performer_acceptance_pending');
+                    onBookingSubmitted?.();
+                }}
+            />
+        );
+    }
 
     if (stage === 'performer_acceptance_pending') {
         return <StatusScreen icon={LoaderCircle} title="Request Sent" bgColor="bg-purple-900/10" buttonText="Back to Dashboard" onButtonClick={onBookingSubmitted}>Awaiting performer confirmation.</StatusScreen>;
