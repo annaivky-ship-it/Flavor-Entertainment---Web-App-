@@ -5,9 +5,10 @@ interface FooterProps {
   onShowPrivacyPolicy: () => void;
   onShowTermsOfService: () => void;
   onShowPresentation: () => void;
+  onNavigate?: (view: string) => void;
 }
 
-const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfService, onShowPresentation }) => {
+const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfService, onShowPresentation, onNavigate }) => {
   return (
     <footer className="mt-16 border-t border-zinc-800 bg-zinc-950/50">
       {/* Main Footer */}
@@ -34,7 +35,7 @@ const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfServi
               <a href="mailto:bookings@flavorentertainers.com" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
                 <Mail size={18} className="text-zinc-400 group-hover:text-orange-400 transition-colors" />
               </a>
-              <a href="tel:+61400000000" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
+              <a href="https://www.instagram.com/flavorentertainers" target="_blank" rel="noopener noreferrer" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group" title="Contact via Instagram DM">
                 <Phone size={18} className="text-zinc-400 group-hover:text-orange-400 transition-colors" />
               </a>
             </div>
@@ -45,8 +46,8 @@ const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfServi
             <h4 className="text-sm font-bold text-white uppercase tracking-wider">Quick Links</h4>
             <nav className="flex flex-col gap-2.5">
               <a href="#" onClick={(e) => { e.preventDefault(); onShowPresentation(); }} className="text-sm text-zinc-400 hover:text-orange-400 transition-colors w-fit">How It Works</a>
-              <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-sm text-zinc-400 hover:text-orange-400 transition-colors w-fit">Browse Entertainers</a>
-              <a href="#faq" className="text-sm text-zinc-400 hover:text-orange-400 transition-colors w-fit">FAQ</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); onNavigate?.('available_now'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-sm text-zinc-400 hover:text-orange-400 transition-colors w-fit">Browse Entertainers</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); onNavigate?.('faq'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-sm text-zinc-400 hover:text-orange-400 transition-colors w-fit">FAQ</a>
             </nav>
           </div>
 

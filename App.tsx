@@ -849,10 +849,6 @@ const App: React.FC = () => {
       );
     }
 
-    if (error) {
-      return <div className="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg text-white max-w-4xl mx-auto"><h2 className="text-xl font-bold">An Error Occurred</h2><p className="mt-2 text-red-200">{error}</p></div>;
-    }
-
     const renderTabs = () => {
       const isAvailableNow = view === 'available_now';
       const isFutureBookings = view === 'future_bookings';
@@ -1110,11 +1106,17 @@ const App: React.FC = () => {
         </div>
       </Header>
       <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
+        {error && (
+          <div className="mb-6 p-4 bg-red-900/50 border border-red-500/50 rounded-lg flex items-start justify-between gap-3 animate-fade-in">
+            <p className="text-sm text-red-200">{error}</p>
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-white transition-colors flex-shrink-0"><X className="h-4 w-4" /></button>
+          </div>
+        )}
         <React.Suspense fallback={<div className="flex items-center justify-center p-12"><LoaderCircle className="w-12 h-12 animate-spin text-orange-500" /></div>}>
           {renderContent()}
         </React.Suspense>
       </main>
-      <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} onShowPresentation={() => setShowPresentation(true)} />
+      <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} onShowPresentation={() => setShowPresentation(true)} onNavigate={handleNavigate} />
       {phoneMessage && <DemoPhone message={phoneMessage} onClose={() => setPhoneMessage(null)} />}
 
       {/* Real-time Notifications Toast Container */}
