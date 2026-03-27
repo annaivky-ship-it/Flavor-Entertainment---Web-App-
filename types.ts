@@ -94,6 +94,9 @@ export interface Booking {
     client_message?: string | null;
     performer_reassigned_from_id?: number | null;
     performer_eta_minutes?: number | null;
+    cancelled_at?: string | null;
+    cancellation_reason?: string | null;
+    cancelled_by?: 'client' | 'admin' | 'performer' | null;
     performer?: {
         id: number;
         name: string;

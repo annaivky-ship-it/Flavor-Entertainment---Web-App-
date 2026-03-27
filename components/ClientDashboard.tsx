@@ -10,6 +10,7 @@ interface ClientDashboardProps {
   bookings: Booking[];
   onBrowsePerformers: () => void;
   onShowSettings: () => void;
+  onCancelBooking?: (bookingId: string, reason: string) => Promise<void>;
 }
 
 const statusConfig: Record<Booking['status'], {
@@ -32,12 +33,16 @@ const statusConfig: Record<Booking['status'], {
   rejected: { color: 'text-red-400', borderColor: 'border-red-500', Icon: AlertTriangle, title: "Booking Rejected", description: "Unfortunately, this booking could not be completed at this time." },
 };
 
-const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings }) => {
+const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings, onCancelBooking }) => {
   const [clientEmail, setClientEmail] = useState<string | null>(() => localStorage.getItem('clientEmail'));
   const [emailInput, setEmailInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
+
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
   const [chatMessages, setChatMessages] = useState<Communication[]>([]);
   const lookupTimeoutRef = useRef<number | null>(null);
@@ -110,6 +115,20 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
       } catch (err) {
           console.error("Failed to send message", err);
       }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!cancellingBookingId || !onCancelBooking) return;
+    setIsCancelling(true);
+    try {
+      await onCancelBooking(cancellingBookingId, cancelReason);
+      setCancellingBookingId(null);
+      setCancelReason('');
+    } catch (err) {
+      console.error('Failed to cancel booking:', err);
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const bookingGroups = useMemo(() => {
@@ -206,10 +225,20 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                                <p className="text-zinc-400 text-sm flex items-center md:justify-end gap-1"><Wallet size={14}/> Total Cost</p>
                                <p className="text-3xl font-bold text-white">${(totalCost || 0).toFixed(2)}</p> 
                             </div>
-                            {booking.status !== 'rejected' && (
-                                <button onClick={() => handleOpenChat(booking)} className="btn-primary w-full flex items-center justify-center gap-2 text-sm px-4 py-2 mt-auto">
-                                    <MessageCircle size={16} /> Message Performer
-                                </button>
+                            {booking.status !== 'rejected' && booking.status !== 'cancelled' && (
+                                <div className="space-y-2 w-full">
+                                    <button onClick={() => handleOpenChat(booking)} className="btn-primary w-full flex items-center justify-center gap-2 text-sm px-4 py-2">
+                                        <MessageCircle size={16} /> Message Performer
+                                    </button>
+                                    {onCancelBooking && !['completed', 'in_progress', 'arrived', 'en_route'].includes(booking.status) && (
+                                        <button
+                                            onClick={() => setCancellingBookingId(booking.id)}
+                                            className="w-full flex items-center justify-center gap-2 text-sm px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                                        >
+                                            <X size={16} /> Cancel Booking
+                                        </button>
+                                    )}
+                                </div>
                             )}
                          </div>
                       </div>
@@ -303,6 +332,36 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePer
                 <Briefcase className="h-5 w-5" />
                 Book a Performer
             </button>
+        </div>
+      )}
+
+      {cancellingBookingId && (
+        <div role="dialog" aria-modal="true" aria-label="Cancel booking" className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="card-base !p-6 !bg-zinc-900 max-w-sm w-full">
+            <h3 className="text-xl font-bold text-white mb-2">Cancel Booking?</h3>
+            <p className="text-sm text-zinc-400 mb-4">This action cannot be undone. Please tell us why you're cancelling.</p>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Reason for cancellation (optional)"
+              className="input-base w-full h-24 resize-none mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setCancellingBookingId(null); setCancelReason(''); }}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2.5 px-4 rounded-lg transition-colors text-sm"
+              >
+                Keep Booking
+              </button>
+              <button
+                onClick={handleCancelBooking}
+                disabled={isCancelling}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 px-4 rounded-lg transition-colors text-sm disabled:opacity-50"
+              >
+                {isCancelling ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

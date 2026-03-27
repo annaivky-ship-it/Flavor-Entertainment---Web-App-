@@ -6,21 +6,22 @@ import PerformerCard from './components/EntertainerCard';
 import PerformerProfile from './components/EntertainerProfile';
 import AgeGate from './components/AgeGate';
 import BookingProcess, { BookingFormState } from './components/BookingProcess';
-import PerformerDashboard from './components/PerformerDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import ClientDashboard from './components/ClientDashboard';
 import DoNotServe from './components/DoNotServe';
 import Login from './components/Login';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import TermsOfService from './components/TermsOfService';
-import ServicesGallery from './components/ServicesGallery';
 import DemoPhone from './components/DemoPhone';
-import UserSettings from './components/UserSettings';
-import PresentationVideo from './components/PresentationVideo';
 
-import FAQ from './components/FAQ';
-import PerformerOnboarding from './components/PerformerOnboarding';
-import WalkthroughOverlay from './components/WalkthroughOverlay';
+// Lazy-load heavy dashboard and secondary components
+const PerformerDashboard = React.lazy(() => import('./components/PerformerDashboard'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
+const ClientDashboard = React.lazy(() => import('./components/ClientDashboard'));
+const PrivacyPolicy = React.lazy(() => import('./components/PrivacyPolicy'));
+const TermsOfService = React.lazy(() => import('./components/TermsOfService'));
+const ServicesGallery = React.lazy(() => import('./components/ServicesGallery'));
+const UserSettings = React.lazy(() => import('./components/UserSettings'));
+const PresentationVideo = React.lazy(() => import('./components/PresentationVideo'));
+const FAQ = React.lazy(() => import('./components/FAQ'));
+const PerformerOnboarding = React.lazy(() => import('./components/PerformerOnboarding'));
+const WalkthroughOverlay = React.lazy(() => import('./components/WalkthroughOverlay'));
 import { api, resetDemoData } from './services/api';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -707,6 +708,28 @@ const App: React.FC = () => {
     setView('client_dashboard');
   };
 
+  const handleCancelBooking = async (bookingId: string, reason: string) => {
+    const booking = bookings.find(b => b.id === bookingId);
+    if (!booking) return;
+
+    const originalBookings = bookings;
+    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' as const } : b));
+
+    try {
+      const { error: apiError } = await api.cancelBooking(bookingId, reason, authedUser?.role === 'admin' ? 'admin' : authedUser?.role === 'performer' ? 'performer' : 'client');
+      if (apiError) throw apiError;
+
+      addCommunication({ sender: 'System', recipient: 'admin', message: `Booking #${bookingId.slice(0, 8)} for ${booking.client_name} has been cancelled. Reason: ${reason || 'No reason provided.'}`, type: 'admin_message' });
+      addCommunication({ sender: 'System', recipient: 'user', message: `Your booking for ${booking.event_type} with ${booking.performer?.name} has been cancelled.`, booking_id: bookingId, type: 'booking_update' });
+
+      addNotification(`Booking #${bookingId.slice(0, 8)} has been cancelled.`, 'warning');
+    } catch (err) {
+      console.error("Failed to cancel booking:", err);
+      setBookings(originalBookings);
+      setError("Could not cancel the booking.");
+    }
+  };
+
   const handleViewProfile = (performer: Performer) => {
     window.scrollTo(0, 0);
     if (view === 'available_now' || view === 'future_bookings' || view === 'services') {
@@ -928,7 +951,7 @@ const App: React.FC = () => {
         );
       }
       case 'client_dashboard':
-        return <ClientDashboard bookings={bookings} onBrowsePerformers={() => setView('available_now')} onShowSettings={() => setView('settings')} />;
+        return <ClientDashboard bookings={bookings} onBrowsePerformers={() => setView('available_now')} onShowSettings={() => setView('settings')} onCancelBooking={handleCancelBooking} />;
       case 'settings':
         return <UserSettings settings={settings} onSettingsChange={setSettings} onBack={() => setView('client_dashboard')} />;
       case 'faq':
@@ -1087,7 +1110,9 @@ const App: React.FC = () => {
         </div>
       </Header>
       <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
-        {renderContent()}
+        <React.Suspense fallback={<div className="flex items-center justify-center p-12"><LoaderCircle className="w-12 h-12 animate-spin text-orange-500" /></div>}>
+          {renderContent()}
+        </React.Suspense>
       </main>
       <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} onShowPresentation={() => setShowPresentation(true)} />
       {phoneMessage && <DemoPhone message={phoneMessage} onClose={() => setPhoneMessage(null)} />}

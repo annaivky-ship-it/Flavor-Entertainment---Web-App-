@@ -573,6 +573,22 @@ export const api = {
     }
   },
 
+  async cancelBooking(bookingId: string, reason: string, cancelledBy: 'client' | 'admin' | 'performer') {
+    if (!db) return { error: new Error('Firebase not initialized') };
+    try {
+      const docRef = doc(db, 'bookings', bookingId);
+      await updateDoc(docRef, {
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: reason,
+        cancelled_by: cancelledBy,
+      });
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  },
+
   async initializeDiditSession(bookingId: string) {
     if (!functions) return { verificationUrl: null, error: new Error('Firebase functions not initialized') };
     try {
