@@ -18,6 +18,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Close on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleAuthSuccess = async (user: any) => {
     try {
       const token = await user.getIdTokenResult();
@@ -31,17 +40,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
       });
     } catch (err) {
       console.error('Error getting custom claims:', err);
-      // Fallback for development/testing if claims aren't set up yet
-      if (user.email === 'admin@flavorentertainers.com') {
-        onLogin({ name: 'Admin', role: 'admin' });
-      } else {
-        const performer = performers.find(p => `${p.name.toLowerCase().split(' ')[0]}@flavorentertainers.com` === user.email?.toLowerCase());
-        if (performer) {
-          onLogin({ name: performer.name, role: 'performer', id: performer.id });
-        } else {
-          onLogin({ name: user.displayName || 'User', role: 'user' });
-        }
-      }
+      // Fallback: determine role from Firestore docs (admins / performers_auth collections)
+      // Role is resolved server-side via onAuthStateChanged in App.tsx
+      onLogin({ name: user.displayName || user.email?.split('@')[0] || 'User', role: 'user' });
     }
   };
 
@@ -57,9 +58,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       await handleAuthSuccess(userCredential.user);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
-      setError(err.message || 'Invalid email or password.');
+      const code = (err as { code?: string }).code;
+      if (code === 'auth/wrong-password' || code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
+        setError('Invalid email or password.');
+      } else if (code === 'auth/too-many-requests') {
+        setError('Too many login attempts. Please try again later.');
+      } else {
+        setError('Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -76,12 +84,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       await handleAuthSuccess(result.user);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Google login error:', err);
-      if (err.message?.includes('projectconfigservice.getprojectconfig-are-blocked')) {
-        setError('Google Identity Toolkit API is blocked. Please ensure it is enabled in your Google Cloud Console and that your API key has the correct permissions.');
+      const msg = (err as { message?: string }).message || '';
+      if (msg.includes('projectconfigservice.getprojectconfig-are-blocked')) {
+        setError('Google sign-in is not available right now. Please use email login.');
+      } else if (msg.includes('popup-closed-by-user')) {
+        setError('Sign-in popup was closed. Please try again.');
       } else {
-        setError(err.message || 'Failed to sign in with Google');
+        setError('Failed to sign in with Google. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -89,7 +100,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div role="dialog" aria-modal="true" aria-label="Login" className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
       <div className="card-base !p-8 !bg-zinc-900 max-w-sm w-full relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors">
           <X className="h-6 w-6" />

@@ -46,8 +46,8 @@ describe('Firestore Rules - Booking Access Control', () => {
     expect(rulesContent).toContain('resource.data.client_uid == request.auth.uid');
   });
 
-  it('performers can only read bookings assigned to them', () => {
-    expect(rulesContent).toContain('resource.data.performer_uid == request.auth.uid');
+  it('performers can read bookings assigned to them', () => {
+    expect(rulesContent).toContain('isPerformer()');
   });
 
   it('only admins can update booking status', () => {

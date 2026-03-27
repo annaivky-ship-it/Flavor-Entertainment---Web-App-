@@ -330,6 +330,37 @@ export const onBookingCreated = fns.firestore
     const idempotencyKey = `booking_created_${bookingId}`;
     if (!(await checkAndSetIdempotency(idempotencyKey))) return;
 
+    // Auto-run risk scoring for new bookings
+    try {
+      const clientEmail = data.client_email || data.email || '';
+      const clientPhone = data.client_phone || data.phone || data.mobile || '';
+      const emailHash = clientEmail ? sha256(normalizeEmail(clientEmail)) : '';
+      const phoneHash = clientPhone ? sha256(normalizePhoneToE164(clientPhone)) : '';
+
+      const riskResult = await calculateRiskScore({
+        bookingId,
+        clientEmail,
+        clientPhone,
+        clientEmailHash: emailHash,
+        clientPhoneHash: phoneHash,
+        ipAddress: data.client_ip || null,
+        deviceFingerprint: data.device_fingerprint || null,
+        kycStatus: data.kyc_status || 'NOT_STARTED',
+        kycConfidence: data.kyc_confidence || null,
+      });
+
+      await snap.ref.update({
+        risk_score: riskResult.score,
+        risk_level: riskResult.level,
+        risk_decision: riskResult.decision,
+      });
+
+      console.log(`Risk score for booking ${bookingId}: ${riskResult.score} (${riskResult.level}) → ${riskResult.decision}`);
+    } catch (riskError) {
+      console.error(`Risk scoring failed for booking ${bookingId}:`, riskError);
+      // Non-blocking: don't fail the booking creation if risk scoring fails
+    }
+
     const settingsDoc = await db.collection('settings').doc('messaging').get();
     const adminNumbers = settingsDoc.data()?.adminNotifyNumbers || [];
 

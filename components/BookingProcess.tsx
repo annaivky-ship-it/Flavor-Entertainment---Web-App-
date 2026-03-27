@@ -265,6 +265,19 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 if (!form.eventSuburb) errors.eventSuburb = "Suburb required.";
                 if (!form.eventType) errors.eventType = "Event type required.";
                 if (!form.numberOfGuests) errors.numberOfGuests = "Guest count required.";
+                // Client-side conflict detection
+                if (form.eventDate && form.eventTime && !errors.eventDate && !errors.eventTime) {
+                    const conflicting = bookings.filter(b =>
+                        b.event_date === form.eventDate &&
+                        b.event_time === form.eventTime &&
+                        b.status !== 'cancelled' && b.status !== 'rejected' &&
+                        performers.some(p => p.id === b.performer_id)
+                    );
+                    if (conflicting.length > 0) {
+                        const names = conflicting.map(b => b.performer?.name || `Performer #${b.performer_id}`).join(', ');
+                        errors.eventTime = `Time conflict: ${names} already booked for this date/time.`;
+                    }
+                }
                 break;
             case 3:
                 if (form.selectedServices.length === 0) errors.selectedServices = "Select at least one service.";
@@ -347,8 +360,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             } else {
                 setError(result.message);
             }
-        } catch (err: any) {
-            setError(err.message || 'Submission failed.');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Submission failed.');
         } finally {
             setIsSubmitting(false);
         }
