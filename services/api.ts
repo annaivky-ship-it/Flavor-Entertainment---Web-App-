@@ -573,6 +573,38 @@ export const api = {
     }
   },
 
+  async updatePerformerAvailability(performerId: number, availability: Partial<import('../types').PerformerAvailability>) {
+    if (!db) return { error: new Error('Firebase not initialized') };
+    try {
+      const docRef = doc(db, 'performers', String(performerId));
+      const updates: Record<string, any> = {};
+      for (const [key, value] of Object.entries(availability)) {
+        updates[`availability.${key}`] = value;
+      }
+      updates['availability.last_updated'] = new Date().toISOString();
+      await updateDoc(docRef, updates);
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  },
+
+  async setPerformerAvailableNow(performerId: number, available: boolean, availableUntil?: string) {
+    if (!db) return { error: new Error('Firebase not initialized') };
+    try {
+      const docRef = doc(db, 'performers', String(performerId));
+      await updateDoc(docRef, {
+        'availability.is_available_now': available,
+        'availability.available_until': availableUntil || null,
+        'availability.last_updated': new Date().toISOString(),
+        status: available ? 'available' : 'offline',
+      });
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  },
+
   async cancelBooking(bookingId: string, reason: string, cancelledBy: 'client' | 'admin' | 'performer') {
     if (!db) return { error: new Error('Firebase not initialized') };
     try {

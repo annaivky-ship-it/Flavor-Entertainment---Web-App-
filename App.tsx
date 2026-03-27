@@ -398,6 +398,38 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSetAvailableNow = async (available: boolean, availableUntil?: string) => {
+    const performerId = authedUser?.id;
+    if (!performerId) return;
+
+    const originalPerformers = performers;
+    setPerformers(prev => prev.map(p => p.id === performerId ? {
+      ...p,
+      status: available ? 'available' as const : 'offline' as const,
+      availability: { ...p.availability, is_available_now: available, available_until: availableUntil || null, last_updated: new Date().toISOString(), is_available_scheduled: p.availability?.is_available_scheduled || false, available_windows: p.availability?.available_windows || [] }
+    } : p));
+
+    try {
+      const { error: apiError } = await api.setPerformerAvailableNow(performerId, available, availableUntil);
+      if (apiError) throw apiError;
+    } catch (err) {
+      console.error("Failed to update availability:", err);
+      setPerformers(originalPerformers);
+    }
+  };
+
+  const handleUpdateAvailability = async (updates: Partial<import('./types').PerformerAvailability>) => {
+    const performerId = authedUser?.id;
+    if (!performerId) return;
+
+    try {
+      const { error: apiError } = await api.updatePerformerAvailability(performerId, updates);
+      if (apiError) throw apiError;
+    } catch (err) {
+      console.error("Failed to update availability:", err);
+    }
+  };
+
   const handleUpdateBookingStatus = async (bookingId: string, status: BookingStatus) => {
     const originalBookings = bookings;
     const booking = originalBookings.find(b => b.id === bookingId);
@@ -779,7 +811,7 @@ const App: React.FC = () => {
 
   const filteredPerformers = useMemo(() => {
     const basePerformers = view === 'available_now'
-      ? performers.filter(p => p.status === 'available')
+      ? performers.filter(p => p.status === 'available' || p.availability?.is_available_now)
       : performers.filter(p => p.status !== 'pending_verification' && p.status !== 'rejected');
 
     const lowerCaseQuery = searchQuery.toLowerCase().trim();
@@ -805,6 +837,11 @@ const App: React.FC = () => {
       );
 
       return categoryMatch && availabilityMatch && searchMatch && serviceIdMatch && serviceAreaMatch;
+    }).sort((a, b) => {
+      // Available Now first, then scheduled, then others
+      const aScore = a.availability?.is_available_now ? 2 : a.availability?.is_available_scheduled ? 1 : 0;
+      const bScore = b.availability?.is_available_now ? 2 : b.availability?.is_available_scheduled ? 1 : 0;
+      return bScore - aScore;
     });
   }, [performers, categoryFilter, availabilityFilter, view, searchQuery, serviceIdFilter, serviceAreaFilter]);
 
@@ -941,6 +978,8 @@ const App: React.FC = () => {
             onBookingDecision={handlePerformerBookingDecision}
             onUpdateEta={handleUpdateEta}
             onUpdateBookingStatus={handleUpdateBookingStatus}
+            onSetAvailableNow={handleSetAvailableNow}
+            onUpdateAvailability={handleUpdateAvailability}
           />
         ) : (
           <p className="text-center text-gray-400">Select a performer to view their dashboard.</p>
@@ -981,6 +1020,13 @@ const App: React.FC = () => {
           <div className="animate-fade-in">
             <HeroSection />
             {renderTabs()}
+            {view === 'available_now' && (
+              <div className="text-center mb-6">
+                <p className="text-sm text-zinc-400">
+                  <span className="text-green-400 font-bold">{performers.filter(p => p.availability?.is_available_now).length}</span> performers available right now
+                </p>
+              </div>
+            )}
             {serviceIdFilter && (
               <div className="text-center mb-6 bg-zinc-900/50 border border-zinc-800 rounded-xl max-w-xl mx-auto p-4 flex items-center justify-center gap-4">
                 <p className="text-zinc-300">

@@ -14,6 +14,8 @@ interface PerformerDashboardProps {
   onBookingDecision: (bookingId: string, decision: 'accepted' | 'declined', eta?: number) => Promise<void>;
   onUpdateEta: (bookingId: string, eta: number) => Promise<void>;
   onUpdateBookingStatus: (bookingId: string, status: BookingStatus) => Promise<void>;
+  onSetAvailableNow?: (available: boolean, availableUntil?: string) => Promise<void>;
+  onUpdateAvailability?: (updates: Partial<import('../types').PerformerAvailability>) => Promise<void>;
 }
 
 const statusConfig: Record<PerformerStatus, { color: string; label: string; icon: React.ElementType; bgColor: string; activeColor: string; description: string; }> = {
@@ -213,9 +215,11 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
 };
 
 
-const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onViewDoNotServe, onBookingDecision, onUpdateEta, onUpdateBookingStatus }) => {
+const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onViewDoNotServe, onBookingDecision, onUpdateEta, onUpdateBookingStatus, onSetAvailableNow, onUpdateAvailability }) => {
   const [etas, setEtas] = useState<Record<string, string>>({});
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<PerformerStatus | null>(null);
+  const [availableUntilTime, setAvailableUntilTime] = useState('23:00');
+  const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
   
   // Chat State
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
@@ -292,6 +296,106 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
         </button>
       </div>
       
+      {/* Availability Controls */}
+                <div className="card-base !p-6 border-zinc-800/50 space-y-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-xl font-bold text-white">Your Availability</h2>
+                            <p className="text-sm text-zinc-400 mt-1">Control when clients can see and book you</p>
+                        </div>
+                        <div className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                            performer.availability?.is_available_now
+                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                        }`}>
+                            {performer.availability?.is_available_now ? '● Online' : '○ Offline'}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Available Now Toggle */}
+                        <div className={`p-5 rounded-xl border-2 transition-all cursor-pointer ${
+                            performer.availability?.is_available_now
+                                ? 'bg-green-500/10 border-green-500'
+                                : 'bg-zinc-900 border-zinc-700 hover:border-zinc-600'
+                        }`} onClick={async () => {
+                            if (isTogglingAvailability || !onSetAvailableNow) return;
+                            setIsTogglingAvailability(true);
+                            try {
+                                const newState = !performer.availability?.is_available_now;
+                                // Build available_until as today + selected time in AWST
+                                let until: string | undefined;
+                                if (newState && availableUntilTime) {
+                                    const now = new Date();
+                                    const [h, m] = availableUntilTime.split(':').map(Number);
+                                    const untilDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+                                    if (untilDate <= now) untilDate.setDate(untilDate.getDate() + 1);
+                                    until = untilDate.toISOString();
+                                }
+                                await onSetAvailableNow(newState, until);
+                            } finally {
+                                setIsTogglingAvailability(false);
+                            }
+                        }}>
+                            <div className="flex items-center gap-3 mb-2">
+                                {isTogglingAvailability ? (
+                                    <LoaderCircle className="h-6 w-6 animate-spin text-orange-400" />
+                                ) : performer.availability?.is_available_now ? (
+                                    <CheckCircle className="h-6 w-6 text-green-400" />
+                                ) : (
+                                    <EyeOff className="h-6 w-6 text-zinc-500" />
+                                )}
+                                <span className="font-bold text-white text-lg">
+                                    {performer.availability?.is_available_now ? 'Available Now' : 'Go Available'}
+                                </span>
+                            </div>
+                            <p className="text-xs text-zinc-400">
+                                {performer.availability?.is_available_now
+                                    ? 'You are visible in the gallery and can receive ASAP bookings'
+                                    : 'Click to go online and appear in the Available Now gallery'}
+                            </p>
+                        </div>
+
+                        {/* Available Until Selector */}
+                        <div className="p-5 rounded-xl bg-zinc-900 border border-zinc-700">
+                            <div className="flex items-center gap-3 mb-3">
+                                <Clock className="h-5 w-5 text-orange-400" />
+                                <span className="font-semibold text-white">Auto-Off Time</span>
+                            </div>
+                            <select
+                                value={availableUntilTime}
+                                onChange={(e) => setAvailableUntilTime(e.target.value)}
+                                className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white"
+                            >
+                                {['21:00','22:00','23:00','00:00','01:00','02:00','03:00','04:00'].map(t => (
+                                    <option key={t} value={t}>{t === '00:00' ? '12:00 AM' : Number(t.split(':')[0]) > 12 ? `${Number(t.split(':')[0]) - 12}:00 PM` : `${Number(t.split(':')[0])}:00 AM`}</option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-zinc-500 mt-2">Availability auto-expires at this time</p>
+                        </div>
+                    </div>
+
+                    {/* Scheduled Availability Toggle */}
+                    <div className="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={performer.availability?.is_available_scheduled || false}
+                                onChange={async (e) => {
+                                    if (onUpdateAvailability) {
+                                        await onUpdateAvailability({ is_available_scheduled: e.target.checked });
+                                    }
+                                }}
+                                className="h-5 w-5 rounded border-zinc-600 bg-zinc-800 text-orange-500 focus:ring-orange-500"
+                            />
+                            <div>
+                                <span className="font-semibold text-white">Taking Future Bookings</span>
+                                <p className="text-xs text-zinc-400">Allow clients to schedule you for upcoming events</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="card-base !p-6 lg:col-span-1 flex flex-col h-full">
           <div>

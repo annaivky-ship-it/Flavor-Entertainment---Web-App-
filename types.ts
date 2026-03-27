@@ -33,6 +33,22 @@ export interface Service {
   booking_notes?: string;
 }
 
+export type AvailabilityDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export interface AvailabilityWindow {
+  day: AvailabilityDay;
+  start_time: string; // "18:00"
+  end_time: string;   // "02:00"
+}
+
+export interface PerformerAvailability {
+  is_available_now: boolean;
+  is_available_scheduled: boolean;
+  available_until: string | null; // ISO timestamp for auto-expire
+  available_windows: AvailabilityWindow[];
+  last_updated: string;
+}
+
 export interface Performer {
   id: number;
   name:string;
@@ -47,6 +63,7 @@ export interface Performer {
   review_count: number;
   min_booking_duration_hours?: number;
   created_at: string;
+  availability?: PerformerAvailability;
 }
 
 export interface VettingApplication {

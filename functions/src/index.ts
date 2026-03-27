@@ -411,6 +411,22 @@ export const onBookingStatusChanged = fns.firestore
       }
     }
 
+    // Auto-set performer unavailable when booking is confirmed for ASAP
+    if (after.status === 'confirmed') {
+      const performerId = after.performer_id;
+      if (performerId) {
+        const perfRef = db.collection('performers').doc(String(performerId));
+        const perfDoc = await perfRef.get();
+        if (perfDoc.exists && perfDoc.data()?.availability?.is_available_now) {
+          await perfRef.update({
+            'availability.is_available_now': false,
+            'availability.last_updated': admin.firestore.FieldValue.serverTimestamp(),
+            status: 'busy',
+          });
+        }
+      }
+    }
+
     const idempotencyKey = `booking_status_${bookingId}_${after.status}`;
     if (!(await checkAndSetIdempotency(idempotencyKey))) return;
 
@@ -835,4 +851,41 @@ export const seedDatabase = fns.https.onRequest(async (req: any, res: any) => {
     console.error('Seed error:', error);
     res.status(500).json({ success: false, error: String(error) });
   }
+});
+
+/**
+ * Auto-expire performer availability.
+ * Runs every 15 minutes. Sets is_available_now=false for performers
+ * whose available_until timestamp has passed.
+ */
+export const autoExpireAvailability = fns.pubsub.schedule('every 15 minutes').onRun(async () => {
+  const now = new Date();
+
+  const performersSnap = await db.collection('performers')
+    .where('availability.is_available_now', '==', true)
+    .get();
+
+  const batch = db.batch();
+  let expiredCount = 0;
+
+  for (const doc of performersSnap.docs) {
+    const data = doc.data();
+    const availableUntil = data.availability?.available_until;
+    if (availableUntil) {
+      const expiryDate = new Date(availableUntil);
+      if (expiryDate <= now) {
+        batch.update(doc.ref, {
+          'availability.is_available_now': false,
+          'availability.last_updated': now.toISOString(),
+          status: 'offline',
+        });
+        expiredCount++;
+      }
+    }
+  }
+
+  if (expiredCount > 0) {
+    await batch.commit();
+  }
+  console.log(`Auto-expired availability for ${expiredCount} performers`);
 });

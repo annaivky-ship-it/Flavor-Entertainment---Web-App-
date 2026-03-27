@@ -43,9 +43,21 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
         />
         
         {/* Status Badge */}
-        <div className={`absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider font-bold border ${statusClasses[performer.status]}`}>
-          <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${performer.status === 'available' ? 'bg-green-400' : performer.status === 'busy' ? 'bg-yellow-400' : 'bg-zinc-400'}`}></span>
-          {performer.status}
+        <div className={`absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider font-bold border ${
+          performer.availability?.is_available_now
+            ? 'bg-green-500/20 border-green-400 text-green-50'
+            : performer.availability?.is_available_scheduled
+              ? 'bg-blue-500/20 border-blue-400 text-blue-50'
+              : statusClasses[performer.status]
+        }`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${
+            performer.availability?.is_available_now ? 'bg-green-400 animate-pulse'
+            : performer.availability?.is_available_scheduled ? 'bg-blue-400'
+            : performer.status === 'busy' ? 'bg-yellow-400' : 'bg-zinc-400'
+          }`}></span>
+          {performer.availability?.is_available_now ? 'Available Now'
+           : performer.availability?.is_available_scheduled ? 'Taking Bookings'
+           : performer.status}
         </div>
 
         {/* Rating Badge */}
@@ -95,6 +107,11 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
               {isSelected ? <CheckCircle className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
               {isSelected ? 'Selected' : 'Select'}
             </button>
+            {performer.availability?.is_available_now && (
+              <div className="text-center text-xs text-green-400 font-semibold animate-pulse">
+                ● Book ASAP
+              </div>
+            )}
           </div>
         </div>
       </div>

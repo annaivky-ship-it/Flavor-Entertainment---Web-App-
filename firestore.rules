@@ -27,10 +27,12 @@ service cloud.firestore {
       );
     }
 
-    // --- Performers (public read, admin write) ---
+    // --- Performers (public read, admin write, performer self-update availability) ---
     match /performers/{performerId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isPerformer() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availability', 'status']));
     }
 
     // --- Services (public read, admin write) ---

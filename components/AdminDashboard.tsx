@@ -337,6 +337,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         <div className="card-base !p-6 flex items-center gap-4"><ShieldAlert className="w-10 h-10 text-yellow-500" /><div><p className="text-zinc-400 text-sm">Pending Actions</p><p className="text-3xl font-bold text-white">{pendingDnsEntries.length + pendingBookings}</p></div></div>
       </div>
 
+                {/* Live Availability Overview */}
+                <div className="card-base !p-6 border-zinc-800/50 mb-8">
+                    <h3 className="text-lg font-semibold text-white mb-4">Live Availability</h3>
+                    <div className="flex flex-wrap gap-4 mb-4 text-sm">
+                        <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span> <span className="text-green-400 font-bold">{performers.filter(p => p.availability?.is_available_now).length}</span> available now</span>
+                        <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-500"></span> <span className="text-blue-400 font-bold">{performers.filter(p => p.availability?.is_available_scheduled && !p.availability?.is_available_now).length}</span> taking bookings</span>
+                        <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-zinc-500"></span> <span className="text-zinc-400 font-bold">{performers.filter(p => !p.availability?.is_available_now && !p.availability?.is_available_scheduled).length}</span> offline</span>
+                    </div>
+                    {performers.filter(p => p.availability?.is_available_now).length > 0 && (
+                        <div className="space-y-2">
+                            <p className="text-xs text-zinc-500 uppercase font-bold">Available Now:</p>
+                            {performers.filter(p => p.availability?.is_available_now).map(p => (
+                                <div key={p.id} className="flex items-center justify-between p-2 bg-zinc-900/50 rounded-lg text-sm">
+                                    <div className="flex items-center gap-3">
+                                        <img src={p.photo_url} alt={p.name} className="w-8 h-8 rounded-full object-cover" />
+                                        <span className="text-white font-medium">{p.name}</span>
+                                    </div>
+                                    <span className="text-xs text-zinc-400">
+                                        {p.availability?.available_until ? `until ${new Date(p.availability.available_until).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}` : 'no end time'}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
       {/* Tab Navigation */}
       <div className="border-b border-zinc-800 overflow-x-auto scrollbar-hide">
         <nav className="-mb-px flex space-x-8 min-w-max px-2" aria-label="Tabs">
