@@ -86,6 +86,31 @@ export interface VettingApplication {
   ipAddress: string | null;
 }
 
+export type VerificationStatus = 'not_started' | 'in_progress' | 'approved' | 'declined' | 'in_review' | 'resubmitted' | 'expired';
+
+export interface ClientVerification {
+  id: string;
+  clientEmail: string;
+  clientPhone: string;
+  clientFullName: string;
+  bookingId: string;
+  provider: 'didit';
+  providerSessionId: string;
+  status: VerificationStatus;
+  decision: 'approved' | 'declined' | 'pending' | null;
+  approvedAt: string | null;
+  expiresAt: string | null;
+  reusable: boolean;
+  summary: {
+    documentType?: string;
+    verifiedName?: string;
+    amlClear?: boolean;
+    faceMatchScore?: number;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Booking {
     id: string;
     performer_id: number;
@@ -114,6 +139,16 @@ export interface Booking {
     cancelled_at?: string | null;
     cancellation_reason?: string | null;
     cancelled_by?: 'client' | 'admin' | 'performer' | null;
+    // Verification fields
+    verificationRequired?: boolean;
+    verificationStatus?: VerificationStatus;
+    verificationReused?: boolean;
+    verificationSessionId?: string | null;
+    verificationOverride?: {
+      overriddenBy: string;
+      overriddenAt: string;
+      reason: string;
+    } | null;
     performer?: {
         id: number;
         name: string;

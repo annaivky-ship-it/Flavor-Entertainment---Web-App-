@@ -972,7 +972,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                   {booking.client_message && (
                     <p className="text-sm text-zinc-300 mt-1 italic">Note: "{booking.client_message}"</p>
                   )}
-                  <p className={`font-semibold capitalize text-sm mt-1`}>{booking.status.replace(/_/g, ' ')}</p>
+                  <p className={`font-semibold capitalize text-sm mt-1`}>{booking.status.replace(/_/g, ' ')}
+{booking.verificationStatus && (
+  <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full border ${
+    booking.verificationStatus === 'approved' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
+    booking.verificationStatus === 'declined' ? 'text-red-400 border-red-500/30 bg-red-500/10' :
+    booking.verificationStatus === 'in_review' ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10' :
+    'text-zinc-400 border-zinc-500/30 bg-zinc-500/10'
+  }`}>
+    ID: {booking.verificationStatus}
+    {booking.verificationReused && ' (reused)'}
+    {booking.verificationOverride && ' (override)'}
+  </span>
+)}
+</p>
                 </div>
                 <div className="text-sm text-zinc-400 mt-4 md:mt-0 md:text-right flex-shrink-0">
                     <p className="text-white font-medium">Contact Info</p>

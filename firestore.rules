@@ -164,6 +164,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // --- Client Verifications (system write, admin read) ---
+    match /client_verifications/{verificationId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions write
+    }
+
+    // --- Webhook Payloads (system write, admin read) ---
+    match /webhook_payloads/{payloadId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions write
+    }
+
     // --- Default: deny everything else ---
     match /{document=**} {
       allow read, write: if false;

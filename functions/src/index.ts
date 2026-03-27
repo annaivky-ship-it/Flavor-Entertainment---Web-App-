@@ -516,35 +516,78 @@ export const diditKycWebhook = fns.https.onRequest(async (req: any, res: any) =>
 
   try {
     const webhookData = req.body;
-    const eventType = webhookData.event || 'status.updated';
 
-    if (eventType === 'status.updated' &&
-      (webhookData.status === 'Approved' || webhookData.status === 'Declined')) {
+    // Store raw webhook for audit
+    await db.collection('webhook_payloads').add({
+      provider: 'didit',
+      payload: webhookData,
+      receivedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
+    // Idempotency check
+    const idempotencyKey = `didit_webhook_${webhookData.session_id}_${webhookData.status}`;
+    if (!(await checkAndSetIdempotency(idempotencyKey))) {
+      console.log(`Duplicate webhook ignored: ${idempotencyKey}`);
+      res.status(200).json({ received: true, duplicate: true });
+      return;
+    }
+
+    const sessionStatus = webhookData.status;
+
+    if (sessionStatus === 'Approved' || sessionStatus === 'Declined') {
       const result = await processKycResult(webhookData);
       console.log(`KYC ${result.kycResult} for booking ${result.bookingId} → ${result.newStatus}`);
 
-      // Send notification to client
       const bookingDoc = await db.collection('bookings').doc(result.bookingId).get();
       const booking = bookingDoc.data();
       const clientPhone = booking?.clientPhone || booking?.phone || booking?.client_phone;
 
       if (clientPhone) {
         if (result.kycResult === 'PASS' && result.newStatus === 'CONFIRMED') {
-          await sendMessage({
-            bookingId: result.bookingId,
-            templateKey: 'CONFIRMED_CLIENT',
-            to: clientPhone,
-            body: renderTemplate('CONFIRMED_CLIENT', booking)
-          });
+          await sendMessage({ bookingId: result.bookingId, templateKey: 'CONFIRMED_CLIENT', to: clientPhone, body: renderTemplate('CONFIRMED_CLIENT', booking) });
         } else if (result.kycResult === 'FAIL') {
-          await sendMessage({
-            bookingId: result.bookingId,
-            templateKey: 'DECLINED_CLIENT',
-            to: clientPhone,
-            body: renderTemplate('DECLINED_CLIENT', booking)
-          });
+          await sendMessage({ bookingId: result.bookingId, templateKey: 'DECLINED_CLIENT', to: clientPhone, body: renderTemplate('DECLINED_CLIENT', booking) });
         }
+      }
+    } else if (sessionStatus === 'In Review') {
+      // Update booking to manual review needed
+      const sessionDoc = await db.collection('kyc_sessions').doc(webhookData.session_id).get();
+      if (sessionDoc.exists) {
+        const bookingId = sessionDoc.data()!.booking_id;
+        await db.collection('bookings').doc(bookingId).update({
+          kyc_status: 'IN_REVIEW',
+          verificationStatus: 'in_review',
+        });
+        await db.collection('kyc_sessions').doc(webhookData.session_id).update({
+          status: 'In Review',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    } else if (sessionStatus === 'In Progress' || sessionStatus === 'Resubmitted') {
+      const sessionDoc = await db.collection('kyc_sessions').doc(webhookData.session_id).get();
+      if (sessionDoc.exists) {
+        const bookingId = sessionDoc.data()!.booking_id;
+        await db.collection('bookings').doc(bookingId).update({
+          kyc_status: sessionStatus === 'Resubmitted' ? 'RESUBMITTED' : 'IN_PROGRESS',
+          verificationStatus: sessionStatus === 'Resubmitted' ? 'resubmitted' : 'in_progress',
+        });
+        await db.collection('kyc_sessions').doc(webhookData.session_id).update({
+          status: sessionStatus,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    } else if (sessionStatus === 'Expired') {
+      const sessionDoc = await db.collection('kyc_sessions').doc(webhookData.session_id).get();
+      if (sessionDoc.exists) {
+        const bookingId = sessionDoc.data()!.booking_id;
+        await db.collection('bookings').doc(bookingId).update({
+          kyc_status: 'EXPIRED',
+          verificationStatus: 'expired',
+        });
+        await db.collection('kyc_sessions').doc(webhookData.session_id).update({
+          status: 'Expired',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
       }
     }
 

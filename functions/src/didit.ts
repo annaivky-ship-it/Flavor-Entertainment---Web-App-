@@ -21,7 +21,7 @@ export interface DiditSessionResponse {
 
 export interface DiditWebhookPayload {
     session_id: string;
-    status: 'Approved' | 'Declined' | 'Not Started' | 'In Progress';
+    status: 'Approved' | 'Declined' | 'Not Started' | 'In Progress' | 'In Review' | 'Resubmitted' | 'Expired';
     vendor_data?: string; // bookingId
     document_data?: {
         full_name?: string;
@@ -262,6 +262,31 @@ export async function processKycResult(webhookData: DiditWebhookPayload): Promis
                 await logAudit('system', 'system', 'KYC_PASS', bookingId!, {
                     provider: 'didit',
                     verified_name: webhookData.document_data?.full_name,
+                });
+
+                // Create reusable client verification record
+                const verificationExpiry = new Date();
+                verificationExpiry.setDate(verificationExpiry.getDate() + 90); // 90-day reuse window
+                await getDb().collection('client_verifications').add({
+                    clientEmail: (booking.client_email || booking.email || '').toLowerCase().trim(),
+                    clientPhone: booking.client_phone || booking.phone || '',
+                    clientFullName: booking.client_name || booking.fullName || '',
+                    bookingId: bookingId!,
+                    provider: 'didit',
+                    providerSessionId: session_id,
+                    status: 'approved',
+                    decision: 'approved',
+                    approvedAt: new Date().toISOString(),
+                    expiresAt: verificationExpiry.toISOString(),
+                    reusable: true,
+                    summary: {
+                        documentType: webhookData.document_data?.document_type || null,
+                        verifiedName: webhookData.document_data?.full_name || null,
+                        amlClear: webhookData.aml_screening?.result !== 'flagged',
+                        faceMatchScore: webhookData.face_match?.score || null,
+                    },
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
                 });
             }
         }

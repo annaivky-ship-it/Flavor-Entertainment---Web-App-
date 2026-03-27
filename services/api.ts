@@ -621,6 +621,53 @@ export const api = {
     }
   },
 
+  async checkExistingVerification(email: string, phone: string): Promise<{ verified: boolean; verificationId: string | null }> {
+    if (!db) return { verified: false, verificationId: null };
+    try {
+      const normalizedEmail = email.toLowerCase().trim();
+      const snap = await getDocs(query(
+        collection(db, 'client_verifications'),
+        where('clientEmail', '==', normalizedEmail),
+        where('status', '==', 'approved'),
+        where('reusable', '==', true),
+        limit(1)
+      ));
+      if (!snap.empty) {
+        const doc = snap.docs[0];
+        const data = doc.data();
+        // Check if still within reuse window (90 days default)
+        if (data.expiresAt && new Date(data.expiresAt) > new Date()) {
+          return { verified: true, verificationId: doc.id };
+        }
+      }
+      return { verified: false, verificationId: null };
+    } catch (err: unknown) {
+      console.warn('Error checking verification:', err);
+      return { verified: false, verificationId: null };
+    }
+  },
+
+  async adminOverrideVerification(bookingId: string, action: 'approve' | 'reject', reason: string) {
+    if (!db || !auth) return { error: new Error('Firebase not initialized') };
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+      const docRef = doc(db, 'bookings', bookingId);
+      await updateDoc(docRef, {
+        verificationStatus: action === 'approve' ? 'approved' : 'declined',
+        verificationOverride: {
+          overriddenBy: user.email || user.uid,
+          overriddenAt: new Date().toISOString(),
+          reason,
+        },
+        ...(action === 'approve' ? { status: 'deposit_pending' } : { status: 'rejected' }),
+      });
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  },
+
   async initializeDiditSession(bookingId: string) {
     if (!functions) return { verificationUrl: null, error: new Error('Firebase functions not initialized') };
     try {

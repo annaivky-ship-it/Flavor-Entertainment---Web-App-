@@ -341,6 +341,12 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }
 
         try {
+            // Check if client already has a valid verification
+            const existingVerification = await api.checkExistingVerification(form.email, form.mobile);
+            if (existingVerification.verified) {
+                setIsVerifiedBooker(true);
+            }
+
             const result = await onBookingRequest(form, performers);
             if (result.success && result.bookingIds) {
                 setBookingIds(result.bookingIds);

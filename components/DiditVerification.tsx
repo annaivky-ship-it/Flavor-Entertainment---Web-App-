@@ -18,7 +18,7 @@ const DiditVerification: React.FC<DiditVerificationProps> = ({
   onCancel,
   clientName,
 }) => {
-  const [step, setStep] = useState<'intro' | 'verifying' | 'success' | 'error'>('intro');
+  const [step, setStep] = useState<'intro' | 'verifying' | 'success' | 'error' | 'in_review' | 'expired'>('intro');
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -35,6 +35,10 @@ const DiditVerification: React.FC<DiditVerificationProps> = ({
           setStep('success');
         } else if (data.kyc_status === 'FAIL') {
           setStep('error');
+        } else if (data.kyc_status === 'IN_REVIEW') {
+          setStep('in_review');
+        } else if (data.kyc_status === 'EXPIRED') {
+          setStep('expired');
         }
       },
       (err) => {
@@ -143,6 +147,44 @@ const DiditVerification: React.FC<DiditVerificationProps> = ({
                 className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-xl transition-colors"
               >
                 Close
+              </button>
+            </div>
+          )}
+
+          {step === 'in_review' && (
+            <div className="p-8 text-center animate-fade-in">
+              <Shield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+              <p className="text-xl font-bold text-white mb-2">Under Review</p>
+              <p className="text-sm text-zinc-400 mb-6">
+                Your verification is being reviewed by our team. We'll update you shortly — no action needed right now.
+              </p>
+              <button
+                onClick={onCancel}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-xl transition-colors"
+              >
+                Continue Later
+              </button>
+            </div>
+          )}
+
+          {step === 'expired' && (
+            <div className="p-8 text-center animate-fade-in">
+              <AlertTriangle className="h-16 w-16 text-orange-500 mx-auto mb-4" />
+              <p className="text-xl font-bold text-white mb-2">Session Expired</p>
+              <p className="text-sm text-zinc-400 mb-6">
+                Your verification session has expired. You can start a new one — your booking is still saved.
+              </p>
+              <button
+                onClick={() => { setStep('intro'); }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors mb-3"
+              >
+                Retry Verification
+              </button>
+              <button
+                onClick={onCancel}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-xl transition-colors"
+              >
+                Continue Later
               </button>
             </div>
           )}
