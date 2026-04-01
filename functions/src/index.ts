@@ -5,7 +5,8 @@ import { sendWhatsApp, sendSms, verifyTwilioSignature } from './twilio';
 import { sendMessage } from './messaging/send';
 import { renderTemplate } from './messaging/templates';
 import { checkAndSetIdempotency } from './utils/idempotency';
-import { GoogleGenAI, Type } from "@google/genai";
+// Lazy-loaded to avoid deployment timeout
+// import { GoogleGenAI, Type } from "@google/genai";
 import { createKycSession, processKycResult, verifyWebhookSignature } from './didit';
 import { calculateRiskScore, shouldSkipKyc } from './risk/scoring';
 import { createIncidentReport, approveIncidentReport, rejectIncidentReport } from './incidents/reporting';
@@ -48,6 +49,7 @@ export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: an
   const { bookingDetails } = data;
 
   try {
+    const { GoogleGenAI, Type } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3.1-pro-preview",
