@@ -266,8 +266,8 @@ export const scheduledKycTimeout = fns.pubsub.schedule('every 6 hours').onRun(as
 /**
  * Legacy Booking Transaction (Retained for functionality)
  */
-export const createBookingRequest = fns.https.onCall(async (request: any) => {
-  const { formState, performerIds } = request.data;
+export const createBookingRequest = fns.https.onCall(async (data: any, context: any) => {
+  const { formState, performerIds } = data;
 
   return db.runTransaction(async (transaction: any) => {
     // DNS Check
@@ -314,7 +314,7 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
         client_email: normalizeEmail(formState.email || ''),
         client_phone: normalizePhoneToE164(formState.phone || formState.mobile || ''),
         client_dob: formState.dob || null,
-        client_uid: request.auth?.uid || null,
+        client_uid: context?.auth?.uid || null,
         client_message: formState.client_message || null,
 
         // Event details
