@@ -301,11 +301,15 @@ export const createBookingRequest = fns.https.onCall(async (data: any, context: 
         );
       }
 
-      // Look up performer phone for notifications
+      // Look up performer name from public collection
       const performerDoc = await transaction.get(db.collection('performers').doc(String(pId)));
       const performerData = performerDoc.exists ? performerDoc.data() : null;
-      const performerPhone = performerData?.phone || performerData?.mobile || null;
       const performerName = performerData?.name || `Performer ${pId}`;
+
+      // Look up performer phone from secure private collection (admin-only)
+      const privateDoc = await transaction.get(db.collection('performers_private').doc(String(pId)));
+      const privateData = privateDoc.exists ? privateDoc.data() : null;
+      const performerPhone = privateData?.phone || privateData?.whatsapp || null;
 
       const bookingRef = db.collection('bookings').doc();
       const bookingData = {
@@ -513,7 +517,12 @@ export const onBookingStatusChanged = fns.firestore
     if (!(await checkAndSetIdempotency(idempotencyKey))) return;
 
     const clientPhone = after.client_phone || after.clientPhone || after.phone;
-    const performerPhone = after.performerPhone;
+    // Read performer phone from booking doc, or fall back to secure private collection
+    let performerPhone = after.performerPhone;
+    if (!performerPhone && after.performer_id) {
+      const privDoc = await db.collection('performers_private').doc(String(after.performer_id)).get();
+      performerPhone = privDoc.data()?.phone || privDoc.data()?.whatsapp || null;
+    }
 
     // Enforce KYC before deposit_pending (unless bypassed for verified bookers)
     if (after.status === 'deposit_pending' || after.status === 'APPROVED') {
