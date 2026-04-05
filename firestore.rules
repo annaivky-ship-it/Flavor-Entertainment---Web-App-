@@ -156,6 +156,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- Performer Private Contact Info (admin-only — phone, WhatsApp) ---
+    match /performers_private/{performerId} {
+      allow read, write: if isAdmin();
+    }
+
     // --- Performer Auth Mapping ---
     match /performers_auth/{userId} {
       allow read: if isSignedIn();

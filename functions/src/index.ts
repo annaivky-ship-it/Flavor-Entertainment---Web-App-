@@ -5,7 +5,8 @@ import { sendWhatsApp, sendSms, verifyTwilioSignature } from './twilio';
 import { sendMessage } from './messaging/send';
 import { renderTemplate } from './messaging/templates';
 import { checkAndSetIdempotency } from './utils/idempotency';
-import { GoogleGenAI, Type } from "@google/genai";
+// Lazy-loaded to avoid deployment timeout
+// import { GoogleGenAI, Type } from "@google/genai";
 import { createKycSession, processKycResult, verifyWebhookSignature } from './didit';
 import { calculateRiskScore, shouldSkipKyc } from './risk/scoring';
 import { createIncidentReport, approveIncidentReport, rejectIncidentReport } from './incidents/reporting';
@@ -17,6 +18,23 @@ declare const Buffer: any;
 admin.initializeApp();
 const db = getFirestore('default');
 const fns = functions as any;
+
+// Startup health check — warn about missing secrets
+const REQUIRED_SECRETS = {
+  DIDIT_API_KEY: process.env.DIDIT_API_KEY,
+  DIDIT_WORKFLOW_ID: process.env.DIDIT_WORKFLOW_ID,
+  DIDIT_WEBHOOK_SECRET: process.env.DIDIT_WEBHOOK_SECRET,
+  TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || process.env.TWILIO_SID,
+  TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_TOKEN,
+};
+
+const missingSecrets = Object.entries(REQUIRED_SECRETS)
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+if (missingSecrets.length > 0) {
+  console.error(`[STARTUP] Missing required secrets: ${missingSecrets.join(', ')}. Some features will be disabled.`);
+}
 
 export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: any) => {
   if (!context.auth) {
@@ -31,6 +49,7 @@ export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: an
   const { bookingDetails } = data;
 
   try {
+    const { GoogleGenAI, Type } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3.1-pro-preview",
@@ -208,10 +227,47 @@ export const scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').o
 });
 
 /**
+ * KYC Timeout Cleanup
+ * Auto-fail bookings stuck in KYC PENDING status for over 24 hours.
+ * Runs every 6 hours.
+ */
+export const scheduledKycTimeout = fns.pubsub.schedule('every 6 hours').onRun(async () => {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const staleBookings = await db.collection('bookings')
+    .where('kyc_status', '==', 'PENDING')
+    .where('created_at', '<=', twentyFourHoursAgo)
+    .get();
+
+  for (const bookingDoc of staleBookings.docs) {
+    const booking = bookingDoc.data();
+    await bookingDoc.ref.update({
+      kyc_status: 'TIMED_OUT',
+      kyc_timeout_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Notify client
+    const clientPhone = booking.client_phone || booking.phone;
+    if (clientPhone) {
+      await sendMessage({
+        bookingId: bookingDoc.id,
+        templateKey: 'DECLINED_CLIENT',
+        to: clientPhone,
+        body: `[Flavor Entertainers] Your identity verification for booking ${bookingDoc.id.slice(0, 8).toUpperCase()} has expired. Please submit a new booking to try again.`,
+      });
+    }
+
+    console.log(`KYC timed out for booking ${bookingDoc.id}`);
+  }
+
+  console.log(`KYC timeout check: ${staleBookings.size} bookings timed out.`);
+});
+
+/**
  * Legacy Booking Transaction (Retained for functionality)
  */
-export const createBookingRequest = fns.https.onCall(async (request: any) => {
-  const { formState, performerIds } = request.data;
+export const createBookingRequest = fns.https.onCall(async (data: any, context: any) => {
+  const { formState, performerIds } = data;
 
   return db.runTransaction(async (transaction: any) => {
     // DNS Check
@@ -245,11 +301,55 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
         );
       }
 
+      // Look up performer name from public collection
+      const performerDoc = await transaction.get(db.collection('performers').doc(String(pId)));
+      const performerData = performerDoc.exists ? performerDoc.data() : null;
+      const performerName = performerData?.name || `Performer ${pId}`;
+
+      // Look up performer phone from secure private collection (admin-only)
+      const privateDoc = await transaction.get(db.collection('performers_private').doc(String(pId)));
+      const privateData = privateDoc.exists ? privateDoc.data() : null;
+      const performerPhone = privateData?.phone || privateData?.whatsapp || null;
+
       const bookingRef = db.collection('bookings').doc();
       const bookingData = {
-        ...formState,
+        // Client details
+        client_name: formState.fullName || '',
+        client_email: normalizeEmail(formState.email || ''),
+        client_phone: normalizePhoneToE164(formState.phone || formState.mobile || ''),
+        client_dob: formState.dob || null,
+        client_uid: context?.auth?.uid || null,
+        client_message: formState.client_message || null,
+
+        // Event details
+        event_date: formState.eventDate,
+        event_time: formState.eventTime,
+        event_address: formState.eventAddress || '',
+        event_suburb: formState.eventSuburb || '',
+        event_type: formState.eventType || '',
+        duration_hours: parseFloat(formState.duration) || 0,
+        number_of_guests: parseInt(formState.numberOfGuests) || 0,
+        services_requested: formState.selectedServices || [],
+
+        // Performer
         performer_id: pId,
+        performerPhone: performerPhone,
+        performerName: performerName,
+
+        // Cost (passed from client-side calculation)
+        total_cost: parseFloat(formState.totalCost) || 0,
+        deposit_amount: parseFloat(formState.depositAmount) || 0,
+        travel_fee: parseFloat(formState.travelFee) || 0,
+
+        // Documents
+        id_document_path: formState.id_document_path || null,
+        selfie_document_path: formState.selfie_document_path || null,
+        deposit_receipt_path: null,
+
+        // Status tracking
         status: 'pending_performer_acceptance',
+        payment_status: 'unpaid',
+        kyc_status: 'NOT_STARTED',
         slotLock: slotId,
         created_at: admin.firestore.FieldValue.serverTimestamp(),
       };
@@ -266,13 +366,15 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
       transaction.set(bookingRef, bookingData);
       newBookings.push({ id: bookingRef.id, ...bookingData });
 
-      transaction.set(db.collection('notificationsQueue').doc(), {
-        type: 'WHATSAPP',
-        to: pId,
-        body: `New Booking Request from ${formState.fullName}.`,
-        status: 'queued',
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
-      });
+      if (performerPhone) {
+        transaction.set(db.collection('notificationsQueue').doc(), {
+          type: 'WHATSAPP',
+          to: performerPhone,
+          body: `New Booking Request from ${formState.fullName || 'a client'}.`,
+          status: 'queued',
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
     }
 
     return { success: true, bookingIds: newBookings.map(b => b.id) };
@@ -414,8 +516,24 @@ export const onBookingStatusChanged = fns.firestore
     const idempotencyKey = `booking_status_${bookingId}_${after.status}`;
     if (!(await checkAndSetIdempotency(idempotencyKey))) return;
 
-    const clientPhone = after.clientPhone || after.phone;
-    const performerPhone = after.performerPhone;
+    const clientPhone = after.client_phone || after.clientPhone || after.phone;
+    // Read performer phone from booking doc, or fall back to secure private collection
+    let performerPhone = after.performerPhone;
+    if (!performerPhone && after.performer_id) {
+      const privDoc = await db.collection('performers_private').doc(String(after.performer_id)).get();
+      performerPhone = privDoc.data()?.phone || privDoc.data()?.whatsapp || null;
+    }
+
+    // Enforce KYC before deposit_pending (unless bypassed for verified bookers)
+    if (after.status === 'deposit_pending' || after.status === 'APPROVED') {
+      const kycStatus = after.kyc_status || 'NOT_STARTED';
+      if (kycStatus !== 'PASS' && kycStatus !== 'BYPASSED' && kycStatus !== 'PASS_WITH_FLAGS') {
+        console.warn(`Booking ${bookingId} moved to deposit_pending without KYC completion (kyc_status: ${kycStatus}). Flagging for admin review.`);
+        await change.after.ref.update({
+          kyc_warning: 'Deposit stage reached without completed KYC verification',
+        });
+      }
+    }
 
     if (after.status === 'deposit_pending' || after.status === 'APPROVED') {
       if (clientPhone) {

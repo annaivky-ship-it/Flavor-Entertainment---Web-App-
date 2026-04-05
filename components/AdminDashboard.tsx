@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
-import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone, Upload, Image, XCircle } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone, Upload, Image, XCircle, Lock } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
 import { resetDemoData, isDemoMode, api } from '../services/api';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../services/firebaseClient';
 import ChatDialog from './ChatDialog';
 
 interface AdminDashboardProps {
@@ -91,6 +93,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [performerContact, setPerformerContact] = useState({ phone: '', whatsapp: '' });
+
+  // Load performer private contact info when editing
+  useEffect(() => {
+    if (!editingPerformer || !db) return;
+    const loadPrivateData = async () => {
+      try {
+        const privDoc = await getDoc(doc(db!, 'performers_private', String(editingPerformer.id)));
+        if (privDoc.exists()) {
+          const data = privDoc.data();
+          setPerformerContact({ phone: data.phone || '', whatsapp: data.whatsapp || '' });
+        } else {
+          setPerformerContact({ phone: '', whatsapp: '' });
+        }
+      } catch {
+        setPerformerContact({ phone: '', whatsapp: '' });
+      }
+    };
+    loadPrivateData();
+  }, [editingPerformer]);
 
   const handleAction = async (type: string, id: string, action: () => Promise<void>) => {
     setLoadingState({ type, id });
@@ -567,14 +589,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm text-zinc-400">Min Booking Duration (Hours)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     min="1"
                     step="0.5"
-                    value={performerForm.min_booking_duration_hours || ''} 
+                    value={performerForm.min_booking_duration_hours || ''}
                     onChange={e => setPerformerForm({...performerForm, min_booking_duration_hours: e.target.value ? Number(e.target.value) : undefined})}
                     className="input-base w-full"
                   />
+                </div>
+
+                <div className="md:col-span-2 mt-2 p-4 rounded-xl border border-orange-500/20 bg-orange-500/5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Lock size={16} className="text-orange-400" />
+                    <span className="text-sm font-bold text-orange-400 uppercase tracking-wider">Private Contact Info</span>
+                    <span className="text-[10px] text-zinc-500">(admin-only, never shown publicly)</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-sm text-zinc-400 flex items-center gap-1"><Phone size={12} /> Phone (AU)</label>
+                      <input
+                        type="tel"
+                        placeholder="+61 4XX XXX XXX"
+                        value={performerContact.phone}
+                        onChange={e => setPerformerContact({...performerContact, phone: e.target.value})}
+                        className="input-base w-full"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm text-zinc-400 flex items-center gap-1"><MessageSquare size={12} /> WhatsApp Number</label>
+                      <input
+                        type="tel"
+                        placeholder="+61 4XX XXX XXX (or same as phone)"
+                        value={performerContact.whatsapp}
+                        onChange={e => setPerformerContact({...performerContact, whatsapp: e.target.value})}
+                        className="input-base w-full"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
@@ -623,6 +675,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                         }
                         await onUpdatePerformer(editingPerformer.id, formData);
                       }
+
+                      // Save private contact info to secure collection
+                      if (db && (performerContact.phone || performerContact.whatsapp)) {
+                        const pid = String(editingPerformer?.id ?? performerId);
+                        await setDoc(doc(db!, 'performers_private', pid), {
+                          phone: performerContact.phone.trim() || null,
+                          whatsapp: performerContact.whatsapp.trim() || performerContact.phone.trim() || null,
+                          updated_at: new Date().toISOString(),
+                        }, { merge: true });
+                      }
                     } catch (err) {
                       console.error('Error saving performer:', err);
                       alert('Error saving performer: ' + (err instanceof Error ? err.message : String(err)));
@@ -634,6 +696,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                       setGalleryPreviews([]);
                       setIsAddingPerformer(false);
                       setEditingPerformer(null);
+                      setPerformerContact({ phone: '', whatsapp: '' });
                     }
                   }}
                   className="btn-primary !py-2 !px-6 flex items-center gap-2"

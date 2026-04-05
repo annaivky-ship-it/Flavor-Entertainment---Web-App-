@@ -1,5 +1,3 @@
-import { Twilio } from 'twilio';
-
 export async function sendTwilioMessage(to: string, body: string, channel: 'sms' | 'whatsapp', config: any): Promise<{ providerMessageId: string }> {
   const accountSid = config.twilio_account_sid || process.env.TWILIO_ACCOUNT_SID;
   const authToken = config.twilio_auth_token || process.env.TWILIO_AUTH_TOKEN;
@@ -8,6 +6,7 @@ export async function sendTwilioMessage(to: string, body: string, channel: 'sms'
 
   if (!accountSid || !authToken) throw new Error('Twilio credentials missing');
 
+  const { Twilio } = require('twilio');
   const client = new Twilio(accountSid, authToken);
   const from = channel === 'whatsapp' ? `whatsapp:${fromWa}` : fromSms;
   const toFormatted = channel === 'whatsapp' ? `whatsapp:${to}` : to;

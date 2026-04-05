@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../services/firebaseClient';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage, auth } from '../services/firebaseClient';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
 import { getBookingDurationInfo, calculateBookingCost } from '../utils/bookingUtils';
@@ -29,6 +30,10 @@ export interface BookingFormState {
     client_message: string;
     idDocument?: File | null;
     selfieDocument?: File | null;
+    // Cost fields (added before submission, not part of form UI)
+    totalCost?: string;
+    depositAmount?: string;
+    travelFee?: string;
 }
 
 interface BookingProcessProps {
@@ -342,7 +347,12 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }
 
         try {
-            const result = await onBookingRequest(form, performers);
+            const result = await onBookingRequest({
+                ...form,
+                totalCost: String(totalCost),
+                depositAmount: String(depositAmount),
+                travelFee: String(travelFee),
+            } as BookingFormState, performers);
             if (result.success && result.bookingIds) {
                 setBookingIds(result.bookingIds);
 
@@ -367,11 +377,31 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }
     };
 
-    const handlePaymentSuccess = async () => {
-        setIsPayIdModalOpen(false);
-        if (bookingIds.length > 0) {
-            await onUpdateBookingStatus?.(bookingIds[0], 'pending_deposit_confirmation');
-            setStage('deposit_confirmation_pending');
+    const handlePaymentSuccess = async (receiptFile: File) => {
+        if (bookingIds.length > 0 && storage && auth?.currentUser) {
+            try {
+                const bookingId = bookingIds[0];
+                const userUid = auth.currentUser.uid;
+                const receiptPath = `deposits/${userUid}/${bookingId}/receipt_${Date.now()}_${receiptFile.name}`;
+                const receiptRef = ref(storage, receiptPath);
+                const uploadResult = await uploadBytes(receiptRef, receiptFile);
+                const receiptUrl = await getDownloadURL(uploadResult.ref);
+
+                // Update booking with receipt path
+                if (db) {
+                    await updateDoc(doc(db, 'bookings', bookingId), {
+                        deposit_receipt_path: receiptUrl,
+                        deposit_receipt_uploaded_at: new Date().toISOString(),
+                    });
+                }
+
+                await onUpdateBookingStatus?.(bookingId, 'pending_deposit_confirmation');
+                setIsPayIdModalOpen(false);
+                setStage('deposit_confirmation_pending');
+            } catch (err) {
+                console.error('Receipt upload failed:', err);
+                setIsPayIdModalOpen(false);
+            }
         }
     };
 
@@ -413,6 +443,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         eventType={form.eventType}
                         eventDate={form.eventDate}
                         eventAddress={form.eventAddress}
+                        bookingId={bookingIds[0] || ''}
                         onPaymentSuccess={handlePaymentSuccess}
                         onClose={() => setIsPayIdModalOpen(false)}
                     />

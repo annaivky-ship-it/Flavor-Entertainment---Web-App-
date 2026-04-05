@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { LoaderCircle, CheckCircle, Shield, Building2, X, PartyPopper, User, Calendar, MapPin } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { LoaderCircle, CheckCircle, Shield, Building2, X, PartyPopper, User, Calendar, MapPin, Upload, FileImage } from 'lucide-react';
 import { PAY_ID_NAME, PAY_ID_EMAIL } from '../constants';
 
 interface PayIDSimulationModalProps {
@@ -9,30 +9,61 @@ interface PayIDSimulationModalProps {
   eventType: string;
   eventDate: string;
   eventAddress: string;
-  onPaymentSuccess: () => void;
+  bookingId: string;
+  onPaymentSuccess: (receiptFile: File) => void;
   onClose: () => void;
 }
 
-const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({ 
-    amount, 
-    totalAmount, 
-    performerNames, 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
+    amount,
+    totalAmount,
+    performerNames,
     eventType,
     eventDate,
     eventAddress,
-    onPaymentSuccess, 
-    onClose 
+    bookingId,
+    onPaymentSuccess,
+    onClose
 }) => {
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handlePay = () => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setFileError(null);
+
+    if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setFileError('Please upload a JPG, PNG, WebP image or PDF.');
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError('File must be under 10MB.');
+      return;
+    }
+
+    setReceiptFile(file);
+  };
+
+  const handleConfirmPayment = () => {
+    if (!receiptFile) {
+      setFileError('Please upload your payment receipt before confirming.');
+      return;
+    }
+
     setStatus('processing');
+    // Pass the receipt file to parent for upload to Firebase Storage
+    onPaymentSuccess(receiptFile);
     setTimeout(() => {
       setStatus('success');
-      setTimeout(() => {
-        onPaymentSuccess();
-      }, 1500); // Show success message before closing
-    }, 2000); // Simulate processing time
+    }, 1500);
   };
 
   const Content = () => {
@@ -41,7 +72,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
         return (
           <div className="flex flex-col items-center justify-center text-center h-[450px]">
             <LoaderCircle className="h-16 w-16 animate-spin text-orange-500" />
-            <p className="mt-4 text-zinc-300 font-semibold text-lg">Submitting Confirmation...</p>
+            <p className="mt-4 text-zinc-300 font-semibold text-lg">Uploading Receipt...</p>
             <p className="text-zinc-500 text-sm mt-2">Notifying admin of your PayID transfer...</p>
           </div>
         );
@@ -51,7 +82,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
             <div className="bg-green-500/20 p-4 rounded-full mb-4">
                 <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
-            <p className="mt-4 text-zinc-100 font-bold text-2xl">Confirmation Sent!</p>
+            <p className="mt-4 text-zinc-100 font-bold text-2xl">Receipt Uploaded!</p>
             <p className="text-zinc-400 mt-2 max-w-xs">Your booking status has been updated. Admin will verify the transfer shortly.</p>
           </div>
         );
@@ -95,8 +126,8 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
                 </div>
             </div>
 
-            <div className="mb-8">
-                <p className="text-xs text-zinc-500 mb-2 uppercase tracking-widest font-bold">Transfer To (PayID)</p>
+            <div className="mb-6">
+                <p className="text-xs text-zinc-500 mb-2 uppercase tracking-widest font-bold">Step 1: Transfer To (PayID)</p>
                 <div className="bg-zinc-950 p-4 rounded-xl border border-orange-500/20 flex items-center gap-4 relative overflow-hidden group">
                     <div className="absolute inset-0 bg-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="w-12 h-12 bg-orange-500 text-white rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-500/20">
@@ -107,16 +138,60 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
                         <p className="text-sm font-medium text-orange-400 truncate">{PAY_ID_EMAIL}</p>
                     </div>
                 </div>
-                <div className="mt-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                    <p className="text-xs text-orange-400 font-medium">Please transfer the deposit amount to the PayID above using your banking app. Once completed, click "Confirm Payment Sent".</p>
+                <div className="mt-3 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                    <p className="text-xs text-orange-400 font-medium">Transfer <strong>${(amount || 0).toFixed(2)}</strong> to the PayID above using your banking app. Use booking reference: <strong>{bookingId.slice(0, 8).toUpperCase()}</strong></p>
                 </div>
             </div>
 
-            <button onClick={handlePay} className="btn-primary w-full py-4 text-lg font-bold flex items-center justify-center gap-3 shadow-2xl shadow-orange-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all">
+            <div className="mb-6">
+                <p className="text-xs text-zinc-500 mb-2 uppercase tracking-widest font-bold">Step 2: Upload Payment Receipt</p>
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                />
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`w-full p-4 rounded-xl border-2 border-dashed transition-all flex flex-col items-center gap-2 ${
+                        receiptFile
+                            ? 'border-green-500/40 bg-green-500/5'
+                            : 'border-zinc-700 bg-zinc-900/50 hover:border-orange-500/40 hover:bg-zinc-900'
+                    }`}
+                >
+                    {receiptFile ? (
+                        <>
+                            <FileImage className="h-8 w-8 text-green-400" />
+                            <p className="text-sm text-green-400 font-semibold">{receiptFile.name}</p>
+                            <p className="text-xs text-zinc-500">Click to change</p>
+                        </>
+                    ) : (
+                        <>
+                            <Upload className="h-8 w-8 text-zinc-500" />
+                            <p className="text-sm text-zinc-400">Upload screenshot or PDF of your payment</p>
+                            <p className="text-xs text-zinc-600">JPG, PNG, WebP or PDF (max 10MB)</p>
+                        </>
+                    )}
+                </button>
+                {fileError && (
+                    <p className="text-xs text-red-400 mt-2">{fileError}</p>
+                )}
+            </div>
+
+            <button
+                onClick={handleConfirmPayment}
+                disabled={!receiptFile}
+                className={`w-full py-4 text-lg font-bold flex items-center justify-center gap-3 rounded-xl transition-all ${
+                    receiptFile
+                        ? 'btn-primary shadow-2xl shadow-orange-500/40 hover:scale-[1.02] active:scale-[0.98]'
+                        : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                }`}
+            >
               <CheckCircle className="h-5 w-5" />
               Confirm Payment Sent
             </button>
-            
+
             <div className="mt-6 p-3 rounded-lg bg-zinc-800/30 flex items-start gap-2 border border-zinc-800">
                 <Shield size={14} className="text-zinc-500 mt-0.5 flex-shrink-0" />
                 <p className="text-[10px] text-zinc-500 leading-relaxed italic">
@@ -130,7 +205,7 @@ const PayIDSimulationModal: React.FC<PayIDSimulationModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 animate-fade-in">
-      <div className="card-base !p-8 !bg-[#0f0f11] max-w-md w-full relative shadow-[0_0_50px_rgba(0,0,0,0.5)] border-zinc-800">
+      <div className="card-base !p-8 !bg-[#0f0f11] max-w-md w-full relative shadow-[0_0_50px_rgba(0,0,0,0.5)] border-zinc-800 max-h-[90vh] overflow-y-auto">
         <button onClick={onClose} disabled={status === 'processing'} className="absolute top-4 right-4 text-zinc-600 hover:text-white transition-colors p-2">
             <X className="h-6 w-6" />
         </button>

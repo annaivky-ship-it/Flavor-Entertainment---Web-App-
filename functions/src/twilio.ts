@@ -1,32 +1,34 @@
 
-import { Twilio, validateRequest } from 'twilio';
+let _client: any = null;
 
-const accountSid = process.env.TWILIO_SID;
-const authToken = process.env.TWILIO_TOKEN;
-const whatsappFrom = process.env.TWILIO_WHATSAPP_FROM;
-const smsFrom = process.env.TWILIO_SMS_FROM;
-
-const client = new Twilio(accountSid, authToken);
+const getClient = () => {
+  if (!_client) {
+    const { Twilio } = require('twilio');
+    _client = new Twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+  }
+  return _client;
+};
 
 export const sendWhatsApp = async (to: string, body: string) => {
-  return client.messages.create({
-    from: `whatsapp:${whatsappFrom}`,
+  return getClient().messages.create({
+    from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
     to: `whatsapp:${to}`,
     body
   });
 };
 
 export const sendSms = async (to: string, body: string) => {
-  return client.messages.create({
-    from: smsFrom,
+  return getClient().messages.create({
+    from: process.env.TWILIO_SMS_FROM,
     to,
     body
   });
 };
 
 export const verifyTwilioSignature = (req: any) => {
+  const { validateRequest } = require('twilio');
   const twilioSignature = req.headers['x-twilio-signature'];
   const url = `https://${req.get('host')}${req.originalUrl}`;
   const params = req.body;
-  return validateRequest(authToken!, twilioSignature, url, params);
+  return validateRequest(process.env.TWILIO_TOKEN!, twilioSignature, url, params);
 };
