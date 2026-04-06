@@ -4,7 +4,7 @@ export type PerformerStatus = 'available' | 'busy' | 'offline' | 'pending_verifi
 export type Role = 'user' | 'performer' | 'admin';
 export type ServiceArea = 'Perth North' | 'Perth South' | 'Southwest' | 'Northwest';
 
-export type BookingStatus = 
+export type BookingStatus =
   | 'pending_performer_acceptance'
   | 'pending_vetting'
   | 'deposit_pending'
@@ -15,11 +15,13 @@ export type BookingStatus =
   | 'in_progress'
   | 'completed'
   | 'cancelled'
-  | 'rejected';
+  | 'rejected'
+  | 'expired'
+  | 'payment_review';
 
 export type VettingStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 export type DoNotServeStatus = 'pending' | 'approved' | 'rejected';
-export type PaymentStatus = 'unpaid' | 'deposit_paid' | 'fully_paid' | 'refunded';
+export type PaymentStatus = 'unpaid' | 'deposit_paid' | 'fully_paid' | 'refunded' | 'paid' | 'failed' | 'review';
 
 export interface Service {
   id: string;
@@ -101,6 +103,44 @@ export interface Booking {
         id: number;
         name: string;
     }
+    // PayID / Monoova payment fields
+    bookingReference?: string;
+    totalAmount?: number;
+    depositAmount?: number;
+    currency?: string;
+    paymentMethod?: string;
+    monoovaTransactionId?: string | null;
+    paymentReceivedAt?: string | null;
+    expiresAt?: string | null;
+    updatedAt?: string | null;
+}
+
+export interface PaymentEvent {
+    id: string;
+    eventType: string;
+    transactionId: string;
+    bookingReference: string;
+    amount: number;
+    status: 'received' | 'matched' | 'unmatched' | 'amount_mismatch' | 'already_paid' | 'booking_not_pending' | 'error';
+    rawPayload: any;
+    processed: boolean;
+    processingResult: string;
+    bookingId: string | null;
+    createdAt: string;
+    processedAt: string | null;
+}
+
+export interface NotificationOutbox {
+    id: string;
+    type: 'payment_confirmed' | 'booking_expired' | 'payment_review';
+    bookingId: string;
+    bookingReference: string;
+    performerId: number | null;
+    clientName: string;
+    clientPhone: string;
+    clientEmail: string;
+    sent: boolean;
+    createdAt: string;
 }
 
 export interface AuditLog {
