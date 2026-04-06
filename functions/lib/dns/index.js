@@ -46,7 +46,10 @@ const crypto = __importStar(require("crypto"));
 const didit_1 = require("../didit");
 const getDb = () => (0, firestore_1.getFirestore)('default');
 const fns = functions;
-const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
+const PEPPER = process.env.DNS_HASH_PEPPER || (() => {
+    console.warn('⚠️  DNS_HASH_PEPPER not set — using fallback. Set this in Cloud Functions config for production.');
+    return 'flavor-dns-fallback-pepper-2026';
+})();
 // --- Helpers ---
 function normalizeEmail(email) {
     return email.toLowerCase().trim();

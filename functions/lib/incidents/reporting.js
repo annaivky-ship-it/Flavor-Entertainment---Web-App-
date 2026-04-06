@@ -67,7 +67,7 @@ async function approveIncidentReport(reportId, adminUid, adminNotes) {
     const report = reportDoc.data();
     // Import hash utilities from DNS module
     const crypto = await Promise.resolve().then(() => __importStar(require('crypto')));
-    const PEPPER = process.env.DNS_HASH_PEPPER || 'default-secret-pepper-change-me-in-prod';
+    const PEPPER = process.env.DNS_HASH_PEPPER || 'flavor-dns-fallback-pepper-2026';
     function sha256(value) {
         return crypto.createHash('sha256').update(value + PEPPER).digest('hex');
     }

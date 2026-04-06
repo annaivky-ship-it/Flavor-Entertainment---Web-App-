@@ -36,7 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.seedDatabase = exports.addAnnaTest = exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.initializeDiditSession = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
+exports.seedDatabase = exports.addAnnaTest = exports.assessBookingRisk = exports.adminReviewIncident = exports.submitIncidentReport = exports.recordBookingConsent = exports.adminTriggerKyc = exports.diditKycWebhook = exports.notificationOutboxWorker = exports.scheduledBookingExpiry = exports.monoovaWebhook = exports.onBookingStatusChanged = exports.onBookingCreated = exports.twilioInboundWebhook = exports.notificationsWorker = exports.initializeDiditSession = exports.createBookingRequest = exports.scheduledRetentionCleanup = exports.reviewApplicationApprove = exports.submitApplication = exports.createDraftApplication = exports.analyzeVettingRisk = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
@@ -50,6 +50,8 @@ const scoring_1 = require("./risk/scoring");
 const reporting_1 = require("./incidents/reporting");
 const consent_1 = require("./consent");
 const dns_1 = require("./dns");
+const payments_1 = require("./payments");
+const BOOKING_PAYMENT_HOLD_MINUTES = parseInt(process.env.BOOKING_PAYMENT_HOLD_MINUTES || '30', 10);
 admin.initializeApp();
 const db = (0, firestore_1.getFirestore)('default');
 const fns = functions;
@@ -236,7 +238,27 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
                 throw new fns.https.HttpsError('already-exists', `This time slot is already booked for performer ${pId}.`);
             }
             const bookingRef = db.collection('bookings').doc();
-            const bookingData = Object.assign(Object.assign({}, formState), { performer_id: pId, status: 'pending_performer_acceptance', slotLock: slotId, created_at: admin.firestore.FieldValue.serverTimestamp() });
+            const bookingReference = (0, payments_1.generateBookingReference)();
+            const expiresAt = new Date(Date.now() + BOOKING_PAYMENT_HOLD_MINUTES * 60 * 1000);
+            // Allowlist form fields — never spread arbitrary client data
+            const sanitizedForm = {
+                client_name: formState.fullName || '',
+                client_email: formState.email || '',
+                client_phone: formState.mobile || formState.phone || '',
+                client_dob: formState.dob || null,
+                event_date: formState.eventDate || '',
+                event_time: formState.eventTime || '',
+                event_address: formState.eventAddress || '',
+                event_type: formState.eventType || '',
+                duration_hours: parseFloat(formState.duration) || 2,
+                number_of_guests: parseInt(formState.numberOfGuests, 10) || 0,
+                services_requested: Array.isArray(formState.selectedServices) ? formState.selectedServices : [],
+                client_message: formState.client_message || null,
+                id_document_path: formState.id_document_path || null,
+                selfie_document_path: formState.selfie_document_path || null,
+                eventSuburb: formState.eventSuburb || null,
+            };
+            const bookingData = Object.assign(Object.assign({}, sanitizedForm), { performer_id: pId, status: 'pending_performer_acceptance', payment_status: 'unpaid', paymentMethod: 'PAYID', bookingReference, currency: 'AUD', monoovaTransactionId: null, paymentReceivedAt: null, expiresAt: admin.firestore.Timestamp.fromDate(expiresAt), slotLock: slotId, created_at: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
             // Reserve the slot atomically
             transaction.set(slotRef, {
                 bookingId: bookingRef.id,
@@ -255,7 +277,11 @@ exports.createBookingRequest = fns.https.onCall(async (request) => {
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             });
         }
-        return { success: true, bookingIds: newBookings.map(b => b.id) };
+        return {
+            success: true,
+            bookingIds: newBookings.map(b => b.id),
+            bookingReferences: newBookings.map(b => b.bookingReference),
+        };
     });
 });
 exports.initializeDiditSession = fns.https.onCall(async (data, context) => {
@@ -309,6 +335,34 @@ exports.onBookingCreated = fns.firestore
     const idempotencyKey = `booking_created_${bookingId}`;
     if (!(await (0, idempotency_1.checkAndSetIdempotency)(idempotencyKey)))
         return;
+    // Auto-run risk scoring for new bookings
+    try {
+        const clientEmail = data.client_email || data.email || '';
+        const clientPhone = data.client_phone || data.phone || data.mobile || '';
+        const emailHash = clientEmail ? (0, dns_1.sha256)((0, dns_1.normalizeEmail)(clientEmail)) : '';
+        const phoneHash = clientPhone ? (0, dns_1.sha256)((0, dns_1.normalizePhoneToE164)(clientPhone)) : '';
+        const riskResult = await (0, scoring_1.calculateRiskScore)({
+            bookingId,
+            clientEmail,
+            clientPhone,
+            clientEmailHash: emailHash,
+            clientPhoneHash: phoneHash,
+            ipAddress: data.client_ip || null,
+            deviceFingerprint: data.device_fingerprint || null,
+            kycStatus: data.kyc_status || 'NOT_STARTED',
+            kycConfidence: data.kyc_confidence || null,
+        });
+        await snap.ref.update({
+            risk_score: riskResult.score,
+            risk_level: riskResult.level,
+            risk_decision: riskResult.decision,
+        });
+        console.log(`Risk score for booking ${bookingId}: ${riskResult.score} (${riskResult.level}) → ${riskResult.decision}`);
+    }
+    catch (riskError) {
+        console.error(`Risk scoring failed for booking ${bookingId}:`, riskError);
+        // Non-blocking: don't fail the booking creation if risk scoring fails
+    }
     const settingsDoc = await db.collection('settings').doc('messaging').get();
     const adminNumbers = ((_a = settingsDoc.data()) === null || _a === void 0 ? void 0 : _a.adminNotifyNumbers) || [];
     // Notify Admin
@@ -413,6 +467,84 @@ exports.onBookingStatusChanged = fns.firestore
                 body: (0, templates_1.renderTemplate)('CANCELLED_ALL', after)
             });
         }
+    }
+});
+// --- Monoova PayID Webhook ---
+exports.monoovaWebhook = fns.https.onRequest(payments_1.handleMonoovaWebhook);
+// --- Booking Expiry Scheduler ---
+// Runs every 5 minutes to expire unpaid bookings past their hold time
+exports.scheduledBookingExpiry = fns.pubsub.schedule('every 5 minutes').onRun(async () => {
+    const count = await (0, payments_1.expireUnpaidBookings)();
+    console.log(`Booking expiry job: expired ${count} bookings.`);
+});
+// --- Notification Outbox Worker ---
+// Processes notification jobs created by webhook handler and expiry scheduler
+exports.notificationOutboxWorker = fns.firestore
+    .document('notification_outbox/{id}')
+    .onCreate(async (snapshot) => {
+    var _a;
+    const data = snapshot.data();
+    if (data.sent)
+        return;
+    try {
+        const settingsDoc = await db.collection('settings').doc('messaging').get();
+        const adminNumbers = ((_a = settingsDoc.data()) === null || _a === void 0 ? void 0 : _a.adminNotifyNumbers) || [];
+        if (data.type === 'payment_confirmed') {
+            // Notify client
+            if (data.clientPhone) {
+                await (0, send_1.sendMessage)({
+                    bookingId: data.bookingId,
+                    templateKey: 'CONFIRMED_CLIENT',
+                    to: data.clientPhone,
+                    body: (0, templates_1.renderTemplate)('CONFIRMED_CLIENT', {
+                        clientName: data.clientName,
+                        payIdReference: data.bookingReference,
+                    })
+                });
+            }
+            // Notify admin
+            for (const adminNum of adminNumbers) {
+                await (0, send_1.sendMessage)({
+                    bookingId: data.bookingId,
+                    templateKey: 'NEW_BOOKING_ADMIN',
+                    to: adminNum,
+                    body: `[Flavor Entertainers] Payment confirmed for booking ${data.bookingReference}. Client: ${data.clientName}.`
+                });
+            }
+        }
+        else if (data.type === 'booking_expired') {
+            // Notify client their booking expired
+            if (data.clientPhone) {
+                await (0, send_1.sendMessage)({
+                    bookingId: data.bookingId,
+                    templateKey: 'CANCELLED_ALL',
+                    to: data.clientPhone,
+                    body: `[Flavor Entertainers] Your booking ${data.bookingReference} has expired due to non-payment. Please rebook if you'd still like to proceed.`
+                });
+            }
+        }
+        else if (data.type === 'payment_review') {
+            // Notify admin of payment needing review
+            for (const adminNum of adminNumbers) {
+                await (0, send_1.sendMessage)({
+                    bookingId: data.bookingId,
+                    templateKey: 'NEW_BOOKING_ADMIN',
+                    to: adminNum,
+                    body: `[Flavor Entertainers] Payment for booking ${data.bookingReference} requires manual review (amount mismatch or issue).`
+                });
+            }
+        }
+        await snapshot.ref.update({
+            sent: true,
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    catch (error) {
+        console.error('Notification outbox worker error:', error);
+        await snapshot.ref.update({
+            sent: false,
+            lastError: error.message,
+        });
     }
 });
 // Export DNS functions
