@@ -290,7 +290,9 @@ const App: React.FC = () => {
               in_progress: 'In Progress',
               completed: 'Completed',
               cancelled: 'Cancelled',
-              rejected: 'Rejected'
+              rejected: 'Rejected',
+              expired: 'Expired',
+              payment_review: 'Payment Review'
             };
 
             const message = `Booking #${newB.id.slice(0, 8)} status updated to ${statusLabels[newB.status] || newB.status}`;

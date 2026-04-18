@@ -5,6 +5,7 @@ import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, Fi
 import { calculateBookingCost } from '../utils/bookingUtils';
 import { resetDemoData, isDemoMode, api } from '../services/api';
 import ChatDialog from './ChatDialog';
+import PaymentReconciliation from './PaymentReconciliation';
 
 interface AdminDashboardProps {
   bookings: Booking[];
@@ -42,6 +43,8 @@ const statusClasses: Record<BookingStatus, string> = {
     completed: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-300',
     cancelled: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-400',
     rejected: 'border-red-500/50 bg-red-900/30 text-red-300',
+    expired: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-500',
+    payment_review: 'border-yellow-500/50 bg-yellow-900/30 text-yellow-300',
 };
 
 const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
@@ -56,9 +59,11 @@ const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
     { value: 'completed', label: 'Completed' },
     { value: 'cancelled', label: 'Cancelled' },
     { value: 'rejected', label: 'Rejected' },
+    { value: 'expired', label: 'Expired' },
+    { value: 'payment_review', label: 'Payment Review' },
 ];
 
-type AdminTab = 'management' | 'payments' | 'performers' | 'dns' | 'reporting';
+type AdminTab = 'management' | 'payments' | 'performers' | 'dns' | 'reporting' | 'reconciliation';
 
 // Admin Dashboard Component for managing bookings, performers, and reporting
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, doNotServeList, communications, onUpdateBookingStatus, onUpdateDoNotServeStatus, onViewDoNotServe, onAdminDecisionForPerformer, onAdminChangePerformer, onUpdatePerformer, onCreatePerformer }) => {
@@ -196,7 +201,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
   }, [bookings, statusFilter, searchTerm, sortField, sortDirection]);
   
   const paymentRelatedBookings = useMemo(() => {
-    let result = bookings.filter(b => ['deposit_pending', 'pending_deposit_confirmation', 'confirmed', 'rejected'].includes(b.status));
+    let result = bookings.filter(b => ['deposit_pending', 'pending_deposit_confirmation', 'confirmed', 'rejected', 'expired', 'payment_review'].includes(b.status));
     
     if (statusFilter) {
       result = result.filter(b => b.status === statusFilter);
@@ -374,6 +379,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
             className={`${activeTab === 'reporting' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
           >
             <LineChart size={16}/> Reporting
+          </button>
+          <button
+            onClick={() => setActiveTab('reconciliation')}
+            className={`${activeTab === 'reconciliation' ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-400 hover:text-white hover:border-zinc-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+          >
+            <RefreshCcw size={16}/> Reconciliation
           </button>
         </nav>
       </div>
@@ -1104,6 +1115,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
         </div>
       )}
       
+      {activeTab === 'reconciliation' && (
+        <PaymentReconciliation bookings={bookings} />
+      )}
+
        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="card-base !p-6">
              <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-3"><UserCog />Performer Status</h2>

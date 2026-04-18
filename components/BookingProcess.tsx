@@ -122,6 +122,9 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventSuburb: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, client_message: ''
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
+    const [bookingReference, setBookingReference] = useState<string>('');
+    const [bookingPaymentStatus, setBookingPaymentStatus] = useState<string>('unpaid');
+    const [bookingExpiresAt, setBookingExpiresAt] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [agreedTerms, setAgreedTerms] = useState(false);
@@ -155,11 +158,24 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     useEffect(() => {
         if (bookingIds.length === 0 || !db) return;
 
-        const bookingRef = doc(db, 'bookings', bookingIds[0]);
-        const unsubscribe = onSnapshot(bookingRef, (snap) => {
+        const bookingDocRef = doc(db, 'bookings', bookingIds[0]);
+        const unsubscribe = onSnapshot(bookingDocRef, (snap) => {
             if (!snap.exists()) return;
             const data = snap.data() as Booking;
             const currentStatus = data.status;
+
+            // Capture payment data for the PayID modal
+            if (data.bookingReference) setBookingReference(data.bookingReference);
+            if (data.payment_status) setBookingPaymentStatus(data.payment_status);
+            if (data.expiresAt) {
+                // Handle both Firestore Timestamp and ISO string
+                const expiresAtValue = data.expiresAt;
+                if (typeof expiresAtValue === 'object' && 'toDate' in (expiresAtValue as any)) {
+                    setBookingExpiresAt((expiresAtValue as any).toDate().toISOString());
+                } else {
+                    setBookingExpiresAt(String(expiresAtValue));
+                }
+            }
 
             if (currentStatus === 'pending_performer_acceptance' && stage !== 'performer_acceptance_pending') {
                 setStage('performer_acceptance_pending');
@@ -173,6 +189,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 setStage('confirmed');
             } else if (currentStatus === 'rejected' && stage !== 'rejected') {
                 setStage('rejected');
+            } else if (currentStatus === 'expired') {
+                setStage('rejected'); // Show expired as a rejection state
             }
         });
 
@@ -369,9 +387,16 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
     const handlePaymentSuccess = async () => {
         setIsPayIdModalOpen(false);
-        if (bookingIds.length > 0) {
-            await onUpdateBookingStatus?.(bookingIds[0], 'pending_deposit_confirmation');
-            setStage('deposit_confirmation_pending');
+        // With Monoova integration, payment is confirmed automatically via webhook.
+        // The real-time listener will transition to 'confirmed' stage.
+        // If the webhook already confirmed it, go straight to confirmed.
+        if (bookingPaymentStatus === 'paid' || bookingPaymentStatus === 'deposit_paid') {
+            setStage('confirmed');
+        } else {
+            // Fallback: if webhook hasn't fired yet, show deposit confirmation pending
+            if (bookingIds.length > 0) {
+                setStage('deposit_confirmation_pending');
+            }
         }
     };
 
@@ -405,6 +430,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         return (
             <StatusScreen icon={Wallet} title="Deposit Required" bgColor="bg-orange-900/10" buttonText="Pay Deposit" onButtonClick={() => setIsPayIdModalOpen(true)}>
                 Booking approved! Pay <strong>${(depositAmount || 0).toFixed(2)}</strong> to secure your date.
+                {bookingReference && <p className="mt-2 text-sm text-zinc-400">Reference: <strong className="text-orange-400">{bookingReference}</strong></p>}
                 {isPayIdModalOpen && (
                     <PayIDSimulationModal
                         amount={depositAmount}
@@ -413,6 +439,9 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         eventType={form.eventType}
                         eventDate={form.eventDate}
                         eventAddress={form.eventAddress}
+                        bookingReference={bookingReference}
+                        paymentStatus={bookingPaymentStatus}
+                        expiresAt={bookingExpiresAt}
                         onPaymentSuccess={handlePaymentSuccess}
                         onClose={() => setIsPayIdModalOpen(false)}
                     />

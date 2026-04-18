@@ -70,7 +70,9 @@ const bookingStatusClasses: Record<Booking['status'], string> = {
   in_progress: 'text-indigo-400',
   completed: 'text-zinc-400',
   cancelled: 'text-zinc-500',
-  rejected: 'text-red-400'
+  rejected: 'text-red-400',
+  expired: 'text-zinc-500',
+  payment_review: 'text-yellow-400'
 }
 
 interface BookingCardProps {
