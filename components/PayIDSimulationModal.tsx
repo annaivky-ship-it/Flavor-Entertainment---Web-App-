@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, Shield, Building2, X, PartyPopper, User, Calendar, MapPin, Copy, Clock, LoaderCircle, AlertTriangle } from 'lucide-react';
-import { PAY_ID_NAME, PAY_ID_EMAIL, BOOKING_PAYMENT_HOLD_MINUTES } from '../constants';
+import { PAY_ID_NAME, PAY_ID_EMAIL, BOOKING_PAYMENT_HOLD_MINUTES, PAYMENT_MODE } from '../constants';
 
 interface PayIDPaymentModalProps {
   amount: number;
@@ -214,23 +214,41 @@ const PayIDSimulationModal: React.FC<PayIDPaymentModalProps> = ({
             <span className="font-black text-orange-300">3.</span>
             Include reference: <strong>{bookingReference}</strong>
           </p>
-          <p className="flex items-start gap-2">
-            <span className="font-black text-orange-300">4.</span>
-            Your booking confirms automatically once payment is received
-          </p>
+          {PAYMENT_MODE === 'monoova' ? (
+            <p className="flex items-start gap-2">
+              <span className="font-black text-orange-300">4.</span>
+              Your booking confirms automatically once payment is received
+            </p>
+          ) : (
+            <p className="flex items-start gap-2">
+              <span className="font-black text-orange-300">4.</span>
+              Tap "I've Sent Payment" below — our team will verify and confirm shortly
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Waiting indicator */}
-      <div className="flex items-center justify-center gap-3 py-3 bg-zinc-900/50 rounded-lg border border-zinc-800 mb-4">
-        <LoaderCircle size={16} className="animate-spin text-orange-500" />
-        <span className="text-sm text-zinc-400">Waiting for payment...</span>
-      </div>
+      {PAYMENT_MODE === 'manual' ? (
+        <button
+          onClick={onPaymentSuccess}
+          className="btn-primary w-full py-4 text-lg font-bold flex items-center justify-center gap-3 shadow-2xl shadow-orange-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all mb-4"
+        >
+          <CheckCircle className="h-5 w-5" />
+          I've Sent Payment
+        </button>
+      ) : (
+        <div className="flex items-center justify-center gap-3 py-3 bg-zinc-900/50 rounded-lg border border-zinc-800 mb-4">
+          <LoaderCircle size={16} className="animate-spin text-orange-500" />
+          <span className="text-sm text-zinc-400">Waiting for payment...</span>
+        </div>
+      )}
 
       <div className="p-3 rounded-lg bg-zinc-800/30 flex items-start gap-2 border border-zinc-800">
         <Shield size={14} className="text-zinc-500 mt-0.5 flex-shrink-0" />
         <p className="text-[10px] text-zinc-500 leading-relaxed italic">
-          Your booking will be confirmed automatically once your PayID payment is detected. No manual confirmation needed.
+          {PAYMENT_MODE === 'monoova'
+            ? 'Your booking will be confirmed automatically once your PayID payment is detected. No manual confirmation needed.'
+            : 'Your booking will be confirmed once our admin verifies the PayID transfer (usually within an hour during business hours).'}
         </p>
       </div>
     </>

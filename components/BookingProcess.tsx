@@ -387,16 +387,16 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
     const handlePaymentSuccess = async () => {
         setIsPayIdModalOpen(false);
-        // With Monoova integration, payment is confirmed automatically via webhook.
-        // The real-time listener will transition to 'confirmed' stage.
-        // If the webhook already confirmed it, go straight to confirmed.
+        // In monoova mode: webhook already confirmed → go straight to confirmed
         if (bookingPaymentStatus === 'paid' || bookingPaymentStatus === 'deposit_paid') {
             setStage('confirmed');
-        } else {
-            // Fallback: if webhook hasn't fired yet, show deposit confirmation pending
-            if (bookingIds.length > 0) {
-                setStage('deposit_confirmation_pending');
-            }
+            return;
+        }
+        // In manual mode (or fallback): client clicked "I've Sent Payment" →
+        // transition booking to pending_deposit_confirmation so admin can verify
+        if (bookingIds.length > 0) {
+            await onUpdateBookingStatus?.(bookingIds[0], 'pending_deposit_confirmation');
+            setStage('deposit_confirmation_pending');
         }
     };
 
