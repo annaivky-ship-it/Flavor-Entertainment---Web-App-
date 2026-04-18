@@ -11,6 +11,12 @@ export const PAY_ID_EMAIL = import.meta.env.VITE_PAY_ID_EMAIL || 'demo@example.c
 export const BOOKING_PAYMENT_HOLD_MINUTES = 30;
 export const BOOKING_REFERENCE_PREFIX = 'FE';
 
+// Payment mode:
+//   'manual'  = client clicks "I've sent payment" → admin confirms in dashboard (use while waiting for Monoova)
+//   'monoova' = auto-confirm via Monoova webhook (requires Monoova account + MONOOVA_WEBHOOK_SECRET)
+export const PAYMENT_MODE: 'manual' | 'monoova' =
+  (import.meta.env.VITE_PAYMENT_MODE as 'manual' | 'monoova') || 'manual';
+
 if (!import.meta.env.VITE_PAY_ID_NAME || !import.meta.env.VITE_PAY_ID_EMAIL) {
   console.warn('Missing required environment variables: VITE_PAY_ID_NAME, VITE_PAY_ID_EMAIL. Using fallback values.');
 }

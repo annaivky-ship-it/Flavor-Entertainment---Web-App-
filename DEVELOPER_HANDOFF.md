@@ -323,7 +323,27 @@ firebase deploy --only firestore:rules
 ```
 VITE_PAY_ID_NAME=<PayID business name shown to client>
 VITE_PAY_ID_EMAIL=<PayID email shown to client>
+VITE_PAYMENT_MODE=manual   # 'manual' | 'monoova' — see Payment Mode section below
 ```
+
+### Payment Mode Toggle
+
+The app supports two payment flows via the `VITE_PAYMENT_MODE` env var:
+
+| Mode | Behavior | When to use |
+|------|----------|-------------|
+| `manual` | Client sees "I've Sent Payment" button → admin manually confirms in dashboard | **Default.** Use while waiting for Monoova account activation |
+| `monoova` | Monoova webhook auto-confirms booking when payment arrives | Use after Monoova account is active + `MONOOVA_WEBHOOK_SECRET` is set |
+
+**Switch from manual → monoova:**
+1. Set up Monoova account (5-10 business days)
+2. Configure `MONOOVA_WEBHOOK_SECRET` in Firebase Functions
+3. Register webhook URL with Monoova
+4. Test end-to-end with a real payment
+5. Update `.env.production`: `VITE_PAYMENT_MODE=monoova`
+6. Redeploy frontend: `npm run deploy:production`
+
+No code changes needed to switch modes — all Monoova code remains in place and inactive until toggled on.
 
 ### Backend (Firebase Functions secrets/config)
 ```
