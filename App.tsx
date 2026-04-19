@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Briefcase, ChevronDown, ShoppingCart, Radio, LoaderCircle, CalendarCheck, Clock, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database } from 'lucide-react';
+import { Briefcase, ChevronDown, ShoppingCart, Radio, LoaderCircle, CalendarCheck, Clock, X, MapPin, BookOpen, LogIn, LogOut, Sparkles, Database, ShieldCheck, Lock, Star } from 'lucide-react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PerformerCard from './components/EntertainerCard';
+import PerformerGridSkeleton from './components/PerformerCardSkeleton';
 import PerformerProfile from './components/EntertainerProfile';
 import AgeGate from './components/AgeGate';
 import BookingProcess, { BookingFormState } from './components/BookingProcess';
@@ -824,10 +825,12 @@ const App: React.FC = () => {
   const renderContent = () => {
     if (isLoading) {
       return (
-        <div className="flex flex-col items-center justify-center p-12 text-zinc-400">
-          <LoaderCircle className="w-16 h-16 animate-spin text-orange-500 mb-4" />
-          <h2 className="text-xl font-semibold text-zinc-200">Initializing Secure Backend...</h2>
-          <p>Verifying performer availability.</p>
+        <div className="animate-fade-in">
+          <section className="text-center mb-12 bg-gradient-to-b from-zinc-900/80 to-zinc-900/30 border border-zinc-800 rounded-2xl p-8 sm:p-12">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-4 tracking-tight">Find the Perfect Entertainer</h1>
+            <p className="text-lg text-zinc-400 max-w-3xl mx-auto">Loading performers...</p>
+          </section>
+          <PerformerGridSkeleton />
         </div>
       );
     }
@@ -880,14 +883,30 @@ const App: React.FC = () => {
     };
 
     const HeroSection = () => (
-      <div className="text-center mb-12 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 sm:p-12">
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-4 tracking-tight">
-          Find the Perfect Entertainer
-        </h1>
-        <p className="text-lg text-zinc-400 max-w-3xl mx-auto">
-          Browse our selection of professional, vetted entertainers in Western Australia. Whether you need someone right now or for a future event, we provide a secure and seamless booking experience.
-        </p>
-      </div>
+      <section className="text-center mb-12 bg-gradient-to-b from-zinc-900/80 to-zinc-900/30 border border-zinc-800 rounded-2xl p-8 sm:p-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(249,115,22,0.08),transparent_70%)]"></div>
+        <div className="relative z-10">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-4 tracking-tight">
+            Find the Perfect Entertainer
+          </h1>
+          <p className="text-lg text-zinc-400 max-w-3xl mx-auto mb-8">
+            Browse our selection of professional, vetted entertainers in Perth & Western Australia. Whether you need someone right now or for a future event, we provide a secure and seamless booking experience.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+            <button onClick={() => { const grid = document.querySelector('[data-performer-grid]'); grid?.scrollIntoView({ behavior: 'smooth' }); }} className="btn-primary px-8 py-4 text-lg font-bold shadow-xl shadow-orange-500/20 hover:shadow-orange-500/40 hover:scale-105 active:scale-95 transition-all rounded-xl">
+              Browse Entertainers
+            </button>
+            <button onClick={() => setView('services')} className="px-8 py-4 text-lg font-bold text-zinc-300 border border-zinc-700 rounded-xl hover:border-orange-500/50 hover:text-white transition-all">
+              View Services
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-zinc-500">
+            <span className="flex items-center gap-1.5"><ShieldCheck size={16} className="text-green-500" /> ID Verified Performers</span>
+            <span className="flex items-center gap-1.5"><Lock size={16} className="text-orange-400" /> Secure PayID Payments</span>
+            <span className="flex items-center gap-1.5"><Star size={16} className="text-yellow-400" /> Perth & WA Coverage</span>
+          </div>
+        </div>
+      </section>
     );
 
     switch (view) {
@@ -1034,7 +1053,7 @@ const App: React.FC = () => {
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+            <div data-performer-grid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
               {filteredPerformers.map((performer) => (
                 <PerformerCard
                   key={performer.id}
@@ -1107,7 +1126,7 @@ const App: React.FC = () => {
           )}
         </div>
       </Header>
-      <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
+      <main id="main-content" className="flex-grow container mx-auto px-4 py-8 md:py-12">
         {error && (
           <div className="mb-6 p-4 bg-red-900/50 border border-red-500/50 rounded-lg flex items-start justify-between gap-3 animate-fade-in">
             <p className="text-sm text-red-200">{error}</p>
@@ -1122,7 +1141,7 @@ const App: React.FC = () => {
       {phoneMessage && <DemoPhone message={phoneMessage} onClose={() => setPhoneMessage(null)} />}
 
       {/* Real-time Notifications Toast Container */}
-      <div className="fixed top-24 right-4 z-[100] flex flex-col gap-3 pointer-events-none max-w-sm w-full">
+      <div role="status" aria-live="polite" className="fixed top-24 right-4 z-[100] flex flex-col gap-3 pointer-events-none max-w-sm w-full">
         {notifications.map(notification => (
           <div
             key={notification.id}

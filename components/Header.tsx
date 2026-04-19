@@ -19,6 +19,9 @@ const Header: React.FC<HeaderProps> = ({ children, searchQuery, onSearchChange, 
 
   return (
     <header className="bg-black/30 backdrop-blur-lg sticky top-0 z-50 border-b border-zinc-800">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-orange-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-bold">
+        Skip to main content
+      </a>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           <a href="/" onClick={(e) => { e.preventDefault(); handleNavigate('available_now'); }} className="flex items-center gap-2 cursor-pointer no-underline group flex-shrink-0">

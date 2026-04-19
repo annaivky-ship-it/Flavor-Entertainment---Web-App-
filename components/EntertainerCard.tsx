@@ -26,7 +26,7 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
   } as React.CSSProperties;
 
   return (
-    <div
+    <article
       style={cardStyle}
       className={`relative bg-zinc-900 rounded-2xl overflow-hidden group transition-all duration-500 ease-in-out border border-zinc-800 flex flex-col h-full hover:border-orange-500/50`}
     >
@@ -37,7 +37,7 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
       <div className="relative aspect-square md:aspect-[3/4] overflow-hidden">
         <img
           src={performer.photo_url}
-          alt={performer.name}
+          alt={`${performer.name} — Professional entertainer in ${performer.service_areas[0] || 'Perth'}`}
           loading="lazy"
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
@@ -132,7 +132,7 @@ const PerformerCard: React.FC<PerformerCardProps> = ({ performer, onViewProfile,
           </button>
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 
