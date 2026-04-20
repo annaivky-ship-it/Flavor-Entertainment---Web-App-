@@ -242,8 +242,18 @@ const App: React.FC = () => {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Connection timed out. Please refresh the page.')), 15000)
+    );
+
     try {
-      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = await api.getInitialData(authedUser?.role, firebaseUid || undefined, authedUser?.id);
+      const result = await Promise.race([
+        api.getInitialData(authedUser?.role, firebaseUid || undefined, authedUser?.id),
+        timeout
+      ]);
+
+      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = result;
 
       if (pData.error) throw new Error(`Performers Error: ${pData.error.message}`);
       setPerformers(pData.data as Performer[] || []);
@@ -1128,9 +1138,12 @@ const App: React.FC = () => {
       </Header>
       <main id="main-content" className="flex-grow container mx-auto px-4 py-8 md:py-12">
         {error && (
-          <div className="mb-6 p-4 bg-red-900/50 border border-red-500/50 rounded-lg flex items-start justify-between gap-3 animate-fade-in">
+          <div className="mb-6 p-4 bg-red-900/50 border border-red-500/50 rounded-lg flex items-center justify-between gap-3 animate-fade-in">
             <p className="text-sm text-red-200">{error}</p>
-            <button onClick={() => setError(null)} className="text-red-400 hover:text-white transition-colors flex-shrink-0"><X className="h-4 w-4" /></button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button onClick={fetchData} className="text-xs bg-red-500/30 hover:bg-red-500/50 text-red-200 font-bold px-3 py-1.5 rounded-lg transition-colors">Retry</button>
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-white transition-colors"><X className="h-4 w-4" /></button>
+            </div>
           </div>
         )}
         <React.Suspense fallback={<div className="flex items-center justify-center p-12"><LoaderCircle className="w-12 h-12 animate-spin text-orange-500" /></div>}>
