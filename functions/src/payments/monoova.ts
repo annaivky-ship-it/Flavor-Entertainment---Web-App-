@@ -98,9 +98,13 @@ export function verifyMonoovaSignature(
   signatureHeader: string | undefined,
   secret: string | undefined
 ): boolean {
-  // If no secret configured, allow through but log warning
+  // If no secret configured, reject in production, warn in development
   if (!secret) {
-    console.warn('MONOOVA_WEBHOOK_SECRET not configured — skipping signature verification');
+    if (process.env.NODE_ENV === 'production' || process.env.FUNCTIONS_EMULATOR !== 'true') {
+      console.error('MONOOVA_WEBHOOK_SECRET not configured — rejecting webhook in production');
+      return false;
+    }
+    console.warn('MONOOVA_WEBHOOK_SECRET not configured — allowing in emulator only');
     return true;
   }
 
