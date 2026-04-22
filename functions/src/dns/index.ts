@@ -8,7 +8,9 @@ const getDb = () => getFirestore('default');
 const fns = functions as any;
 
 const PEPPER = process.env.DNS_HASH_PEPPER || (() => {
-  console.warn('⚠️  DNS_HASH_PEPPER not set — using fallback. Set this in Cloud Functions config for production.');
+  if (process.env.FUNCTIONS_EMULATOR !== 'true') {
+    console.error('CRITICAL: DNS_HASH_PEPPER not set in production. DNS lookups will use insecure fallback.');
+  }
   return 'flavor-dns-fallback-pepper-2026';
 })();
 

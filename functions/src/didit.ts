@@ -149,8 +149,21 @@ export function verifyWebhookSignature(
     timestamp: string
 ): boolean {
     if (!DIDIT_WEBHOOK_SECRET) {
-        console.warn('Didit webhook secret not configured. Skipping signature verification.');
-        return true; // Allow in dev, but warn
+        if (process.env.FUNCTIONS_EMULATOR === 'true') {
+            console.warn('Didit webhook secret not configured. Allowing in emulator only.');
+            return true;
+        }
+        console.error('Didit webhook secret not configured — rejecting webhook in production.');
+        return false;
+    }
+
+    const webhookTime = parseInt(timestamp, 10);
+    if (!isNaN(webhookTime)) {
+        const ageSeconds = Math.floor(Date.now() / 1000) - webhookTime;
+        if (ageSeconds > 300) {
+            console.error(`Didit webhook too old: ${ageSeconds}s`);
+            return false;
+        }
     }
 
     const signedPayload = `${timestamp}.${payload}`;

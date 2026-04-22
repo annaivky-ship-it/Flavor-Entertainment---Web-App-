@@ -339,6 +339,20 @@ export const notificationsWorker = fns.firestore
   .onCreate(async (snapshot: any) => {
     const data = snapshot.data();
     if (data.status !== 'queued') return;
+
+    try {
+      await db.runTransaction(async (t: any) => {
+        const fresh = await t.get(snapshot.ref);
+        if (!fresh.exists || fresh.data().status !== 'queued') {
+          throw new Error('ALREADY_CLAIMED');
+        }
+        t.update(snapshot.ref, { status: 'processing' });
+      });
+    } catch (e: any) {
+      if (e.message === 'ALREADY_CLAIMED') return;
+      throw e;
+    }
+
     try {
       if (data.type === 'WHATSAPP') await sendWhatsApp(data.to, data.body);
       else await sendSms(data.to, data.body);
@@ -620,6 +634,16 @@ export const diditKycWebhook = fns.https.onRequest(async (req: any, res: any) =>
 
     if (eventType === 'status.updated' &&
       (webhookData.status === 'Approved' || webhookData.status === 'Declined')) {
+
+      const sessionId = webhookData.session_id || webhookData.sessionId || '';
+      if (sessionId) {
+        const idempotencyKey = `kyc_webhook_${sessionId}_${webhookData.status}`;
+        if (!(await checkAndSetIdempotency(idempotencyKey))) {
+          console.log(`Didit webhook already processed: ${idempotencyKey}`);
+          res.status(200).json({ received: true, result: 'already_processed' });
+          return;
+        }
+      }
 
       const result = await processKycResult(webhookData);
       console.log(`KYC ${result.kycResult} for booking ${result.bookingId} → ${result.newStatus}`);
