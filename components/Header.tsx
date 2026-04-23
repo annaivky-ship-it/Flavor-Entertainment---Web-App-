@@ -7,9 +7,10 @@ interface HeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onNavigate?: (view: string) => void;
+  userRole?: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ children, searchQuery, onSearchChange, onNavigate }) => {
+const Header: React.FC<HeaderProps> = ({ children, searchQuery, onSearchChange, onNavigate, userRole }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleNavigate = (view: string) => {
@@ -40,7 +41,7 @@ const Header: React.FC<HeaderProps> = ({ children, searchQuery, onSearchChange, 
             </button>
             <button onClick={() => handleNavigate('bookings')} className="text-sm font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              Bookings
+              {userRole === 'admin' ? 'Admin Dashboard' : 'My Bookings'}
             </button>
             <button onClick={() => handleNavigate('faq')} className="text-sm font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-2">
               <HelpCircle className="w-4 h-4" />
@@ -95,12 +96,12 @@ const Header: React.FC<HeaderProps> = ({ children, searchQuery, onSearchChange, 
               <Users className="w-5 h-5 text-orange-500" />
               <span className="font-medium">Browse Entertainers</span>
             </button>
-            <button 
+            <button
               onClick={() => handleNavigate('bookings')}
               className="w-full flex items-center gap-3 p-3 text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-xl transition-all"
             >
               <Calendar className="w-5 h-5 text-orange-500" />
-              <span className="font-medium">Manage Bookings</span>
+              <span className="font-medium">{userRole === 'admin' ? 'Admin Dashboard' : 'My Bookings'}</span>
             </button>
             <button 
               onClick={() => handleNavigate('faq')}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../services/firebaseClient';
+import { db, auth } from '../services/firebaseClient';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, Communication, Service } from '../types';
 import { allServices } from '../data/mockData';
 import { getBookingDurationInfo, calculateBookingCost } from '../utils/bookingUtils';
@@ -8,7 +8,7 @@ import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
-import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation, LogIn, Search } from 'lucide-react';
 import { api } from '../services/api';
 import DiditVerification from './DiditVerification';
 import { perthSuburbs } from '../data/suburbs';
@@ -50,14 +50,42 @@ type BookingStage = 'form' | 'kyc_verifying' | 'performer_acceptance_pending' | 
 
 const eventTypes = ['Bucks Party', 'Birthday Party', 'Corporate Event', 'Hens Party', 'Private Gathering', 'Other'];
 
-const ErrorDisplay = ({ message }: { message: string | null }) => message ? (
-    <div className="p-4 mb-6 text-sm text-red-200 bg-red-900/50 rounded-lg border border-red-500 flex items-start gap-3 animate-fade-in" role="alert">
-        <AlertTriangle className="h-5 w-5 mt-0.5 text-red-400 flex-shrink-0" />
-        <div>
-            <span className="font-bold">Submission Error:</span> {message}
+const FORM_DRAFT_KEY = 'flavor_booking_draft';
+
+function friendlyErrorMessage(raw: string): { title: string; message: string; isAuthError: boolean } {
+    const lower = raw.toLowerCase();
+    if (lower.includes('popup-closed') || lower.includes('auth/') || lower.includes('unauthenticated') || lower.includes('not authenticated') || lower.includes('authentication required')) {
+        return { title: 'Session Expired', message: 'Your login session has expired. Please log in again — your form data has been saved.', isAuthError: true };
+    }
+    if (lower.includes('internal') || lower.includes('unknown error')) {
+        return { title: 'Something Went Wrong', message: 'We hit a temporary issue processing your booking. Please try again in a moment.', isAuthError: false };
+    }
+    if (lower.includes('permission') || lower.includes('denied')) {
+        return { title: 'Access Denied', message: 'You don\'t have permission to perform this action. Please log in with the correct account.', isAuthError: true };
+    }
+    if (lower.includes('already-exists') || lower.includes('time slot')) {
+        return { title: 'Time Slot Taken', message: raw, isAuthError: false };
+    }
+    return { title: 'Booking Error', message: raw, isAuthError: false };
+}
+
+const ErrorDisplay = ({ message, onLogin }: { message: string | null; onLogin?: () => void }) => {
+    if (!message) return null;
+    const { title, message: friendly, isAuthError } = friendlyErrorMessage(message);
+    return (
+        <div className="p-4 mb-6 text-sm text-red-200 bg-red-900/50 rounded-lg border border-red-500 flex items-start gap-3 animate-fade-in" role="alert">
+            <AlertTriangle className="h-5 w-5 mt-0.5 text-red-400 flex-shrink-0" />
+            <div className="flex-1">
+                <span className="font-bold">{title}:</span> {friendly}
+                {isAuthError && onLogin && (
+                    <button onClick={onLogin} className="mt-2 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors">
+                        <LogIn size={14} /> Log In Again
+                    </button>
+                )}
+            </div>
         </div>
-    </div>
-) : null;
+    );
+};
 
 interface StatusScreenProps {
     icon: React.ElementType;
@@ -118,8 +146,15 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [stage, setStage] = useState<BookingStage>('form');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
-    const [form, setForm] = useState<BookingFormState>({
-        fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventSuburb: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, client_message: ''
+    const [form, setForm] = useState<BookingFormState>(() => {
+        try {
+            const saved = localStorage.getItem(FORM_DRAFT_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return { ...parsed, selectedServices: parsed.selectedServices?.length ? parsed.selectedServices : initialSelectedServices, idDocument: null, selfieDocument: null };
+            }
+        } catch {}
+        return { fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventSuburb: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, client_message: '' };
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
     const [bookingReference, setBookingReference] = useState<string>('');
@@ -132,6 +167,18 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
     const [kycVerificationUrl, setKycVerificationUrl] = useState<string | null>(null);
     const [isPayIdModalOpen, setIsPayIdModalOpen] = useState(false);
+    const [suburbSearch, setSuburbSearch] = useState('');
+    const [isSuburbOpen, setIsSuburbOpen] = useState(false);
+
+    // Persist form state as draft for recovery after session expiry
+    useEffect(() => {
+        const { idDocument, selfieDocument, ...saveable } = form;
+        try { localStorage.setItem(FORM_DRAFT_KEY, JSON.stringify(saveable)); } catch {}
+    }, [form]);
+
+    const clearDraft = () => {
+        try { localStorage.removeItem(FORM_DRAFT_KEY); } catch {}
+    };
 
     useEffect(() => {
         const checkVerifiedBooker = () => {
@@ -283,6 +330,11 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 if (!form.eventSuburb) errors.eventSuburb = "Suburb required.";
                 if (!form.eventType) errors.eventType = "Event type required.";
                 if (!form.numberOfGuests) errors.numberOfGuests = "Guest count required.";
+                // Enforce performer minimum booking duration
+                const maxMinDuration = Math.max(...performers.map(p => p.min_booking_duration_hours || 0));
+                if (maxMinDuration > 0 && Number(form.duration) < maxMinDuration) {
+                    errors.duration = `Minimum ${maxMinDuration} hour${maxMinDuration > 1 ? 's' : ''} required for ${performers.map(p => p.name).join(' & ')}.`;
+                }
                 // Client-side conflict detection
                 if (form.eventDate && form.eventTime && !errors.eventDate && !errors.eventTime) {
                     const conflicting = bookings.filter(b =>
@@ -344,10 +396,25 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         setIsSubmitting(true);
         setError(null);
 
+        // Check auth session is still valid before submitting
+        if (auth) {
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                setError('Your login session has expired. Please log in again — your form data has been saved.');
+                setIsSubmitting(false);
+                return;
+            }
+            try {
+                await currentUser.getIdToken(true);
+            } catch {
+                setError('Your login session has expired. Please log in again — your form data has been saved.');
+                setIsSubmitting(false);
+                return;
+            }
+        }
+
         const normalizedEmail = form.email.toLowerCase().trim();
         const normalizedPhone = form.mobile.replace(/\s+/g, '');
-        // Note: This client-side check is a UX convenience only. 
-        // The actual security gate is implemented server-side in Cloud Functions.
         const isBanned = doNotServeList.some(e =>
             e.client_email.toLowerCase().trim() === normalizedEmail ||
             e.client_phone.replace(/\s+/g, '') === normalizedPhone
@@ -363,6 +430,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             const result = await onBookingRequest(form, performers);
             if (result.success && result.bookingIds) {
                 setBookingIds(result.bookingIds);
+                clearDraft();
 
                 if (!isVerifiedBooker) {
                     const diditRes = await api.initializeDiditSession(result.bookingIds[0]);
@@ -372,14 +440,15 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         setIsSubmitting(false);
                         return;
                     } else {
-                        throw new Error(diditRes.error?.message || "Failed to connect to Didit.");
+                        throw new Error(diditRes.error?.message || "Failed to connect to identity verification.");
                     }
                 }
             } else {
                 setError(result.message);
             }
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Submission failed.');
+            const raw = err instanceof Error ? err.message : 'Submission failed.';
+            setError(raw);
         } finally {
             setIsSubmitting(false);
         }
@@ -476,7 +545,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
                     <div className="card-base !p-6 sm:!p-10 shadow-2xl border-zinc-800/50">
-                        <ErrorDisplay message={error} />
+                        <ErrorDisplay message={error} onLogin={() => window.location.reload()} />
 
                         {currentStep === 1 && (
                             <div className="space-y-6 animate-fade-in">
@@ -505,22 +574,48 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                             <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
                                             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
                                         </div>
+                                        {fieldErrors.duration && <p className="mt-1 text-xs text-red-400">{fieldErrors.duration}</p>}
                                     </div>
                                     <InputField icon={<UsersIcon />} label="Guest Count" type="number" name="numberOfGuests" value={form.numberOfGuests} onChange={handleChange} required error={fieldErrors.numberOfGuests} />
                                     <InputField icon={<MapPin />} label="Event Address" name="eventAddress" value={form.eventAddress} onChange={handleChange} required error={fieldErrors.eventAddress} />
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-400 mb-1">Suburb / Area</label>
                                         <div className="relative">
-                                            <select name="eventSuburb" value={form.eventSuburb} onChange={handleChange} className="input-base !pl-12 appearance-none">
-                                                <option value="">Select suburb</option>
-                                                {perthSuburbs.map(s => (
-                                                    <option key={s.name} value={s.name}>
-                                                        {s.name} ({s.distanceFromCBD}km from CBD)
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <Navigation className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
-                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none" />
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 pointer-events-none z-10" />
+                                            <input
+                                                type="text"
+                                                placeholder={form.eventSuburb || "Search suburb..."}
+                                                value={suburbSearch}
+                                                onChange={(e) => { setSuburbSearch(e.target.value); setIsSuburbOpen(true); }}
+                                                onFocus={() => setIsSuburbOpen(true)}
+                                                onBlur={() => setTimeout(() => setIsSuburbOpen(false), 200)}
+                                                className="input-base !pl-12"
+                                            />
+                                            {form.eventSuburb && !suburbSearch && (
+                                                <span className="absolute left-12 top-1/2 -translate-y-1/2 text-zinc-200 pointer-events-none">{form.eventSuburb}</span>
+                                            )}
+                                            {isSuburbOpen && (
+                                                <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-lg max-h-48 overflow-y-auto z-50 shadow-xl">
+                                                    {perthSuburbs
+                                                        .filter(s => !suburbSearch || s.name.toLowerCase().includes(suburbSearch.toLowerCase()))
+                                                        .slice(0, 20)
+                                                        .map(s => (
+                                                            <button
+                                                                key={s.name}
+                                                                type="button"
+                                                                onMouseDown={(e) => { e.preventDefault(); setForm(prev => ({ ...prev, eventSuburb: s.name })); setSuburbSearch(''); setIsSuburbOpen(false); if (fieldErrors.eventSuburb) setFieldErrors(prev => { const n = {...prev}; delete n.eventSuburb; return n; }); }}
+                                                                className="w-full text-left px-4 py-2.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors flex justify-between"
+                                                            >
+                                                                <span>{s.name}</span>
+                                                                <span className="text-zinc-500 text-xs">{s.distanceFromCBD}km</span>
+                                                            </button>
+                                                        ))
+                                                    }
+                                                    {perthSuburbs.filter(s => !suburbSearch || s.name.toLowerCase().includes(suburbSearch.toLowerCase())).length === 0 && (
+                                                        <p className="px-4 py-3 text-sm text-zinc-500">No suburbs match "{suburbSearch}"</p>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         {travelFee > 0 && form.eventSuburb && (
                                             <p className="mt-1.5 text-xs text-orange-400 flex items-center gap-1">
@@ -590,9 +685,14 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                             <Shield className="h-6 w-6 text-blue-400 mt-1 flex-shrink-0" />
                                             <div>
                                                 <h4 className="font-bold text-blue-300">Identity Verification Required</h4>
-                                                <p className="text-sm text-blue-200/80 leading-relaxed mt-1">
-                                                    We use Didit to securely verify your identity. After you submit your booking request, you will be securely redirected to Didit to complete this verification process.
+                                                <p className="text-sm text-blue-200/80 leading-relaxed mt-1 mb-3">
+                                                    After submitting, you'll complete a quick identity check (photo ID + selfie). This takes about 2 minutes.
                                                 </p>
+                                                <div className="space-y-1.5 text-xs text-blue-200/60">
+                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Your data is encrypted and handled by Didit (our verification partner)</p>
+                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> If the verification window closes, you can resume from your bookings page</p>
+                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Returning clients with a verified booking skip this step automatically</p>
+                                                </div>
                                             </div>
                                         </div>
 

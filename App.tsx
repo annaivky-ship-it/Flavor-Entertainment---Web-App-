@@ -1072,6 +1072,7 @@ const App: React.FC = () => {
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         onNavigate={handleNavigate}
+        userRole={authedUser?.role}
       >
         <div className="flex items-center gap-2 sm:gap-4">
           {authedUser ? (
