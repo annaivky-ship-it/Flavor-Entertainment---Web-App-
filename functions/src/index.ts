@@ -605,6 +605,14 @@ export const notificationOutboxWorker = fns.firestore
 // Export DNS functions
 export * from './dns';
 
+// --- New WhatsApp Notification Automation (v2 functions) ---
+// Trigger: writes to /bookings/{bookingId} fan out to admin + performer + client
+// over WhatsApp, with SMS backup for the client only. See:
+//   functions/src/triggers/onBookingCreated.ts
+//   functions/src/http/performerBookingAction.ts
+export { onBookingCreatedV2 } from './triggers/onBookingCreated';
+export { performerBookingAction } from './http/performerBookingAction';
+
 // --- Didit KYC Endpoints ---
 
 /**
