@@ -605,6 +605,9 @@ export const notificationOutboxWorker = fns.firestore
 // Export DNS functions
 export * from './dns';
 
+// Scheduled Firestore export to GCS
+export * from './backup';
+
 // --- Didit KYC Endpoints ---
 
 /**
