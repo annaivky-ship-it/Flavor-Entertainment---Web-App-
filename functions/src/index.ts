@@ -11,7 +11,7 @@ import { calculateRiskScore, shouldSkipKyc } from './risk/scoring';
 import { createIncidentReport, approveIncidentReport, rejectIncidentReport } from './incidents/reporting';
 import { recordConsent, CONSENT_TEXT } from './consent';
 import { dnsLookup, normalizeEmail, normalizePhoneToE164, sha256 } from './dns';
-import { handleMonoovaWebhook, expireUnpaidBookings, generateBookingReference } from './payments';
+import { handleMonoovaWebhook, expireUnpaidBookings, generateBookingReference, calculateBookingCost, loadServices } from './payments';
 // Fix: Declaring Buffer to resolve 'Cannot find name Buffer' error in environments without node types.
 declare const Buffer: any;
 
@@ -213,8 +213,29 @@ export const scheduledRetentionCleanup = fns.pubsub.schedule('every 24 hours').o
 /**
  * Legacy Booking Transaction (Retained for functionality)
  */
-export const createBookingRequest = fns.https.onCall(async (request: any) => {
-  const { formState, performerIds } = request.data;
+export const createBookingRequest = fns.https.onCall(async (data: any, context: any) => {
+  if (!context?.auth?.uid) {
+    throw new fns.https.HttpsError('unauthenticated', 'You must be signed in to create a booking.');
+  }
+
+  const { formState, performerIds } = data || {};
+  if (!formState || !Array.isArray(performerIds) || performerIds.length === 0) {
+    throw new fns.https.HttpsError('invalid-argument', 'formState and performerIds are required.');
+  }
+
+  const clientUid = context.auth.uid;
+
+  // Compute cost server-side BEFORE the transaction. Reads happen outside the
+  // transaction because services are an effectively immutable reference table.
+  const services_requested = Array.isArray(formState.selectedServices) ? formState.selectedServices : [];
+  const duration_hours = parseFloat(formState.duration) || 2;
+  const services = await loadServices(services_requested);
+  const cost = calculateBookingCost(
+    duration_hours,
+    services,
+    performerIds.length,
+    formState.eventSuburb
+  );
 
   return db.runTransaction(async (transaction: any) => {
     // DNS Check
@@ -254,6 +275,7 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
 
       // Allowlist form fields — never spread arbitrary client data
       const sanitizedForm: any = {
+        client_uid: clientUid,
         client_name: formState.fullName || '',
         client_email: formState.email || '',
         client_phone: formState.mobile || formState.phone || '',
@@ -262,9 +284,9 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
         event_time: formState.eventTime || '',
         event_address: formState.eventAddress || '',
         event_type: formState.eventType || '',
-        duration_hours: parseFloat(formState.duration) || 2,
+        duration_hours,
         number_of_guests: parseInt(formState.numberOfGuests, 10) || 0,
-        services_requested: Array.isArray(formState.selectedServices) ? formState.selectedServices : [],
+        services_requested,
         client_message: formState.client_message || null,
         id_document_path: formState.id_document_path || null,
         selfie_document_path: formState.selfie_document_path || null,
@@ -279,6 +301,9 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
         paymentMethod: 'PAYID',
         bookingReference,
         currency: 'AUD',
+        totalAmount: cost.totalAmount,
+        depositAmount: cost.depositAmount,
+        travelFee: cost.travelFee,
         monoovaTransactionId: null,
         paymentReceivedAt: null,
         expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
@@ -312,6 +337,8 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
       success: true,
       bookingIds: newBookings.map(b => b.id),
       bookingReferences: newBookings.map(b => b.bookingReference),
+      totalAmount: cost.totalAmount,
+      depositAmount: cost.depositAmount,
     };
   });
 });
