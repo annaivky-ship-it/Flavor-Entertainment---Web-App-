@@ -10,6 +10,7 @@ import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
 import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation, LogIn, Search } from 'lucide-react';
 import { api } from '../services/api';
+import VerificationStep from '../src/components/verification/VerificationStep';
 import { perthSuburbs } from '../data/suburbs';
 
 export interface BookingFormState {
@@ -45,6 +46,14 @@ interface BookingProcessProps {
 }
 
 type BookingStage = 'form' | 'verification_pending' | 'performer_acceptance_pending' | 'vetting_pending' | 'deposit_pending' | 'deposit_confirmation_pending' | 'confirmed' | 'rejected';
+
+function normaliseToE164(phone: string): string {
+    const cleaned = (phone || '').replace(/[\s\-()\.]/g, '');
+    if (cleaned.startsWith('+')) return cleaned;
+    if (cleaned.startsWith('00')) return '+' + cleaned.substring(2);
+    if (cleaned.startsWith('0')) return '+61' + cleaned.substring(1);
+    return cleaned ? '+61' + cleaned : '';
+}
 
 
 const eventTypes = ['Bucks Party', 'Birthday Party', 'Corporate Event', 'Hens Party', 'Private Gathering', 'Other'];
@@ -460,20 +469,21 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }
     };
 
-    if (stage === 'verification_pending') {
+    if (stage === 'verification_pending' && bookingIds.length > 0) {
         return (
-            <StatusScreen
-                icon={Shield}
-                title="Quick Verification Step"
-                bgColor="bg-blue-900/10"
-                buttonText="Continue"
-                onButtonClick={onBookingSubmitted}
-            >
-                We sent a one-time SMS code to your phone to confirm it's really you.
-                Higher-tier bookings may also include an on-device liveness check (no
-                images are uploaded). Once verified, your booking moves to performer
-                acceptance.
-            </StatusScreen>
+            <div className="max-w-md mx-auto pt-8 pb-12 px-4">
+                <div className="card-base !p-6 sm:!p-8 shadow-2xl border-zinc-800/50">
+                    <VerificationStep
+                        bookingId={bookingIds[0]}
+                        phoneE164={normaliseToE164(form.mobile)}
+                        onAllSignalsCleared={() => {
+                            setStage('performer_acceptance_pending');
+                            onBookingSubmitted?.();
+                        }}
+                        onCancel={() => onBookingSubmitted?.()}
+                    />
+                </div>
+            </div>
         );
     }
 
