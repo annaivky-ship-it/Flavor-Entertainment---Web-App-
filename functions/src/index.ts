@@ -509,6 +509,10 @@ export const onBookingStatusChanged = fns.firestore
   });
 
 // --- Monoova PayID Webhook ---
+// The unified PayID webhook is exported below as `payIdWebhook` (australia-southeast1).
+// The legacy us-central1 export is kept for one release as a backward-compat
+// shim so any in-flight Monoova webhook registrations don't 404. Once Monoova
+// is pointing at `payIdWebhook`, remove this line.
 export const monoovaWebhook = fns.https.onRequest(handleMonoovaWebhook);
 
 // --- Booking Expiry Scheduler ---
@@ -634,7 +638,10 @@ export {
   onPerformerActivated,
 } from './triggers/verification';
 
-export { monoovaWebhook as verificationMonoovaWebhook } from './webhooks/monoova';
+// --- Unified PayID webhook (australia-southeast1) ---
+// Receives Monoova PayID inbound notifications. Single endpoint that does
+// payment confirmation AND PayID name-match verification signal in one pass.
+export { payIdWebhook } from './webhooks/payid';
 
 // --- Safety Verification System ---
 // Self-hosted verification callables are exported from ./verification/* and ./admin/queue
