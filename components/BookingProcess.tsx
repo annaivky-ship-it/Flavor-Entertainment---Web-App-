@@ -9,7 +9,7 @@ import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
 import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation, LogIn, Search, Zap } from 'lucide-react';
-import { ASAP_LEAD_TIME_MINUTES, ASAP_SURCHARGE_PERCENT } from '../constants';
+import { ASAP_LEAD_TIME_MINUTES, ASAP_SURCHARGE_PERCENT, ASAP_OPERATING_HOURS, isAsapAvailableNow } from '../constants';
 import { api } from '../services/api';
 import VerificationStep from '../src/components/verification/VerificationStep';
 import { perthSuburbs } from '../data/suburbs';
@@ -598,7 +598,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                             <div className="space-y-6 animate-fade-in">
                                 {(() => {
                                     const asapBlocker = performers.find(p => p.accepts_asap === false);
-                                    const asapDisabled = !!asapBlocker;
+                                    const outsideHours = !isAsapAvailableNow();
+                                    const asapDisabled = !!asapBlocker || outsideHours;
+                                    const disabledReason = outsideHours && ASAP_OPERATING_HOURS
+                                        ? `ASAP bookings are only available between ${ASAP_OPERATING_HOURS.startHour}:00 and ${ASAP_OPERATING_HOURS.endHour}:00. Schedule for later instead.`
+                                        : asapBlocker
+                                            ? `${asapBlocker.name} doesn't currently take ASAP bookings — pick another performer or schedule for later.`
+                                            : '';
                                     return (
                                         <button
                                             type="button"
@@ -622,7 +628,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                                 </p>
                                                 <p className="text-xs text-zinc-400 mt-0.5">
                                                     {asapDisabled
-                                                        ? `${asapBlocker?.name} doesn't currently take ASAP bookings — pick another performer or schedule for later.`
+                                                        ? disabledReason
                                                         : form.isAsap
                                                             ? `Performer arrives by ${form.eventTime} today. A ${Math.round(ASAP_SURCHARGE_PERCENT * 100)}% rush surcharge applies.`
                                                             : `Need someone now? Toggle on and we'll dispatch a performer within the hour.`}

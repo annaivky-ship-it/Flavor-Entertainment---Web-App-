@@ -45,6 +45,7 @@ const statusClasses: Record<BookingStatus, string> = {
     rejected: 'border-red-500/50 bg-red-900/30 text-red-300',
     expired: 'border-zinc-500/50 bg-zinc-900/30 text-zinc-500',
     payment_review: 'border-yellow-500/50 bg-yellow-900/30 text-yellow-300',
+    asap_cascaded: 'border-pink-500/50 bg-pink-900/30 text-pink-300',
 };
 
 const bookingStatusOptions: { value: BookingStatus; label: string }[] = [

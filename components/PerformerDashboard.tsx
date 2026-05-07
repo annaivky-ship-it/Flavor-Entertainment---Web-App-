@@ -10,6 +10,7 @@ interface PerformerDashboardProps {
   communications: Communication[];
   auditLogs: AuditLog[];
   onToggleStatus: (status: PerformerStatus) => Promise<void>;
+  onToggleAcceptsAsap?: (accepts: boolean) => Promise<void>;
   onViewDoNotServe: () => void;
   onBookingDecision: (bookingId: string, decision: 'accepted' | 'declined', eta?: number) => Promise<void>;
   onUpdateEta: (bookingId: string, eta: number) => Promise<void>;
@@ -72,7 +73,8 @@ const bookingStatusClasses: Record<Booking['status'], string> = {
   cancelled: 'text-zinc-500',
   rejected: 'text-red-400',
   expired: 'text-zinc-500',
-  payment_review: 'text-yellow-400'
+  payment_review: 'text-yellow-400',
+  asap_cascaded: 'text-pink-400'
 }
 
 interface BookingCardProps {
@@ -221,9 +223,10 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
 };
 
 
-const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onViewDoNotServe, onBookingDecision, onUpdateEta, onUpdateBookingStatus }) => {
+const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onToggleAcceptsAsap, onViewDoNotServe, onBookingDecision, onUpdateEta, onUpdateBookingStatus }) => {
   const [etas, setEtas] = useState<Record<string, string>>({});
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<PerformerStatus | null>(null);
+  const [isTogglingAsap, setIsTogglingAsap] = useState(false);
   
   // Chat State
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
@@ -352,6 +355,38 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                {statusConfig[performer.status].description}
              </p>
           </div>
+
+          {onToggleAcceptsAsap && (
+            <div className="mt-6 p-4 rounded-xl border border-zinc-800 bg-zinc-950/40">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-9 w-9 rounded-full bg-pink-500/15 text-pink-400 flex items-center justify-center flex-shrink-0">
+                    <Zap className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white">Accept ASAP bookings</p>
+                    <p className="text-[11px] text-zinc-400">Clients can request you for arrival within 60 minutes (urgent SMS).</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsTogglingAsap(true);
+                    try {
+                      await onToggleAcceptsAsap(performer.accepts_asap === false);
+                    } finally {
+                      setIsTogglingAsap(false);
+                    }
+                  }}
+                  disabled={isTogglingAsap}
+                  aria-pressed={performer.accepts_asap !== false}
+                  className={`h-6 w-11 rounded-full p-0.5 transition flex-shrink-0 ${performer.accepts_asap !== false ? 'bg-pink-500' : 'bg-zinc-700'} ${isTogglingAsap ? 'opacity-60' : ''}`}
+                >
+                  <div className={`h-5 w-5 rounded-full bg-white transition ${performer.accepts_asap !== false ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
          <div className="card-base !p-6 lg:col-span-2">

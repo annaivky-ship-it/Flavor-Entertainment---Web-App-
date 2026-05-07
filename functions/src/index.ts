@@ -523,6 +523,13 @@ export const scheduledBookingExpiry = fns.pubsub.schedule('every 5 minutes').onR
   console.log(`Booking expiry job: expired ${count} bookings.`);
 });
 
+// Runs every 1 minute — ASAP windows are tight; a 5-min cadence would burn
+// half of the cascade budget on scheduler latency.
+export const scheduledAsapCascade = fns.pubsub.schedule('every 1 minutes').onRun(async () => {
+  const { cascadeStaleAsapBookings } = await import('./triggers/asapCascade');
+  await cascadeStaleAsapBookings();
+});
+
 // --- Notification Outbox Worker ---
 // Processes notification jobs created by webhook handler and expiry scheduler
 export const notificationOutboxWorker = fns.firestore
@@ -565,6 +572,24 @@ export const notificationOutboxWorker = fns.firestore
             templateKey: 'CANCELLED_ALL',
             to: data.clientPhone,
             body: `[Flavor Entertainers] Your booking ${data.bookingReference} has expired due to non-payment. Please rebook if you'd still like to proceed.`
+          });
+        }
+      } else if (data.type === 'asap_cascaded') {
+        // Performer didn't respond in time — apologise to client, alert admin to reassign.
+        if (data.clientPhone) {
+          await sendMessage({
+            bookingId: data.bookingId,
+            templateKey: 'CANCELLED_ALL',
+            to: data.clientPhone,
+            body: `[Flavor Entertainers] Sorry — ${data.performerName || 'your performer'} couldn't confirm in time for your ASAP booking. We're finding you another performer now and will be in touch within 5 minutes.`
+          });
+        }
+        for (const adminNum of adminNumbers) {
+          await sendMessage({
+            bookingId: data.bookingId,
+            templateKey: 'MANUAL_REVIEW_ADMIN',
+            to: adminNum,
+            body: `[Flavor Entertainers] URGENT: ASAP booking ${data.bookingReference} cascaded — ${data.performerName || 'performer'} didn't respond. Client: ${data.clientName}, ${data.clientPhone}, arrival needed by ${data.eventTime}. Reassign now.`
           });
         }
       } else if (data.type === 'payment_review') {

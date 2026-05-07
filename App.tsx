@@ -290,7 +290,8 @@ const App: React.FC = () => {
               cancelled: 'Cancelled',
               rejected: 'Rejected',
               expired: 'Expired',
-              payment_review: 'Payment Review'
+              payment_review: 'Payment Review',
+              asap_cascaded: 'ASAP Cascaded'
             };
 
             const message = `Booking #${newB.id.slice(0, 8)} status updated to ${statusLabels[newB.status] || newB.status}`;
@@ -363,6 +364,24 @@ const App: React.FC = () => {
     setAuthedUser(null);
     localStorage.removeItem('clientEmail');
     setView('available_now');
+  };
+
+  const handlePerformerAcceptsAsapChange = async (performerId: number, acceptsAsap: boolean) => {
+    const performer = performers.find(p => p.id === performerId);
+    if (!performer) return;
+    const original = performers;
+    setPerformers(prev => prev.map(p => p.id === performerId ? { ...p, accepts_asap: acceptsAsap } : p));
+    try {
+      const { error } = await api.updatePerformerAcceptsAsap(performerId, acceptsAsap);
+      if (error) throw error;
+      await api.createAuditLog('PERFORMER_ASAP_PREFERENCE_CHANGE', String(performerId), {
+        performerName: performer.name,
+        acceptsAsap,
+      });
+    } catch (err) {
+      console.error('Failed to update ASAP preference:', err);
+      setPerformers(original);
+    }
   };
 
   const handlePerformerStatusChange = async (performerId: number, status: PerformerStatus) => {
@@ -937,6 +956,7 @@ const App: React.FC = () => {
             communications={performerCommunications}
             auditLogs={performerAuditLogs}
             onToggleStatus={(status) => handlePerformerStatusChange(currentPerformer.id, status)}
+            onToggleAcceptsAsap={(accepts) => handlePerformerAcceptsAsapChange(currentPerformer.id, accepts)}
             onViewDoNotServe={handleViewDoNotServe}
             onBookingDecision={handlePerformerBookingDecision}
             onUpdateEta={handleUpdateEta}

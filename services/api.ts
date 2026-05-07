@@ -459,6 +459,20 @@ export const api = {
     }
   },
 
+  async updatePerformerAcceptsAsap(performerId: number, acceptsAsap: boolean) {
+    if (!db) return { error: new Error('Firebase not initialized') };
+    try {
+      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
+        return { error: null };
+      }
+      const docRef = doc(db, 'performers', String(performerId));
+      await updateDoc(docRef, { accepts_asap: acceptsAsap });
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  },
+
   async uploadPerformerPhoto(performerId: number, file: File, type: 'main' | 'gallery' = 'main'): Promise<{ url: string | null; error: Error | null }> {
     if (!storage) return { url: null, error: new Error('Storage not initialized') };
     try {

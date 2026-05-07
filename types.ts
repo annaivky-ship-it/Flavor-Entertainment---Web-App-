@@ -17,7 +17,8 @@ export type BookingStatus =
   | 'cancelled'
   | 'rejected'
   | 'expired'
-  | 'payment_review';
+  | 'payment_review'
+  | 'asap_cascaded';
 
 export type VettingStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 export type DoNotServeStatus = 'pending' | 'approved' | 'rejected';
