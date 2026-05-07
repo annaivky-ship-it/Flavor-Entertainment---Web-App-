@@ -60,7 +60,7 @@ export const getCustomerVerificationStatus = call<
 
 export type PerformerStatus =
   | 'awaiting_id' | 'awaiting_id_review' | 'awaiting_liveness'
-  | 'awaiting_banking' | 'awaiting_penny_drop' | 'awaiting_portfolio'
+  | 'awaiting_banking' | 'awaiting_portfolio'
   | 'awaiting_safety' | 'awaiting_contract' | 'awaiting_activation'
   | 'active' | 'rejected' | 'suspended';
 
@@ -88,16 +88,6 @@ export const performerAddBankAccount = call<
   { bsb: string; accountNumber: string; accountName: string },
   { success: boolean }
 >('performerAddBankAccount');
-
-export const performerInitiatePennyDrop = call<
-  Record<string, never>,
-  { success: boolean; dropId: string; hint: string }
->('performerInitiatePennyDrop');
-
-export const performerConfirmPennyDrop = call<
-  { code: string },
-  { success: boolean }
->('performerConfirmPennyDrop');
 
 export const performerSubmitPortfolio = call<
   { photos: string[]; videoIntroUrl?: string; services: string[] },
@@ -149,6 +139,17 @@ export const adminApproveBooking = call<
   { bookingId: string; notes?: string },
   { success: boolean }
 >('adminApproveBooking');
+
+export const adminConfirmPayIdDeposit = call<
+  {
+    bookingId: string;
+    payerName: string;
+    nameMatches: boolean;
+    amountReceived?: number;
+    notes?: string;
+  },
+  { success: boolean; alreadyPaid: boolean }
+>('adminConfirmPayIdDeposit');
 
 export const adminDeclineBooking = call<
   { bookingId: string; addToDns?: boolean; dnsReason?: string; notes?: string },

@@ -7,8 +7,7 @@ import {
 import { db, auth } from '../../../services/firebaseClient';
 import {
   performerApply, performerRequestIdUploadUrl, performerNotifyIdUploaded,
-  performerSubmitLiveness, performerAddBankAccount, performerInitiatePennyDrop,
-  performerConfirmPennyDrop, performerSubmitPortfolio,
+  performerSubmitLiveness, performerAddBankAccount, performerSubmitPortfolio,
   performerAcknowledgeSafetyBriefing, performerSignContract,
   type PerformerStatus,
 } from '../../services/verification';
@@ -21,7 +20,7 @@ interface PerformerDoc {
 
 const STEP_ORDER: PerformerStatus[] = [
   'awaiting_id', 'awaiting_id_review', 'awaiting_liveness', 'awaiting_banking',
-  'awaiting_penny_drop', 'awaiting_portfolio', 'awaiting_safety',
+  'awaiting_portfolio', 'awaiting_safety',
   'awaiting_contract', 'awaiting_activation', 'active',
 ];
 
@@ -60,7 +59,6 @@ const PerformerOnboardingFlow: React.FC = () => {
       {status === 'awaiting_id_review' && <AwaitingReviewStep />}
       {status === 'awaiting_liveness' && <LivenessStep />}
       {status === 'awaiting_banking' && <BankingStep />}
-      {status === 'awaiting_penny_drop' && <PennyDropStep />}
       {status === 'awaiting_portfolio' && <PortfolioStep />}
       {status === 'awaiting_safety' && <SafetyStep />}
       {status === 'awaiting_contract' && <ContractStep />}
@@ -255,8 +253,8 @@ const BankingStep: React.FC = () => {
   return (
     <Card title="Banking details">
       <p className="text-xs text-zinc-500 mb-3">
-        Account details are tokenised by our payments provider (Monoova). We never
-        store your raw BSB or account number — only an encrypted token reference.
+        These are the details we'll use to pay you out. Stored securely and only
+        visible to admin. Make sure they match your legal name on the ID we just verified.
       </p>
       <form onSubmit={submit} className="space-y-3">
         <Input icon={<CreditCard />} label="BSB" value={bsb} onChange={setBsb} placeholder="123-456" required />
@@ -264,63 +262,9 @@ const BankingStep: React.FC = () => {
         <Input icon={<User />} label="Account name" value={name} onChange={setName} required />
         {error && <Err msg={error} />}
         <button disabled={submitting} className="btn-primary w-full py-3 flex items-center justify-center gap-2">
-          {submitting && <LoaderCircle className="animate-spin h-4 w-4" />} Add account
+          {submitting && <LoaderCircle className="animate-spin h-4 w-4" />} Save banking details
         </button>
       </form>
-    </Card>
-  );
-};
-
-const PennyDropStep: React.FC = () => {
-  const [hint, setHint] = useState<string | null>(null);
-  const [code, setCode] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const initiate = async () => {
-    setSubmitting(true); setError(null);
-    try {
-      const r = await performerInitiatePennyDrop({});
-      setHint(r.hint);
-    } catch (err) { setError((err as Error).message); }
-    finally { setSubmitting(false); }
-  };
-
-  const confirm = async () => {
-    if (code.length !== 6) { setError('Code is 6 characters'); return; }
-    setSubmitting(true); setError(null);
-    try {
-      await performerConfirmPennyDrop({ code });
-    } catch (err) { setError((err as Error).message); }
-    finally { setSubmitting(false); }
-  };
-
-  return (
-    <Card title="Verify your account (penny drop)">
-      <p className="text-sm text-zinc-400 mb-3">
-        We'll send $0.01 to your account with a unique 6-character code in the reference.
-        Open your banking app, find the deposit, and enter the code below.
-      </p>
-      {!hint ? (
-        <button onClick={initiate} disabled={submitting} className="btn-primary w-full py-3 flex items-center justify-center gap-2">
-          {submitting && <LoaderCircle className="animate-spin h-4 w-4" />} Send $0.01 with code
-        </button>
-      ) : (
-        <>
-          <div className="p-3 mb-3 bg-blue-900/30 border border-blue-500/40 rounded text-sm text-blue-200">{hint}</div>
-          <input
-            className="input-base text-center text-xl font-mono uppercase"
-            maxLength={6}
-            value={code}
-            onChange={e => setCode(e.target.value.toUpperCase().slice(0, 6))}
-            placeholder="ABC123"
-          />
-          <button onClick={confirm} disabled={submitting || code.length !== 6} className="btn-primary w-full py-3 mt-3 flex items-center justify-center gap-2">
-            {submitting && <LoaderCircle className="animate-spin h-4 w-4" />} Confirm
-          </button>
-        </>
-      )}
-      {error && <Err msg={error} />}
     </Card>
   );
 };

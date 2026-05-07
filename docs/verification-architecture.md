@@ -12,7 +12,19 @@ Holding government IDs creates unnecessary breach risk and legal liability. We'v
 |---|---|---|---|
 | SMS OTP | Twilio | ~AUD $0.05 / SMS | Confirms the phone number reaches the booker |
 | On-device liveness (premium tier only) | face-api.js (browser) | $0 | Confirms a real human, age estimate ≥ 18 |
-| PayID name match | Monoova | $0 (already collecting deposit) | Confirms the bank account holder name matches the booking name — bank-of-Australia has done their own KYC for us |
+| PayID name match | **Admin manual confirmation** (default) or any PSP webhook (optional) | $0 | Confirms the bank account holder name matches the booking name |
+
+**Manual mode (default):** an admin opens the **PayID Confirm Queue** in the admin
+dashboard, sees the deposit in their own banking app, types the bank-supplied payer
+name into the dialog, and ticks whether it matches the booking name. The
+`adminConfirmPayIdDeposit` callable writes a `verificationRecord` with
+`signal: 'payid_match'` exactly as the webhook would have done. No PSP dependency.
+
+**Webhook mode (optional):** if a PSP is wired in (Basiq recommended — see
+`docs/basiq-integration-plan.md`), `payIdWebhook` performs the same logic
+automatically when a deposit lands. The two paths are mutually exclusive per
+booking — whichever lands first wins by virtue of the `payment_status` short-circuit
+in both code paths.
 
 Combining all three gives us reasonable assurance against the dominant attack vector (drunk-by-throwaway-number bookings) without ever holding a government ID.
 
@@ -69,11 +81,19 @@ Performer state machine in `performers/{uid}.status`:
 
 ```
 [applied] → awaiting_id → awaiting_id_review → awaiting_liveness →
-awaiting_banking → awaiting_penny_drop → awaiting_portfolio →
+awaiting_banking → awaiting_portfolio →
 awaiting_safety → awaiting_contract → awaiting_activation → active
 ```
 
 Each step has a callable in `verification/performer.ts`. Admins act in the ID review queue and final activation step.
+
+**Banking is self-attested:** performers enter BSB + account number + account name
+during the `awaiting_banking` step. Values are stored under
+`performers/{uid}.banking.{bsb,accountNumber,accountName}`, readable only by the
+performer themselves and admin (Firestore rules). No automated penny-drop
+verification; admin can ask for a redacted bank statement during the ID review
+step if banking confirmation is desired. See
+`docs/basiq-integration-plan.md` if a PSP-based replacement is needed later.
 
 ID images are uniquely sensitive. Handling:
 

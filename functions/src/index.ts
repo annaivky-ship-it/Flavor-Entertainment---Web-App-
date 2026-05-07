@@ -611,8 +611,6 @@ export {
   performerNotifyIdUploaded,
   performerSubmitLiveness,
   performerAddBankAccount,
-  performerInitiatePennyDrop,
-  performerConfirmPennyDrop,
   performerSubmitPortfolio,
   performerAcknowledgeSafetyBriefing,
   performerSignContract,
@@ -628,6 +626,7 @@ export {
   adminListDnsEntries,
   adminExpireDnsEntry,
   adminActivatePerformer,
+  adminConfirmPayIdDeposit,
 } from './admin/queue';
 
 export {

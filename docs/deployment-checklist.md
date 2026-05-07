@@ -74,12 +74,16 @@ firebase functions:secrets:set TWILIO_ACCOUNT_SID
 firebase functions:secrets:set TWILIO_AUTH_TOKEN
 firebase functions:secrets:set TWILIO_PHONE_NUMBER
 
-# Monoova (PayID + penny drop).
-# If the Monoova account isn't activated yet, set MONOOVA_API_KEY to an empty
-# string and the integration falls back to sandbox mode (no real transfers).
-firebase functions:secrets:set MONOOVA_API_KEY
-firebase functions:secrets:set MONOOVA_API_BASE   # e.g. https://api.monoova.com
-firebase functions:secrets:set MONOOVA_WEBHOOK_SECRET  # generate: openssl rand -hex 32
+# Monoova / PayID PSP — NO LONGER REQUIRED.
+#
+# The platform runs in manual-mode by default: admins confirm each PayID deposit
+# in the admin dashboard. If you wire in a PSP later (Basiq recommended — see
+# docs/basiq-integration-plan.md), set its secrets here. The webhook path in
+# functions/src/webhooks/payid.ts already handles HMAC-verified inbound events
+# from any provider that maps to ParsedMonoovaEvent.
+#
+# Optional, only if you wire in a PSP:
+# firebase functions:secrets:set MONOOVA_WEBHOOK_SECRET   # or BASIQ_WEBHOOK_SECRET
 ```
 
 ### 2.2 Existing secrets (keep)
@@ -176,7 +180,7 @@ Run through every item before signing off:
 - [ ] Admin can view ID via 5-minute signed URL with countdown
 - [ ] After admin completes review, the storage object is deleted within 30 seconds (verify in GCS console)
 - [ ] `forceDeleteStaleIdUploads` scheduled function runs every 5 minutes and clears stale uploads
-- [ ] Penny drop flow: drop initiated → code arrives in test bank → performer enters code → confirmation
+- [ ] PayID confirm flow: admin opens PayID Confirm Queue → enters payer name → ticks "matches" → booking auto-confirms (manual mode replaces the old penny-drop verification)
 - [ ] Trust tier promotion test: simulate 5 clean completed bookings, verify `customers/{id}.trustTier == 'trusted'`
 - [ ] Performer flag customer: customer's phone+email hashes added to DNS, trust tier demoted to 'unverified'
 - [ ] `auditLog` contains expected events for every action above (admin can query by action+createdAt)

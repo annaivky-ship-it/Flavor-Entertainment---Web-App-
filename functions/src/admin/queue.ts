@@ -114,6 +114,130 @@ export const adminReviewId = onCall(
   }
 );
 
+// --- adminConfirmPayIdDeposit ---
+// Manual-mode equivalent of the payIdWebhook. Admin sees the PayID deposit
+// land in the business bank account, comes here, types in the bank-supplied
+// payer name and ticks whether it matches the booking name. We write a
+// verificationRecord with signal='payid_match', mark the booking as paid,
+// and let onVerificationRecordCreated auto-confirm if all signals have cleared.
+//
+// This is the primary payment-confirmation path while the platform runs
+// without an automated PSP (Monoova/Basiq/etc). When a PSP is wired in,
+// payIdWebhook handles the same logic automatically and this callable
+// remains as a manual fallback.
+
+export const adminConfirmPayIdDeposit = onCall(
+  { region: REGION, secrets: [HASH_SECRET] },
+  async (req) => {
+    requireAppCheck(req as any);
+    const auth = await requireAdmin(req as any);
+
+    const { bookingId, payerName, nameMatches, amountReceived, notes } = req.data || {};
+    if (!bookingId) throw new HttpsError('invalid-argument', 'bookingId is required.');
+    if (typeof nameMatches !== 'boolean') {
+      throw new HttpsError('invalid-argument', 'nameMatches must be a boolean.');
+    }
+    if (!payerName || typeof payerName !== 'string') {
+      throw new HttpsError('invalid-argument', 'payerName is required (the name as it appears on the bank statement).');
+    }
+
+    const db = getDb();
+    const bookingRef = db.collection('bookings').doc(bookingId);
+
+    const result = await db.runTransaction(async (tx) => {
+      const doc = await tx.get(bookingRef);
+      if (!doc.exists) throw new HttpsError('not-found', 'Booking not found.');
+      const booking = doc.data()!;
+
+      if (booking.payment_status === 'paid' || booking.payment_status === 'PAID') {
+        return { alreadyPaid: true, bookingId };
+      }
+
+      const verRecRef = db.collection('verificationRecords').doc();
+      tx.set(verRecRef, {
+        subjectType: 'customer',
+        subjectId: booking.customerId || null,
+        bookingId,
+        signal: 'payid_match',
+        result: nameMatches ? 'pass' : 'review',
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: null,
+        meta: {
+          bookingName: booking.client_name || '',
+          payerName,
+          amountReceived: amountReceived ?? null,
+          confirmedBy: auth.uid,
+          confirmationMode: 'admin_manual',
+          notes: notes || null,
+        },
+      });
+
+      const updates: Record<string, any> = {
+        payment_status: 'paid',
+        paymentReceivedAt: admin.firestore.FieldValue.serverTimestamp(),
+        payIdMatched: nameMatches,
+        adminConfirmedBy: auth.uid,
+        adminConfirmedAt: admin.firestore.FieldValue.serverTimestamp(),
+        adminPayerName: payerName,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      if (nameMatches) {
+        if (
+          booking.verification_status === 'cleared' ||
+          booking.trustTier === 'trusted'
+        ) {
+          updates.status = 'CONFIRMED';
+          updates.verification_status = 'cleared';
+        }
+      } else {
+        updates.status = 'PENDING_ADMIN_REVIEW';
+        updates.verification_status = 'manual_review';
+        tx.set(
+          db.collection('manualReviewQueue').doc(bookingId),
+          {
+            bookingId,
+            customerId: booking.customerId || null,
+            reasons: admin.firestore.FieldValue.arrayUnion('payid_name_mismatch'),
+            status: 'pending',
+            queuedAt: admin.firestore.FieldValue.serverTimestamp(),
+            decidedAt: null,
+            decidedBy: null,
+            decidedNotes: null,
+          },
+          { merge: true }
+        );
+      }
+
+      tx.update(bookingRef, updates);
+      return { alreadyPaid: false, bookingId, nameMatches };
+    });
+
+    if (!result.alreadyPaid) {
+      await writeAudit({
+        actorUid: auth.uid,
+        actorRole: 'admin',
+        action: 'PAYID_DEPOSIT_CONFIRMED',
+        subjectType: 'booking',
+        subjectId: bookingId,
+        bookingId,
+        meta: { payerName, nameMatches, amountReceived: amountReceived ?? null, mode: 'admin_manual' },
+      });
+      await writeAudit({
+        actorUid: auth.uid,
+        actorRole: 'admin',
+        action: result.nameMatches ? 'PAYID_MATCHED' : 'PAYID_MISMATCH',
+        subjectType: 'booking',
+        subjectId: bookingId,
+        bookingId,
+        meta: { payerName },
+      });
+    }
+
+    return { success: true, alreadyPaid: !!result.alreadyPaid };
+  }
+);
+
 // --- adminApproveBooking ---
 
 export const adminApproveBooking = onCall(

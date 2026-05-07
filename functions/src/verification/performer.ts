@@ -4,8 +4,15 @@
  * Onboarding flow (sub-routes match this state machine):
  *
  *   apply → awaiting_id → awaiting_id_review → awaiting_liveness →
- *   awaiting_banking → awaiting_penny_drop → awaiting_portfolio →
+ *   awaiting_banking → awaiting_portfolio →
  *   awaiting_safety → awaiting_contract → awaiting_activation → active
+ *
+ * Banking is self-attested: the performer enters BSB + account number + name,
+ * we store them directly in `performers/{uid}.banking` (admin-read only). No
+ * automated penny-drop verification — admin confirms during ID review or
+ * payout time. This trades the cryptographic "performer owns this account"
+ * proof for operational simplicity. See docs/basiq-integration-plan.md for
+ * the upgrade path.
  *
  * Public callables (region australia-southeast1):
  *   - performerApply({ stageName, contactPhoneE164, contactEmail, ... })
@@ -13,8 +20,6 @@
  *   - performerNotifyIdUploaded({ storagePath })   — enqueues admin review
  *   - performerSubmitLiveness({ embedding, livenessScore, ageEstimate })
  *   - performerAddBankAccount({ bsb, accountNumber, accountName })
- *   - performerInitiatePennyDrop({ })              — sends $0.01 with code in ref
- *   - performerConfirmPennyDrop({ code })          — performer enters code from statement
  *   - performerSubmitPortfolio({ photos, videoIntroUrl, services })
  *   - performerAcknowledgeSafetyBriefing({ acknowledged })
  *   - performerSignContract({ signature, signedAt })
@@ -27,7 +32,6 @@ import {
   REGION, getDb, normalizePhoneE164, normalizeEmail, hashPhone, hashEmail,
   randomCode, requireAppCheck, requireAuth, writeAudit, HASH_SECRET,
 } from '../utils/shared';
-import { tokeniseAccount, sendPenny, MONOOVA_SECRETS } from '../integrations/monoova';
 
 const ID_UPLOAD_BUCKET = 'studio-4495412314-3b1ce-id-uploads';
 const SIGNED_URL_TTL_MS = 15 * 60 * 1000;     // 15 min for performer uploads
@@ -248,9 +252,18 @@ export const performerSubmitLiveness = onCall(
 );
 
 // --- performerAddBankAccount ---
+// Self-attested. BSB+account+name go directly into the performer doc under
+// `banking.{...}`. Firestore rules restrict reads of this subobject to the
+// performer themselves and admin. No tokenisation, no penny drop. After
+// submission the performer advances directly to 'awaiting_portfolio'.
+//
+// Trade-off accepted: we carry banking data, increasing breach impact in
+// exchange for skipping the Monoova/PSP dependency. See
+// docs/basiq-integration-plan.md for the upgrade path that adds
+// "performer-owns-this-account" proof later.
 
 export const performerAddBankAccount = onCall(
-  { region: REGION, secrets: MONOOVA_SECRETS },
+  { region: REGION },
   async (req) => {
     requireAppCheck(req as any);
     const auth = requireAuth(req as any);
@@ -260,17 +273,20 @@ export const performerAddBankAccount = onCall(
     if (!/^\d{6,9}$/.test(accountNumber || '')) throw new HttpsError('invalid-argument', 'Invalid account number.');
     if (!accountName) throw new HttpsError('invalid-argument', 'accountName is required.');
 
-    const cleanBsb = bsb.replace('-', '');
-    const { tokenRef } = await tokeniseAccount({ bsb: cleanBsb, accountNumber, accountName });
+    const cleanBsb = (bsb as string).replace('-', '');
 
     await getDb().collection('performers').doc(auth.uid).set(
       {
-        bankTokenRef: tokenRef,           // raw BSB/account number NEVER stored
-        bankAccountName: accountName,
+        banking: {
+          bsb: cleanBsb,
+          accountNumber: accountNumber,
+          accountName: accountName,
+          attestedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        status: 'awaiting_portfolio',
         onboarding: {
           bankingAddedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
-        status: 'awaiting_penny_drop',
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
@@ -282,112 +298,7 @@ export const performerAddBankAccount = onCall(
       action: 'PERFORMER_BANKING_ADDED',
       subjectType: 'performer',
       subjectId: auth.uid,
-      meta: { tokenRef },
-    });
-
-    return { success: true };
-  }
-);
-
-// --- performerInitiatePennyDrop ---
-
-export const performerInitiatePennyDrop = onCall(
-  { region: REGION, secrets: MONOOVA_SECRETS },
-  async (req) => {
-    requireAppCheck(req as any);
-    const auth = requireAuth(req as any);
-
-    const db = getDb();
-    const performerDoc = await db.collection('performers').doc(auth.uid).get();
-    if (!performerDoc.exists) throw new HttpsError('not-found', 'Performer not found.');
-    const performer = performerDoc.data()!;
-    if (!performer.bankTokenRef) {
-      throw new HttpsError('failed-precondition', 'Add a bank account first.');
-    }
-
-    const code = randomCode(6);
-    const reference = `FE-${code}`;
-
-    const dropRef = db.collection('pennyDrops').doc();
-    await dropRef.set({
-      performerId: auth.uid,
-      tokenRef: performer.bankTokenRef,
-      code,
-      reference,
-      initiatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      confirmedAt: null,
-      status: 'pending',
-    });
-
-    const result = await sendPenny({ tokenRef: performer.bankTokenRef, reference, amountCents: 1 });
-    await dropRef.update({ monoovaTxId: result.txId, sendSuccess: result.success });
-
-    await writeAudit({
-      actorUid: auth.uid,
-      actorRole: 'performer',
-      action: 'PERFORMER_PENNY_DROP_INITIATED',
-      subjectType: 'performer',
-      subjectId: auth.uid,
-      meta: { dropId: dropRef.id, reference },
-    });
-
-    return { success: result.success, dropId: dropRef.id, hint: 'Check your bank statement for a $0.01 deposit; enter the 6-character code from the reference.' };
-  }
-);
-
-// --- performerConfirmPennyDrop ---
-
-export const performerConfirmPennyDrop = onCall(
-  { region: REGION },
-  async (req) => {
-    requireAppCheck(req as any);
-    const auth = requireAuth(req as any);
-
-    const { code } = req.data || {};
-    if (!code || typeof code !== 'string' || code.length !== 6) {
-      throw new HttpsError('invalid-argument', 'code must be 6 characters.');
-    }
-
-    const db = getDb();
-    const dropQ = await db.collection('pennyDrops')
-      .where('performerId', '==', auth.uid)
-      .where('status', '==', 'pending')
-      .orderBy('initiatedAt', 'desc')
-      .limit(1)
-      .get();
-
-    if (dropQ.empty) throw new HttpsError('not-found', 'No pending penny drop. Initiate a new one.');
-
-    const drop = dropQ.docs[0];
-    const dropData = drop.data();
-    if (dropData.code.toUpperCase() !== code.toUpperCase()) {
-      throw new HttpsError('failed-precondition', 'Code mismatch.');
-    }
-
-    await drop.ref.update({
-      status: 'confirmed',
-      confirmedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    await db.collection('verificationRecords').add({
-      subjectType: 'performer',
-      subjectId: auth.uid,
-      signal: 'penny_drop',
-      result: 'pass',
-      completedAt: admin.firestore.FieldValue.serverTimestamp(),
-      meta: { dropId: drop.id },
-    });
-
-    await setPerformerOnboardingStatus(auth.uid, 'awaiting_portfolio', {
-      pennyDropAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    await writeAudit({
-      actorUid: auth.uid,
-      actorRole: 'performer',
-      action: 'PERFORMER_PENNY_DROP_CONFIRMED',
-      subjectType: 'performer',
-      subjectId: auth.uid,
+      meta: { selfAttested: true },
     });
 
     return { success: true };
