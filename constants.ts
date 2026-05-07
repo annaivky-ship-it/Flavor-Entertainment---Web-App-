@@ -11,6 +11,12 @@ export const PAY_ID_EMAIL = import.meta.env.VITE_PAY_ID_EMAIL || 'demo@example.c
 export const BOOKING_PAYMENT_HOLD_MINUTES = 30;
 export const BOOKING_REFERENCE_PREFIX = 'FE';
 
+// ASAP booking — performer arrives within ASAP_LEAD_TIME_MINUTES of submission.
+// Surcharge stacks on top of the calculated total before deposit %.
+// Set ASAP_SURCHARGE_PERCENT to 0 to disable the surcharge while keeping the option visible.
+export const ASAP_LEAD_TIME_MINUTES = 60;
+export const ASAP_SURCHARGE_PERCENT = 0.20; // 20% rush surcharge
+
 // Payment mode:
 //   'manual'  = client clicks "I've sent payment" → admin confirms in dashboard (use while waiting for Monoova)
 //   'monoova' = auto-confirm via Monoova webhook (requires Monoova account + MONOOVA_WEBHOOK_SECRET)

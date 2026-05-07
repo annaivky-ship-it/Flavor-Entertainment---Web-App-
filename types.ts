@@ -48,6 +48,7 @@ export interface Performer {
   rating: number;
   review_count: number;
   min_booking_duration_hours?: number;
+  accepts_asap?: boolean;
   created_at: string;
 }
 
@@ -91,6 +92,8 @@ export interface Booking {
     duration_hours: number;
     number_of_guests: number;
     services_requested: string[];
+    is_asap?: boolean;
+    asap_surcharge?: number;
     verified_by_admin_name: string | null;
     verified_at: string | null;
     client_message?: string | null;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Performer, PerformerStatus, Booking, Communication, AuditLog, BookingStatus } from '../types';
-import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History, MapPin, Sparkles } from 'lucide-react';
+import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History, MapPin, Sparkles, Zap } from 'lucide-react';
 import ChatDialog from './ChatDialog';
 import { api } from '../services/api';
 
@@ -126,7 +126,13 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
   const isPending = booking.status !== 'confirmed' && booking.status !== 'rejected' && !['en_route', 'arrived', 'in_progress', 'completed', 'cancelled'].includes(booking.status);
 
   return (
-    <div className="bg-zinc-900/70 p-4 rounded-lg border border-zinc-700/50 hover:border-zinc-600 transition-colors">
+    <div className={`bg-zinc-900/70 p-4 rounded-lg border transition-colors ${booking.is_asap ? 'border-pink-500 ring-2 ring-pink-500/40 animate-pulse-slow' : 'border-zinc-700/50 hover:border-zinc-600'}`}>
+        {booking.is_asap && booking.status === 'pending_performer_acceptance' && (
+            <div className="mb-3 -mt-1 flex items-center gap-2 text-pink-300 font-bold uppercase tracking-wider text-xs">
+                <Zap className="h-4 w-4" />
+                ASAP — arrival needed by {booking.event_time}
+            </div>
+        )}
         <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2">
             <div>
                 <p className="font-bold text-lg text-white">{booking.event_type}</p>

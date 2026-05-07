@@ -8,7 +8,8 @@ import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
-import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation, LogIn, Search } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation, LogIn, Search, Zap } from 'lucide-react';
+import { ASAP_LEAD_TIME_MINUTES, ASAP_SURCHARGE_PERCENT } from '../constants';
 import { api } from '../services/api';
 import VerificationStep from '../src/components/verification/VerificationStep';
 import { perthSuburbs } from '../data/suburbs';
@@ -27,6 +28,7 @@ export interface BookingFormState {
     numberOfGuests: string;
     selectedServices: string[];
     client_message: string;
+    isAsap?: boolean;
     idDocument?: File | null;
     selfieDocument?: File | null;
 }
@@ -162,7 +164,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 return { ...parsed, selectedServices: parsed.selectedServices?.length ? parsed.selectedServices : initialSelectedServices, idDocument: null, selfieDocument: null };
             }
         } catch {}
-        return { fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventSuburb: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, client_message: '' };
+        return { fullName: '', email: '', mobile: '', dob: '', eventDate: '', eventTime: '', eventAddress: '', eventSuburb: '', eventType: '', duration: '2', numberOfGuests: '', selectedServices: initialSelectedServices, client_message: '', isAsap: false };
     });
     const [bookingIds, setBookingIds] = useState<string[]>([]);
     const [bookingReference, setBookingReference] = useState<string>('');
@@ -259,6 +261,32 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         return `${year}-${month}-${day}`;
     }, []);
 
+    const computeAsapTarget = () => {
+        const target = new Date(Date.now() + ASAP_LEAD_TIME_MINUTES * 60_000);
+        const yyyy = target.getFullYear();
+        const mm = String(target.getMonth() + 1).padStart(2, '0');
+        const dd = String(target.getDate()).padStart(2, '0');
+        const hh = String(target.getHours()).padStart(2, '0');
+        const min = String(target.getMinutes()).padStart(2, '0');
+        return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${min}` };
+    };
+
+    const handleAsapToggle = (enabled: boolean) => {
+        setForm(prev => {
+            if (enabled) {
+                const { date, time } = computeAsapTarget();
+                return { ...prev, isAsap: true, eventDate: date, eventTime: time };
+            }
+            return { ...prev, isAsap: false };
+        });
+        setFieldErrors(prev => {
+            const next = { ...prev };
+            delete next.eventDate;
+            delete next.eventTime;
+            return next;
+        });
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
@@ -300,8 +328,8 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     }, [availableServices]);
 
     const { totalCost, depositAmount, travelFee } = useMemo(() => {
-        return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length, form.eventSuburb || undefined);
-    }, [form.selectedServices, form.duration, performers.length, form.eventSuburb]);
+        return calculateBookingCost(Number(form.duration), form.selectedServices, performers.length, form.eventSuburb || undefined, !!form.isAsap);
+    }, [form.selectedServices, form.duration, performers.length, form.eventSuburb, form.isAsap]);
 
     const { formattedTotalDuration } = useMemo(() => getBookingDurationInfo(Number(form.duration), form.selectedServices), [form.duration, form.selectedServices]);
 
@@ -342,8 +370,9 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 if (maxMinDuration > 0 && Number(form.duration) < maxMinDuration) {
                     errors.duration = `Minimum ${maxMinDuration} hour${maxMinDuration > 1 ? 's' : ''} required for ${performers.map(p => p.name).join(' & ')}.`;
                 }
-                // Client-side conflict detection
-                if (form.eventDate && form.eventTime && !errors.eventDate && !errors.eventTime) {
+                // Client-side conflict detection (skipped for ASAP — admin/performer
+                // decide on the fly whether the rush slot is workable)
+                if (!form.isAsap && form.eventDate && form.eventTime && !errors.eventDate && !errors.eventTime) {
                     const conflicting = bookings.filter(b =>
                         b.event_date === form.eventDate &&
                         b.event_time === form.eventTime &&
@@ -353,6 +382,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                     if (conflicting.length > 0) {
                         const names = conflicting.map(b => b.performer?.name || `Performer #${b.performer_id}`).join(', ');
                         errors.eventTime = `Time conflict: ${names} already booked for this date/time.`;
+                    }
+                }
+                // Block ASAP if any selected performer has opted out
+                if (form.isAsap) {
+                    const blocker = performers.find(p => p.accepts_asap === false);
+                    if (blocker) {
+                        errors.eventTime = `${blocker.name} doesn't accept ASAP bookings — toggle ASAP off or pick another performer.`;
                     }
                 }
                 break;
@@ -560,9 +596,66 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                         {currentStep === 2 && (
                             <div className="space-y-6 animate-fade-in">
+                                {(() => {
+                                    const asapBlocker = performers.find(p => p.accepts_asap === false);
+                                    const asapDisabled = !!asapBlocker;
+                                    return (
+                                        <button
+                                            type="button"
+                                            onClick={() => !asapDisabled && handleAsapToggle(!form.isAsap)}
+                                            disabled={asapDisabled}
+                                            className={`w-full text-left p-4 rounded-xl border transition-all flex items-center gap-4 ${form.isAsap
+                                                ? 'bg-pink-500/10 border-pink-500 ring-1 ring-pink-500/40'
+                                                : asapDisabled
+                                                    ? 'bg-zinc-900/40 border-zinc-800 opacity-60 cursor-not-allowed'
+                                                    : 'bg-zinc-900 border-zinc-800 hover:border-pink-500/50'}`}
+                                        >
+                                            <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${form.isAsap ? 'bg-pink-500 text-white' : 'bg-zinc-800 text-pink-400'}`}>
+                                                <Zap className="h-5 w-5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-white flex items-center gap-2">
+                                                    Book ASAP
+                                                    <span className="text-[10px] uppercase tracking-wide bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded">
+                                                        Within {ASAP_LEAD_TIME_MINUTES} min
+                                                    </span>
+                                                </p>
+                                                <p className="text-xs text-zinc-400 mt-0.5">
+                                                    {asapDisabled
+                                                        ? `${asapBlocker?.name} doesn't currently take ASAP bookings — pick another performer or schedule for later.`
+                                                        : form.isAsap
+                                                            ? `Performer arrives by ${form.eventTime} today. A ${Math.round(ASAP_SURCHARGE_PERCENT * 100)}% rush surcharge applies.`
+                                                            : `Need someone now? Toggle on and we'll dispatch a performer within the hour.`}
+                                                </p>
+                                            </div>
+                                            <div className={`h-6 w-11 rounded-full p-0.5 transition ${form.isAsap ? 'bg-pink-500' : 'bg-zinc-700'}`}>
+                                                <div className={`h-5 w-5 rounded-full bg-white transition ${form.isAsap ? 'translate-x-5' : ''}`} />
+                                            </div>
+                                        </button>
+                                    );
+                                })()}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {form.isAsap ? (
+                                        <div className="md:col-span-2 grid grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-medium text-zinc-400 mb-1">Event Date</label>
+                                                <div className="input-base flex items-center !pl-12 relative cursor-not-allowed bg-zinc-900/60">
+                                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-pink-400" />
+                                                    <span className="text-zinc-200">{form.eventDate || todayStr} (today)</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-zinc-400 mb-1">Arrive By</label>
+                                                <div className="input-base flex items-center !pl-12 relative cursor-not-allowed bg-zinc-900/60">
+                                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-pink-400" />
+                                                    <span className="text-zinc-200">{form.eventTime} ({ASAP_LEAD_TIME_MINUTES} min from now)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (<>
                                     <InputField icon={<Calendar />} label="Event Date" type="date" name="eventDate" min={todayStr} value={form.eventDate} onChange={handleChange} required error={fieldErrors.eventDate} />
                                     <InputField icon={<Clock />} label="Start Time" type="time" name="eventTime" value={form.eventTime} onChange={handleChange} required error={fieldErrors.eventTime} />
+                                    </>)}
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-400 mb-1">Duration (Hours)</label>
                                         <div className="relative">
@@ -726,6 +819,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                             durationHours={Number(form.duration)}
                             performers={performers}
                             suburbName={form.eventSuburb || undefined}
+                            isAsap={!!form.isAsap}
                             onClearAll={currentStep === 3 ? handleClearAll : undefined}
                         />
 

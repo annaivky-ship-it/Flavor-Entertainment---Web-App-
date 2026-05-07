@@ -3,8 +3,8 @@ import { calculateBookingCost, formatMinutesToHoursAndMinutes, getBookingDuratio
 
 describe('calculateBookingCost', () => {
   it('returns zero when no services or performers', () => {
-    expect(calculateBookingCost(2, [], 1)).toEqual({ totalCost: 0, depositAmount: 0, travelFee: 0 });
-    expect(calculateBookingCost(2, ['waitress-topless'], 0)).toEqual({ totalCost: 0, depositAmount: 0, travelFee: 0 });
+    expect(calculateBookingCost(2, [], 1)).toEqual({ totalCost: 0, depositAmount: 0, travelFee: 0, asapSurcharge: 0 });
+    expect(calculateBookingCost(2, ['waitress-topless'], 0)).toEqual({ totalCost: 0, depositAmount: 0, travelFee: 0, asapSurcharge: 0 });
   });
 
   it('calculates per-hour service correctly', () => {
@@ -77,6 +77,34 @@ describe('calculateBookingCost', () => {
   it('adds no travel fee for unknown suburb', () => {
     const result = calculateBookingCost(2, ['waitress-topless'], 1, 'Unknown Place');
     expect(result.travelFee).toBe(0);
+  });
+
+  it('does not apply ASAP surcharge when isAsap is false', () => {
+    const result = calculateBookingCost(2, ['waitress-topless'], 1, undefined, false);
+    expect(result.asapSurcharge).toBe(0);
+    expect(result.totalCost).toBe(320);
+  });
+
+  it('applies 20% ASAP surcharge on subtotal when isAsap is true', () => {
+    // waitress-topless: 160 * 2 = 320 subtotal; +20% = 64
+    const result = calculateBookingCost(2, ['waitress-topless'], 1, undefined, true);
+    expect(result.asapSurcharge).toBe(64);
+    expect(result.totalCost).toBe(384);
+    expect(result.depositAmount).toBe(96); // 25% of 384
+  });
+
+  it('ASAP surcharge stacks on top of travel fee', () => {
+    // Mandurah travel = $22; subtotal 320 + 22 = 342; +20% surcharge = 68.4
+    const result = calculateBookingCost(2, ['waitress-topless'], 1, 'Mandurah', true);
+    expect(result.travelFee).toBe(22);
+    expect(result.asapSurcharge).toBeCloseTo(68.4, 5);
+    expect(result.totalCost).toBeCloseTo(410.4, 5);
+  });
+
+  it('returns zero asapSurcharge when no services selected', () => {
+    const result = calculateBookingCost(2, [], 1, undefined, true);
+    expect(result.asapSurcharge).toBe(0);
+    expect(result.totalCost).toBe(0);
   });
 });
 

@@ -268,6 +268,7 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
         id_document_path: formState.id_document_path || null,
         selfie_document_path: formState.selfie_document_path || null,
         eventSuburb: formState.eventSuburb || null,
+        is_asap: !!formState.isAsap,
       };
 
       const bookingData = {

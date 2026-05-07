@@ -24,12 +24,17 @@ export function renderTemplate(key: TemplateKey, data: any): string {
   const payIdDetails = data.payIdDetails || 'our PayID';
   const payIdReference = data.payIdReference || data.id || 'your booking ID';
   const otpCode = data.otpCode || '------';
+  const isAsap = !!(data.isAsap || data.is_asap);
+  const eventTime = data.eventTime || data.event_time;
+  const asapTag = isAsap ? 'ASAP - ' : '';
 
   switch (key) {
     case 'NEW_BOOKING_ADMIN':
-      return `[${business}] New booking request from ${clientName} for ${performerName} on ${eventDate}.`;
+      return `[${business}] ${asapTag}New booking request from ${clientName} for ${performerName} on ${eventDate}.`;
     case 'NEW_BOOKING_PERFORMER':
-      return `[${business}] You have a new booking request on ${eventDate} in ${suburb}. Check your dashboard.`;
+      return isAsap
+        ? `[${business}] URGENT ASAP booking - arrival needed by ${eventTime || 'within 60 minutes'} at ${suburb}. Open dashboard NOW to accept or decline.`
+        : `[${business}] You have a new booking request on ${eventDate} in ${suburb}. Check your dashboard.`;
     case 'RECEIVED_CLIENT':
       return `[${business}] We received your booking request for ${performerName}. We will notify you once approved.${optOut}`;
     case 'APPROVED_PAYID_CLIENT':
