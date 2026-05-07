@@ -593,6 +593,49 @@ export * from './dns';
 // Scheduled Firestore export to GCS
 export * from './backup';
 
+// --- Self-hosted verification system (v2 callables, australia-southeast1) ---
+export {
+  sendSmsOtp,
+  verifySmsOtp,
+  submitLivenessCheck,
+  getCustomerVerificationStatus,
+} from './verification/customer';
+
+export {
+  performerApply,
+  performerRequestIdUploadUrl,
+  performerNotifyIdUploaded,
+  performerSubmitLiveness,
+  performerAddBankAccount,
+  performerInitiatePennyDrop,
+  performerConfirmPennyDrop,
+  performerSubmitPortfolio,
+  performerAcknowledgeSafetyBriefing,
+  performerSignContract,
+  performerFlagCustomer,
+} from './verification/performer';
+
+export {
+  adminGetIdImageReviewUrl,
+  adminReviewId,
+  adminApproveBooking,
+  adminDeclineBooking,
+  adminAddDnsEntry,
+  adminListDnsEntries,
+  adminExpireDnsEntry,
+  adminActivatePerformer,
+} from './admin/queue';
+
+export {
+  onIdReviewDecision,
+  forceDeleteStaleIdUploads,
+  onVerificationRecordCreated,
+  onBookingCompleted,
+  onPerformerActivated,
+} from './triggers/verification';
+
+export { monoovaWebhook as verificationMonoovaWebhook } from './webhooks/monoova';
+
 // --- Safety Verification System ---
 // Self-hosted verification callables are exported from ./verification/* and ./admin/queue
 // (see Phase 2 modules). Webhook endpoints for Twilio inbound + Monoova PayID

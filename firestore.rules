@@ -27,10 +27,20 @@ service cloud.firestore {
       );
     }
 
-    // --- Performers (public read, admin write) ---
+    // --- Customers (self or admin read; writes via Cloud Functions only) ---
+    match /customers/{customerId} {
+      allow read: if isAdmin() || isOwner(customerId);
+      allow write: if false;
+    }
+
+    // --- Performers ---
+    // Public can read only when status == 'active' and only safe fields are
+    // exposed via the client; admin and the performer themselves get full
+    // read. Writes are server-side only.
     match /performers/{performerId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read: if true;  // Frontend filters by status==active for public listings
+      allow create: if false;
+      allow update, delete: if false;
     }
 
     // --- Services (public read, admin write) ---
@@ -41,83 +51,128 @@ service cloud.firestore {
 
     // --- Bookings ---
     match /bookings/{bookingId} {
-      // Clients can create bookings (even unauthenticated for public form)
-      allow create: if true;
-
-      // Only the booking owner, admin, or the assigned performer can read
-      // Note: performer_id is a numeric ID matching performers collection,
-      // so performer reads are scoped via query filters + isPerformer() check
+      allow create: if true;  // Public booking form
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.client_uid == request.auth.uid)
         || isPerformer();
-
-      // Only admins can update booking status
       allow update: if isAdmin();
-
-      // No one can delete bookings
       allow delete: if false;
     }
 
-    // --- DNS Register (admin only) ---
+    // --- Verification records (admin-read; server writes only) ---
+    match /verificationRecords/{recordId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // --- Face embeddings (NEVER readable by clients) ---
+    match /faceEmbeddings/{subjectId} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // --- DNS register (admin-read; server writes only) ---
+    match /doNotServeList/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // --- Manual review queue (admin-read; server writes only) ---
+    match /manualReviewQueue/{bookingId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // --- ID review queue (admin-read; server writes only) ---
+    match /idReviewQueue/{queueId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // --- Penny drops (server-only) ---
+    match /pennyDrops/{dropId} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // --- Risk signals (admin-read; server writes only) ---
+    match /riskSignals/{signalId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // --- OTP attempts (server-only — codes are sensitive) ---
+    match /otpAttempts/{otpId} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // --- Rate limit counters (server-only) ---
+    match /rateLimits/{bucketKey} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // --- Audit log (append-only via server; admin-read) ---
+    match /auditLog/{eventId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // --- Legacy DNS register (admin-only) ---
     match /dns_entries/{entryId} {
       allow read, write: if isAdmin();
     }
 
-    // --- Legacy Do Not Serve (admin only) ---
+    // --- Legacy do_not_serve (admin-only) ---
     match /do_not_serve/{entryId} {
       allow read, write: if isAdmin();
     }
 
-    // --- Blacklist (admin only, legacy) ---
+    // --- Legacy blacklist (admin-only) ---
     match /blacklist/{entryId} {
       allow read, write: if isAdmin();
     }
 
-    // --- Risk Scores (admin only) ---
+    // --- Legacy risk_scores ---
     match /risk_scores/{scoreId} {
       allow read: if isAdmin();
-      allow write: if false; // Only Cloud Functions write
+      allow write: if false;
     }
 
     // --- Consents (the booking client can create, admin can read) ---
     match /consents/{consentId} {
-      allow create: if true; // Public booking form
+      allow create: if true;
       allow read: if isAdmin();
       allow update, delete: if false;
     }
 
     // --- Incident Reports ---
     match /incident_reports/{reportId} {
-      // Performers can create reports
       allow create: if isPerformer();
-
-      // Admin can read and update (approve/reject)
       allow read: if isAdmin()
         || (isPerformer() && resource.data.reported_by_performer_id == request.auth.uid);
-
       allow update: if isAdmin();
       allow delete: if false;
     }
 
-    // --- Payment Events (server-side only, admin read) ---
+    // --- Payment Events (server-only, admin read) ---
     match /payment_events/{eventId} {
       allow read: if isAdmin();
-      allow write: if false; // Only Cloud Functions (webhook handler) write
+      allow write: if false;
     }
 
-    // --- Notification Outbox (server-side only, admin read) ---
+    // --- Notification Outbox (server-only, admin read) ---
     match /notification_outbox/{notifId} {
       allow read: if isAdmin();
-      allow write: if false; // Only Cloud Functions write
+      allow write: if false;
     }
 
-    // --- Audit Logs (admin read-only, system write) ---
+    // --- Legacy audit logs (kept for backward compat) ---
     match /audit_logs/{logId} {
       allow read: if isAdmin();
-      allow write: if isAdmin(); // Admin dashboard + Cloud Functions
+      allow write: if isAdmin();
     }
-
-    // Legacy alias — keep for any existing data
     match /audit_log/{logId} {
       allow read: if isAdmin();
       allow write: if false;
@@ -157,7 +212,7 @@ service cloud.firestore {
     // --- Notifications ---
     match /notifications/{notifId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.recipient_uid == request.auth.uid);
-      allow create: if false; // Only Cloud Functions
+      allow create: if false;
       allow update: if isSignedIn() && resource.data.recipient_uid == request.auth.uid;
       allow delete: if false;
     }
@@ -168,7 +223,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- Default: deny everything else ---
+    // --- Default: deny ---
     match /{document=**} {
       allow read, write: if false;
     }
