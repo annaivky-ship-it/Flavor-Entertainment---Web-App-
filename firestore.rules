@@ -73,12 +73,6 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // --- KYC Sessions (admin only — sensitive data) ---
-    match /kyc_sessions/{sessionId} {
-      allow read: if isAdmin();
-      allow write: if false; // Only Cloud Functions write
-    }
-
     // --- Risk Scores (admin only) ---
     match /risk_scores/{scoreId} {
       allow read: if isAdmin();

@@ -7,10 +7,10 @@ export type TemplateKey =
   | 'CONFIRMED_PERFORMER'
   | 'DECLINED_CLIENT'
   | 'CANCELLED_ALL'
-  | 'KYC_LINK_CLIENT'
-  | 'KYC_PASS_CLIENT'
-  | 'KYC_FAIL_CLIENT'
-  | 'KYC_FLAGGED_ADMIN';
+  | 'OTP_CLIENT'
+  | 'VERIFICATION_PENDING_CLIENT'
+  | 'MANUAL_REVIEW_ADMIN'
+  | 'PERFORMER_FLAGGED_ADMIN';
 
 export function renderTemplate(key: TemplateKey, data: any): string {
   const optOut = " Reply STOP to opt out.";
@@ -23,6 +23,7 @@ export function renderTemplate(key: TemplateKey, data: any): string {
   const depositAmount = data.depositAmount || 'required amount';
   const payIdDetails = data.payIdDetails || 'our PayID';
   const payIdReference = data.payIdReference || data.id || 'your booking ID';
+  const otpCode = data.otpCode || '------';
 
   switch (key) {
     case 'NEW_BOOKING_ADMIN':
@@ -41,14 +42,14 @@ export function renderTemplate(key: TemplateKey, data: any): string {
       return `[${business}] Unfortunately, your booking request for ${performerName} could not be fulfilled at this time.${optOut}`;
     case 'CANCELLED_ALL':
       return `[${business}] The booking on ${eventDate} has been cancelled.`;
-    case 'KYC_LINK_CLIENT':
-      return `[${business}] To complete your booking, please verify your identity. Click here to start: ${data.verificationUrl || 'Check your email for the link.'} This step helps keep everyone safe.${optOut}`;
-    case 'KYC_PASS_CLIENT':
-      return `[${business}] Your identity has been verified successfully! Your booking for ${performerName} on ${eventDate} is now CONFIRMED. Thank you!${optOut}`;
-    case 'KYC_FAIL_CLIENT':
-      return `[${business}] Unfortunately, we were unable to verify your identity. Your deposit will be refunded. If you believe this is an error, please contact us.${optOut}`;
-    case 'KYC_FLAGGED_ADMIN':
-      return `[${business}] ⚠️ KYC flagged for booking ${data.id || data.booking_id || 'unknown'}. Client ${clientName} has AML flags. Manual review required.`;
+    case 'OTP_CLIENT':
+      return `[${business}] Your verification code is ${otpCode}. It expires in 10 minutes. Do not share this code.`;
+    case 'VERIFICATION_PENDING_CLIENT':
+      return `[${business}] Your booking is pending a quick verification step. Please check the booking page to continue.${optOut}`;
+    case 'MANUAL_REVIEW_ADMIN':
+      return `[${business}] ⚠️ Booking ${payIdReference} requires manual review. Reasons: ${data.reasons || 'see queue'}.`;
+    case 'PERFORMER_FLAGGED_ADMIN':
+      return `[${business}] ⚠️ Performer flagged a customer on booking ${payIdReference}. Reason: ${data.reason || 'see flag'}.`;
     default:
       return `[${business}] Notification regarding your booking.`;
   }

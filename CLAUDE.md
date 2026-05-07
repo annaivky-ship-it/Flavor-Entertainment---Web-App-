@@ -1,7 +1,7 @@
 # Flavor Entertainers — Web App
 
 ## Project Overview
-Premium entertainment booking platform for Western Australia (Perth). Clients browse performer profiles, select services, book and pay deposits via PayID. Includes admin dashboard, performer dashboard, KYC identity verification (Didit), SMS/WhatsApp notifications (Twilio + ClickSend), and Do Not Serve list.
+Premium entertainment booking platform for Western Australia (Perth). Clients browse performer profiles, select services, book and pay deposits via PayID. Includes admin dashboard, performer dashboard, self-hosted age/identity verification (SMS OTP + on-device liveness + PayID-as-signal), SMS/WhatsApp notifications (Twilio + ClickSend), and Do Not Serve list.
 
 **Live site:** flavorentertainers.com
 **Firebase Project ID:** studio-4495412314-3b1ce
@@ -12,7 +12,7 @@ Premium entertainment booking platform for Western Australia (Perth). Clients br
 - **Backend:** Firebase Cloud Functions (Node 20), Firestore, Firebase Auth, Cloud Storage
 - **Hosting:** Vercel (frontend) + Firebase Hosting (dual: production + demo)
 - **Messaging:** Twilio (SMS + WhatsApp) + ClickSend (primary SMS)
-- **KYC:** Didit identity verification (document + face match + AML)
+- **Verification:** Self-hosted (Twilio SMS OTP, face-api.js liveness, Monoova PayID-as-signal). No government IDs collected.
 - **Payments:** PayID (manual transfer simulation)
 - **Testing:** Vitest + Testing Library
 
@@ -43,7 +43,7 @@ cd functions && npm test # Run backend tests
 │   ├── ClientDashboard.tsx    # Client: track bookings
 │   ├── EntertainerProfile.tsx # Public performer profile + services
 │   ├── EntertainerCard.tsx    # Performer grid card
-│   ├── DiditVerification.tsx  # KYC verification UI
+│   ├── verification/          # Self-hosted verification UI (SMS OTP, liveness)
 │   ├── Header.tsx / Footer.tsx
 │   ├── AgeGate.tsx            # 18+ age verification gate
 │   └── ...
@@ -58,7 +58,11 @@ cd functions && npm test # Run backend tests
 ├── functions/src/
 │   ├── index.ts               # All Cloud Functions exports
 │   ├── twilio.ts              # Twilio client, SMS, WhatsApp, webhook verify
-│   ├── didit.ts               # Didit KYC sessions, webhook processing
+│   ├── verification/          # Self-hosted verification callables (customer + performer)
+│   ├── admin/                 # Admin review queue + ID review callables
+│   ├── triggers/              # Firestore triggers (cleanup, auto-promote trust)
+│   ├── webhooks/              # External webhook handlers (Monoova PayID)
+│   ├── integrations/          # Twilio + Monoova wrapper modules
 │   ├── messaging/
 │   │   ├── send.ts            # Multi-provider message dispatcher
 │   │   ├── providers/twilio.ts
@@ -77,7 +81,7 @@ cd functions && npm test # Run backend tests
 1. Client fills 4-step form: Personal Details → Event Details → Services → Identity & Safety
 2. Status flow: `pending_performer_acceptance` → `pending_vetting` → `deposit_pending` → `pending_deposit_confirmation` → `confirmed`
 3. Deposit is 25% of total cost (non-refundable)
-4. KYC via Didit (document + face match + AML screening)
+4. Verification: SMS OTP for all new customers; on-device liveness for premium tier; PayID name match acts as a third signal. Trusted (5+ successful bookings within 12 months) skip verification entirely.
 
 ### Pricing
 - **Hourly services** (Waitressing): Lingerie $110/hr, Topless $160/hr, Nude $260/hr
@@ -88,9 +92,10 @@ cd functions && npm test # Run backend tests
 
 ### Webhook Endpoints (Firebase Cloud Functions)
 ```
-Twilio:  https://us-central1-studio-4495412314-3b1ce.cloudfunctions.net/twilioInboundWebhook
-Didit:   https://us-central1-studio-4495412314-3b1ce.cloudfunctions.net/diditKycWebhook
+Twilio:   https://us-central1-studio-4495412314-3b1ce.cloudfunctions.net/twilioInboundWebhook
+Monoova:  https://us-central1-studio-4495412314-3b1ce.cloudfunctions.net/monoovaWebhook
 ```
+(Phase 2 introduces `australia-southeast1` deployments — see `docs/deployment-checklist.md`.)
 
 ## Environment Variables
 
@@ -109,15 +114,15 @@ VITE_PAY_ID_EMAIL=<PayID email>
 
 ### Backend (Firebase Functions secrets)
 ```
-TWILIO_SID / TWILIO_ACCOUNT_SID
-TWILIO_TOKEN / TWILIO_AUTH_TOKEN
-TWILIO_SMS_FROM / TWILIO_FROM_NUMBER
+TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN
+TWILIO_PHONE_NUMBER
 TWILIO_WHATSAPP_FROM
-DIDIT_API_KEY
-DIDIT_WORKFLOW_ID
-DIDIT_WEBHOOK_SECRET
-DIDIT_API_BASE (default: https://verification.didit.me)
-DIDIT_APP_URL (default: https://flavorentertainers.com)
+MONOOVA_API_KEY
+MONOOVA_API_BASE
+MONOOVA_WEBHOOK_SECRET
+HASH_SECRET                  # 32-byte hex pepper for PII / DNS hashing
+DNS_HASH_PEPPER              # legacy alias still read by dns/index.ts
 ```
 
 ## Commands Reference

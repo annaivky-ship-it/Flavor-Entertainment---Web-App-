@@ -4,8 +4,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 const getDb = () => getFirestore('default');
 
 /**
- * Record client consent for identity verification.
- * Must be called before KYC session creation.
+ * Record client consent for the booking and verification process.
+ * Must be called before SMS OTP / liveness flow begins.
  */
 export async function recordConsent(params: {
     bookingId: string;
@@ -28,7 +28,6 @@ export async function recordConsent(params: {
         revoked: false,
     });
 
-    // Update booking with consent reference
     await getDb().collection('bookings').doc(params.bookingId).update({
         consent_id: consentRef.id,
         consent_timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -42,10 +41,7 @@ export async function recordConsent(params: {
         actor_role: 'client',
         action: 'CONSENT_RECORDED',
         booking_id: params.bookingId,
-        details: {
-            consent_id: consentRef.id,
-            ip_address: params.ipAddress,
-        },
+        details: { consent_id: consentRef.id, ip_address: params.ipAddress },
     });
 
     return consentRef.id;
@@ -53,11 +49,11 @@ export async function recordConsent(params: {
 
 export const CONSENT_TEXT = `By proceeding, I consent to the following:
 
-1. My government-issued ID will be verified through a secure third-party identity verification service.
-2. A liveness check may be performed to confirm my identity.
-3. My details will be checked against internal safety databases.
-4. This verification is required before any booking can be confirmed.
-5. My verification results will be stored securely and used solely for safety purposes.
-6. I understand that failing verification will result in my booking being declined.
+1. My phone number will be verified by SMS one-time-password.
+2. For higher-tier bookings, I may be asked to complete an on-device liveness check (a brief blink-and-look-at-camera flow). No image of me is uploaded, transmitted, or stored — only a short numeric verification record.
+3. My deposit payment via PayID will be verified to confirm the account name matches my booking name.
+4. My phone, email, and (if applicable) liveness verification record will be checked against an internal safety register.
+5. Verification results are retained for safety and audit purposes only and are never shared with third parties.
+6. I confirm I am 18 years of age or older.
 
 This process protects the safety of all parties involved.`;

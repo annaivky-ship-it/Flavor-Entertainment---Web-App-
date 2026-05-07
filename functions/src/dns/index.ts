@@ -2,7 +2,6 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
-import { createKycSession } from '../didit';
 
 const getDb = () => getFirestore('default');
 const fns = functions as any;
@@ -60,7 +59,7 @@ export async function dnsLookup(emailHash: string, phoneHash: string): Promise<b
 export async function hasPreviousSuccessfulBooking(emailHash: string, phoneHash: string): Promise<boolean> {
   const emailQuery = await getDb().collection('bookings')
     .where('client_email_hash', '==', emailHash)
-    .where('kyc_status', 'in', ['PASS', 'BYPASSED'])
+    .where('status', 'in', ['CONFIRMED', 'confirmed', 'completed'])
     .limit(1)
     .get();
 
@@ -68,7 +67,7 @@ export async function hasPreviousSuccessfulBooking(emailHash: string, phoneHash:
 
   const phoneQuery = await getDb().collection('bookings')
     .where('client_phone_hash', '==', phoneHash)
-    .where('kyc_status', 'in', ['PASS', 'BYPASSED'])
+    .where('status', 'in', ['CONFIRMED', 'confirmed', 'completed'])
     .limit(1)
     .get();
 
@@ -78,7 +77,7 @@ export async function hasPreviousSuccessfulBooking(emailHash: string, phoneHash:
 // --- Cloud Functions ---
 
 export const createBookingAndScreenDns = fns.https.onCall(async (data: any, context: any) => {
-  const { client_email, client_phone, client_name, amount_deposit, amount_kyc_fee } = data;
+  const { client_email, client_phone, client_name, amount_deposit } = data;
 
   if (!client_email || !client_phone || !client_name) {
     throw new fns.https.HttpsError('invalid-argument', 'Missing required client details.');
@@ -93,7 +92,6 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
   const payid_reference = `BK-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
   if (isBlocked) {
-    const amount_total_due = amount_deposit + amount_kyc_fee;
     const bookingData: any = {
       client_name,
       client_email,
@@ -102,13 +100,12 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
       client_phone_hash: phoneHash,
       payid_reference,
       amount_deposit,
-      amount_kyc_fee,
-      amount_total_due,
+      amount_total_due: amount_deposit,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       dns_status: 'DENIED_DNS',
       status: 'DENIED',
-      payment_status: 'AWAITING_PAYMENT', // Never shown
-      kyc_status: 'NOT_STARTED'
+      payment_status: 'AWAITING_PAYMENT',
+      verification_status: 'denied'
     };
 
     await bookingRef.set(bookingData);
@@ -128,18 +125,14 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
       { reason: 'DNS_HIT' }
     );
 
+    // Silent fail: do not reveal a DNS match to the client.
     return {
       success: false,
       message: 'We can’t proceed with this booking.'
     };
   }
 
-  // Not blocked, check if previous booker
   const isPreviousBooker = await hasPreviousSuccessfulBooking(emailHash, phoneHash);
-
-  const final_amount_kyc_fee = isPreviousBooker ? 0 : amount_kyc_fee;
-  const final_kyc_status = isPreviousBooker ? 'BYPASSED' : 'NOT_STARTED';
-  const amount_total_due = amount_deposit + final_amount_kyc_fee;
 
   const bookingData: any = {
     client_name,
@@ -149,13 +142,12 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
     client_phone_hash: phoneHash,
     payid_reference,
     amount_deposit,
-    amount_kyc_fee: final_amount_kyc_fee,
-    amount_total_due,
+    amount_total_due: amount_deposit,
     created_at: admin.firestore.FieldValue.serverTimestamp(),
     dns_status: 'CLEAR',
     status: 'PENDING',
     payment_status: 'AWAITING_PAYMENT',
-    kyc_status: final_kyc_status
+    verification_status: isPreviousBooker ? 'cleared' : 'pending'
   };
 
   await bookingRef.set(bookingData);
@@ -173,7 +165,7 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
     bookingId: bookingRef.id,
     paymentInstructions: {
       payid_identifier: 'payments@flavrentertainers.com.au',
-      amount_total_due,
+      amount_total_due: amount_deposit,
       payid_reference
     }
   };
@@ -184,7 +176,6 @@ export const confirmPayidPayment = fns.https.onCall(async (data: any, context: a
     throw new fns.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
 
-  // Verify Admin
   const adminDoc = await getDb().collection('admins').doc(context.auth.uid).get();
   if (!adminDoc.exists && context.auth.token.admin !== true) {
     throw new fns.https.HttpsError('permission-denied', 'Admin access required');
@@ -193,99 +184,19 @@ export const confirmPayidPayment = fns.https.onCall(async (data: any, context: a
   const { bookingId } = data;
   const bookingRef = getDb().collection('bookings').doc(bookingId);
 
-  let shouldSkipKyc = false;
-
   await getDb().runTransaction(async (t: FirebaseFirestore.Transaction) => {
     const doc = await t.get(bookingRef);
     if (!doc.exists) throw new fns.https.HttpsError('not-found', 'Booking not found');
 
-    const bookingData = doc.data()!;
-    shouldSkipKyc = bookingData.kyc_status === 'BYPASSED';
-
     t.update(bookingRef, {
       payment_status: 'PAID',
-      status: shouldSkipKyc ? 'CONFIRMED' : 'DEPOSIT_PAID'
+      status: 'CONFIRMED'
     });
   });
 
   await writeAuditLog(context.auth.uid, 'admin', 'PAYMENT_CONFIRMED', bookingId);
 
-  if (shouldSkipKyc) {
-    await writeAuditLog('system', 'system', 'KYC_BYPASSED', bookingId);
-    return { success: true, kyc_required: false };
-  } else {
-    // Trigger Didit KYC session
-    try {
-      const session = await createKycSession(bookingId);
-      await writeAuditLog('system', 'system', 'KYC_STARTED', bookingId, {
-        provider: 'didit',
-        session_id: session?.session_id || null
-      });
-      return {
-        success: true,
-        kyc_required: true,
-        verification_url: session?.verification_url || null
-      };
-    } catch (error: any) {
-      console.error('KYC session creation failed:', error);
-      await writeAuditLog('system', 'system', 'KYC_SESSION_ERROR', bookingId, {
-        error: error.message
-      });
-      return {
-        success: true,
-        kyc_required: true,
-        kyc_error: 'Failed to create verification session. Admin will follow up.'
-      };
-    }
-  }
-});
-
-export const handleKycWebhookOrResult = fns.https.onCall(async (data: any, context: any) => {
-  // In reality, this might be an HTTP webhook from a KYC provider
-  // For this example, we'll assume it's an admin or system call
-  if (!context.auth) {
-    throw new fns.https.HttpsError('unauthenticated', 'Must be authenticated');
-  }
-
-  const { bookingId, kycResult, providerRef } = data; // kycResult: 'PASS' | 'FAIL'
-
-  const bookingRef = getDb().collection('bookings').doc(bookingId);
-  const doc = await bookingRef.get();
-
-  if (!doc.exists) throw new fns.https.HttpsError('not-found', 'Booking not found');
-  const booking = doc.data()!;
-
-  const updateData: any = {
-    kyc_status: kycResult,
-    kyc_provider_ref: providerRef || null
-  };
-
-  if (kycResult === 'PASS') {
-    // Re-run DNS check
-    const isBlocked = await dnsLookup(booking.client_email_hash, booking.client_phone_hash);
-
-    if (isBlocked) {
-      updateData.dns_status = 'DENIED_DNS_AFTER_KYC';
-      updateData.status = 'DENIED';
-      updateData.refundable_amount = booking.amount_deposit;
-      updateData.non_refundable_amount = booking.amount_kyc_fee;
-
-      await writeAuditLog('system', 'system', 'DNS_HIT', bookingId, { reason: 'Matched active DNS entry during post-KYC screening' });
-      await writeAuditLog('system', 'system', 'BOOKING_DENIED', bookingId, { reason: 'DENIED_DNS_AFTER_KYC' });
-    } else {
-      updateData.dns_status = 'CLEAR';
-      updateData.status = 'CONFIRMED';
-    }
-  } else {
-    updateData.status = 'DENIED';
-    updateData.refundable_amount = booking.amount_deposit;
-    updateData.non_refundable_amount = booking.amount_kyc_fee;
-  }
-
-  await bookingRef.update(updateData);
-  await writeAuditLog('system', 'system', 'KYC_RESULT', bookingId, { result: kycResult });
-
-  return { success: true, status: updateData.status };
+  return { success: true };
 });
 
 /**
@@ -297,7 +208,6 @@ export const runDnsMigration = fns.https.onCall(async (data: any, context: any) 
     throw new fns.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
 
-  // Verify Admin
   const adminDoc = await getDb().collection('admins').doc(context.auth.uid).get();
   if (!adminDoc.exists && context.auth.token.admin !== true) {
     throw new fns.https.HttpsError('permission-denied', 'Admin access required');
@@ -317,12 +227,10 @@ export const runDnsMigration = fns.https.onCall(async (data: any, context: any) 
     const entry = doc.data();
     const updates: any = {};
 
-    // 1. Convert status 'approved' -> 'ACTIVE'
     if (entry.status === 'approved') {
       updates.status = 'ACTIVE';
     }
 
-    // 2. Backfill hashes and match_keys
     if (!entry.match_keys || !entry.client_email_hash) {
       const email = entry.client_email || '';
       const phone = entry.client_phone || '';
@@ -353,4 +261,3 @@ export const runDnsMigration = fns.https.onCall(async (data: any, context: any) 
 
   return { success: true, updated_count: count };
 });
-

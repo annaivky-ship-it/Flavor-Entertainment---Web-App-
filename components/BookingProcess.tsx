@@ -10,7 +10,6 @@ import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
 import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation, LogIn, Search } from 'lucide-react';
 import { api } from '../services/api';
-import DiditVerification from './DiditVerification';
 import { perthSuburbs } from '../data/suburbs';
 
 export interface BookingFormState {
@@ -45,7 +44,7 @@ interface BookingProcessProps {
     initialSelectedServices?: string[];
 }
 
-type BookingStage = 'form' | 'kyc_verifying' | 'performer_acceptance_pending' | 'vetting_pending' | 'deposit_pending' | 'deposit_confirmation_pending' | 'confirmed' | 'rejected';
+type BookingStage = 'form' | 'verification_pending' | 'performer_acceptance_pending' | 'vetting_pending' | 'deposit_pending' | 'deposit_confirmation_pending' | 'confirmed' | 'rejected';
 
 
 const eventTypes = ['Bucks Party', 'Birthday Party', 'Corporate Event', 'Hens Party', 'Private Gathering', 'Other'];
@@ -165,7 +164,6 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [agreedTerms, setAgreedTerms] = useState(false);
     const [isVerifiedBooker, setIsVerifiedBooker] = useState(false);
     const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
-    const [kycVerificationUrl, setKycVerificationUrl] = useState<string | null>(null);
     const [isPayIdModalOpen, setIsPayIdModalOpen] = useState(false);
     const [suburbSearch, setSuburbSearch] = useState('');
     const [isSuburbOpen, setIsSuburbOpen] = useState(false);
@@ -432,17 +430,10 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 setBookingIds(result.bookingIds);
                 clearDraft();
 
-                if (!isVerifiedBooker) {
-                    const diditRes = await api.initializeDiditSession(result.bookingIds[0]);
-                    if (diditRes.verificationUrl) {
-                        setKycVerificationUrl(diditRes.verificationUrl);
-                        setStage('kyc_verifying');
-                        setIsSubmitting(false);
-                        return;
-                    } else {
-                        throw new Error(diditRes.error?.message || "Failed to connect to identity verification.");
-                    }
-                }
+                // Move into the new self-hosted verification flow.
+                // Trusted/repeat bookers skip directly to performer acceptance.
+                setStage(isVerifiedBooker ? 'performer_acceptance_pending' : 'verification_pending');
+                onBookingSubmitted?.();
             } else {
                 setError(result.message);
             }
@@ -469,23 +460,20 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         }
     };
 
-    if (stage === 'kyc_verifying' && kycVerificationUrl && bookingIds.length > 0) {
+    if (stage === 'verification_pending') {
         return (
-            <DiditVerification
-                verificationUrl={kycVerificationUrl}
-                bookingId={bookingIds[0]}
-                clientName={form.fullName}
-                onSuccess={() => {
-                    setKycVerificationUrl(null);
-                    setStage('performer_acceptance_pending');
-                    onBookingSubmitted?.();
-                }}
-                onCancel={() => {
-                    setKycVerificationUrl(null);
-                    setStage('performer_acceptance_pending');
-                    onBookingSubmitted?.();
-                }}
-            />
+            <StatusScreen
+                icon={Shield}
+                title="Quick Verification Step"
+                bgColor="bg-blue-900/10"
+                buttonText="Continue"
+                onButtonClick={onBookingSubmitted}
+            >
+                We sent a one-time SMS code to your phone to confirm it's really you.
+                Higher-tier bookings may also include an on-device liveness check (no
+                images are uploaded). Once verified, your booking moves to performer
+                acceptance.
+            </StatusScreen>
         );
     }
 
@@ -684,14 +672,14 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                         <div className="p-4 bg-blue-950/40 border border-blue-500/50 rounded-xl flex items-start gap-4">
                                             <Shield className="h-6 w-6 text-blue-400 mt-1 flex-shrink-0" />
                                             <div>
-                                                <h4 className="font-bold text-blue-300">Identity Verification Required</h4>
+                                                <h4 className="font-bold text-blue-300">Quick Verification</h4>
                                                 <p className="text-sm text-blue-200/80 leading-relaxed mt-1 mb-3">
-                                                    After submitting, you'll complete a quick identity check (photo ID + selfie). This takes about 2 minutes.
+                                                    After submitting, we'll send a one-time SMS code to your phone. Higher-tier bookings include a brief on-device liveness check (a quick blink-and-look at your camera). Takes about 60 seconds.
                                                 </p>
                                                 <div className="space-y-1.5 text-xs text-blue-200/60">
-                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Your data is encrypted and handled by Didit (our verification partner)</p>
-                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> If the verification window closes, you can resume from your bookings page</p>
-                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Returning clients with a verified booking skip this step automatically</p>
+                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> No government ID is uploaded or stored at any point</p>
+                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Liveness frames stay on your device — only a numeric verification record is saved</p>
+                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Returning clients with verified history skip these steps automatically</p>
                                                 </div>
                                             </div>
                                         </div>

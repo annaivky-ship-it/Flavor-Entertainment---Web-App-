@@ -125,12 +125,10 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Check if returning from Didit KYC webhook/redirect
-    const currentPath = window.location.pathname;
+    // Strip any legacy `?bookingId=...` redirect query string so it doesn't
+    // pollute the URL on first load.
     const searchParams = new URLSearchParams(window.location.search);
-    const hasBookingId = searchParams.get('bookingId');
-    if (currentPath.includes('kyc-complete') || hasBookingId) {
-       addNotification('Identity Verification submitted! We are processing your booking.', 'success');
+    if (searchParams.get('bookingId')) {
        window.history.replaceState({}, '', '/');
     }
   }, [addNotification]);

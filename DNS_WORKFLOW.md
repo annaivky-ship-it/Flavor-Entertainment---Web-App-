@@ -35,10 +35,9 @@ This document outlines the implementation of the "Do Not Serve (DNS)" workflow f
   "client_phone_hash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
   "payid_reference": "BK-A1B2C3",
   "amount_deposit": 50.00,
-  "amount_kyc_fee": 10.00,
-  "amount_total_due": 60.00,
+  "amount_total_due": 50.00,
   "payment_status": "AWAITING_PAYMENT",
-  "kyc_status": "NOT_STARTED",
+  "verification_status": "denied",
   "dns_status": "DENIED_DNS",
   "status": "DENIED",
   "created_at": "2026-02-25T21:06:48.000Z"
@@ -65,7 +64,6 @@ This document outlines the implementation of the "Do Not Serve (DNS)" workflow f
 The Cloud Functions are implemented in `functions/src/dns/index.ts`. They include:
 - `createBookingAndScreenDns()`
 - `confirmPayidPayment()`
-- `handleKycWebhookOrResult()`
 - `dnsLookup()`
 
 ## 3. Firestore Security Rules

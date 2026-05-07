@@ -98,15 +98,9 @@ vi.mock('@google/genai', () => ({
   Type: { OBJECT: 'OBJECT', STRING: 'STRING', ARRAY: 'ARRAY' },
 }));
 
-vi.mock('../didit', () => ({
-  createKycSession: vi.fn().mockResolvedValue(null),
-  processKycResult: vi.fn().mockResolvedValue({}),
-  verifyWebhookSignature: vi.fn().mockReturnValue(true),
-}));
-
 vi.mock('../risk/scoring', () => ({
   calculateRiskScore: vi.fn().mockResolvedValue({ score: 0, level: 'LOW', decision: 'APPROVE', reasons: [] }),
-  shouldSkipKyc: vi.fn().mockReturnValue(false),
+  isTrustedCustomer: vi.fn().mockResolvedValue({ trusted: false, reason: 'new' }),
 }));
 
 vi.mock('../incidents/reporting', () => ({

@@ -6,8 +6,7 @@ import { sendMessage } from './messaging/send';
 import { renderTemplate } from './messaging/templates';
 import { checkAndSetIdempotency } from './utils/idempotency';
 import { GoogleGenAI, Type } from "@google/genai";
-import { createKycSession, processKycResult, verifyWebhookSignature } from './didit';
-import { calculateRiskScore, shouldSkipKyc } from './risk/scoring';
+import { calculateRiskScore } from './risk/scoring';
 import { createIncidentReport, approveIncidentReport, rejectIncidentReport } from './incidents/reporting';
 import { recordConsent, CONSENT_TEXT } from './consent';
 import { dnsLookup, normalizeEmail, normalizePhoneToE164, sha256 } from './dns';
@@ -316,24 +315,6 @@ export const createBookingRequest = fns.https.onCall(async (request: any) => {
   });
 });
 
-export const initializeDiditSession = fns.https.onCall(async (data: { bookingId: string }, context: any) => {
-  const { bookingId } = data;
-  if (!bookingId) {
-    throw new fns.https.HttpsError('invalid-argument', 'Booking ID is required.');
-  }
-
-  try {
-    const session = await createKycSession(bookingId);
-    if (!session) {
-      throw new Error('Could not create KYC session (Didit missing or disabled).');
-    }
-    return { success: true, url: session.verification_url, sessionId: session.session_id };
-  } catch (error: any) {
-    throw new fns.https.HttpsError('internal', error.message || 'Error occurred initializing KYC.');
-  }
-});
-
-
 export const notificationsWorker = fns.firestore
   .document('notificationsQueue/{id}')
   .onCreate(async (snapshot: any) => {
@@ -390,14 +371,18 @@ export const onBookingCreated = fns.firestore
 
       const riskResult = await calculateRiskScore({
         bookingId,
+        customerId: data.customerId,
         clientEmail,
         clientPhone,
         clientEmailHash: emailHash,
         clientPhoneHash: phoneHash,
         ipAddress: data.client_ip || null,
         deviceFingerprint: data.device_fingerprint || null,
-        kycStatus: data.kyc_status || 'NOT_STARTED',
-        kycConfidence: data.kyc_confidence || null,
+        verificationStatus: data.verification_status || 'pending',
+        smsOtpVerified: !!data.smsOtpVerified,
+        livenessVerified: !!data.livenessVerified,
+        payIdMatched: !!data.payIdMatched,
+        trustTier: data.trustTier,
       });
 
       await snap.ref.update({
@@ -608,112 +593,10 @@ export * from './dns';
 // Scheduled Firestore export to GCS
 export * from './backup';
 
-// --- Didit KYC Endpoints ---
-
-/**
- * Webhook endpoint for Didit KYC verification results.
- * Didit sends POST requests here when verification status changes.
- */
-export const diditKycWebhook = fns.https.onRequest(async (req: any, res: any) => {
-  if (req.method !== 'POST') {
-    res.status(405).send('Method not allowed');
-    return;
-  }
-
-  // Verify webhook signature
-  const signature = req.headers['x-signature'] || '';
-  const timestamp = req.headers['x-timestamp'] || '';
-  const rawBody = JSON.stringify(req.body);
-
-  if (!verifyWebhookSignature(rawBody, signature, timestamp)) {
-    console.error('Invalid Didit webhook signature');
-    res.status(403).send('Invalid signature');
-    return;
-  }
-
-  try {
-    const webhookData = req.body;
-    const eventType = webhookData.event || 'status.updated';
-
-    if (eventType === 'status.updated' &&
-      (webhookData.status === 'Approved' || webhookData.status === 'Declined')) {
-
-      const sessionId = webhookData.session_id || webhookData.sessionId || '';
-      if (sessionId) {
-        const idempotencyKey = `kyc_webhook_${sessionId}_${webhookData.status}`;
-        if (!(await checkAndSetIdempotency(idempotencyKey))) {
-          console.log(`Didit webhook already processed: ${idempotencyKey}`);
-          res.status(200).json({ received: true, result: 'already_processed' });
-          return;
-        }
-      }
-
-      const result = await processKycResult(webhookData);
-      console.log(`KYC ${result.kycResult} for booking ${result.bookingId} → ${result.newStatus}`);
-
-      // Send notification to client
-      const bookingDoc = await db.collection('bookings').doc(result.bookingId).get();
-      const booking = bookingDoc.data();
-      const clientPhone = booking?.clientPhone || booking?.phone || booking?.client_phone;
-
-      if (clientPhone) {
-        if (result.kycResult === 'PASS' && result.newStatus === 'CONFIRMED') {
-          await sendMessage({
-            bookingId: result.bookingId,
-            templateKey: 'CONFIRMED_CLIENT',
-            to: clientPhone,
-            body: renderTemplate('CONFIRMED_CLIENT', booking)
-          });
-        } else if (result.kycResult === 'FAIL') {
-          await sendMessage({
-            bookingId: result.bookingId,
-            templateKey: 'DECLINED_CLIENT',
-            to: clientPhone,
-            body: renderTemplate('DECLINED_CLIENT', booking)
-          });
-        }
-      }
-    }
-
-    res.status(200).json({ received: true });
-  } catch (error: any) {
-    console.error('Error processing Didit webhook:', error);
-    res.status(500).json({ error: 'Internal error processing webhook' });
-  }
-});
-
-/**
- * Admin-triggered KYC session creation.
- * Use when auto-creation fails or admin wants to manually trigger KYC.
- */
-export const adminTriggerKyc = fns.https.onCall(async (data: any, context: any) => {
-  if (!context.auth) {
-    throw new fns.https.HttpsError('unauthenticated', 'Must be authenticated');
-  }
-
-  const adminDoc = await db.collection('admins').doc(context.auth.uid).get();
-  if (!adminDoc.exists && context.auth.token.admin !== true) {
-    throw new fns.https.HttpsError('permission-denied', 'Admin access required');
-  }
-
-  const { bookingId } = data;
-  if (!bookingId) {
-    throw new fns.https.HttpsError('invalid-argument', 'bookingId is required');
-  }
-
-  try {
-    const session = await createKycSession(bookingId);
-    return {
-      success: true,
-      verification_url: session?.verification_url || null,
-      session_id: session?.session_id || null
-    };
-  } catch (error: any) {
-    throw new fns.https.HttpsError('internal', `Failed to create KYC session: ${error.message}`);
-  }
-});
-
 // --- Safety Verification System ---
+// Self-hosted verification callables are exported from ./verification/* and ./admin/queue
+// (see Phase 2 modules). Webhook endpoints for Twilio inbound + Monoova PayID
+// are defined elsewhere in this file and in ./webhooks/monoova.
 
 /**
  * Step 2: Record client consent before identity verification.
@@ -785,7 +668,7 @@ export const submitIncidentReport = fns.https.onCall(async (data: any, context: 
   for (const num of adminNumbers) {
     await sendMessage({
       bookingId: booking_id || 'incident',
-      templateKey: 'KYC_FLAGGED_ADMIN' as any,
+      templateKey: 'PERFORMER_FLAGGED_ADMIN',
       to: num,
       body: `[Flavor Entertainers] ⚠️ New incident report: ${client_name} (${risk_level}). "${incident_description.substring(0, 80)}..." Review in admin dashboard.`,
     });
@@ -847,14 +730,18 @@ export const assessBookingRisk = fns.https.onCall(async (data: any, context: any
 
   const assessment = await calculateRiskScore({
     bookingId,
+    customerId: booking.customerId,
     clientEmail: booking.client_email || booking.email,
     clientPhone: booking.client_phone || booking.phone,
     clientEmailHash: booking.client_email_hash || '',
     clientPhoneHash: booking.client_phone_hash || '',
     ipAddress: booking.client_ip,
     deviceFingerprint: booking.device_fingerprint,
-    kycStatus: booking.kyc_status,
-    kycConfidence: booking.kyc_confidence,
+    verificationStatus: booking.verification_status || 'pending',
+    smsOtpVerified: !!booking.smsOtpVerified,
+    livenessVerified: !!booking.livenessVerified,
+    payIdMatched: !!booking.payIdMatched,
+    trustTier: booking.trustTier,
   });
 
   // Apply decision to booking
@@ -863,8 +750,7 @@ export const assessBookingRisk = fns.https.onCall(async (data: any, context: any
       risk_score: assessment.score,
       risk_level: assessment.level,
       risk_decision: assessment.decision,
-      status: booking.kyc_status === 'PASS' || booking.kyc_status === 'BYPASSED'
-        ? 'CONFIRMED' : booking.status,
+      status: booking.verification_status === 'cleared' ? 'CONFIRMED' : booking.status,
     });
   } else if (assessment.decision === 'MANUAL_REVIEW') {
     await db.collection('bookings').doc(bookingId).update({
