@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="The Private Book monogram">
+  <rect width="200" height="200" fill="#000000"/>
+  <circle cx="100" cy="100" r="78" fill="none" stroke="#FF0080" stroke-width="2"/>
+  <text x="100" y="118" text-anchor="middle" font-family="Jost, system-ui, sans-serif" font-weight="500" font-size="68" fill="#FFFFFF" letter-spacing="2">PB</text>
+</svg>
