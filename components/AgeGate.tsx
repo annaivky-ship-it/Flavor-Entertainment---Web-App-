@@ -98,12 +98,9 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full text-white shadow-2xl shadow-black/50 animate-fade-in ring-1 ring-white/10">
         <div className="text-center mb-6 sm:mb-8">
             <div className="flex flex-col items-center cursor-pointer no-underline group mb-4 sm:mb-6">
-                <div className="flex items-center">
-                    <span className="font-logo-main text-4xl sm:text-5xl tracking-wider text-white">FLAV</span>
-                    <span className="text-4xl sm:text-5xl mx-[-0.15em] relative" style={{top: "-0.05em"}}>🍑</span>
-                    <span className="font-logo-main text-4xl sm:text-5xl tracking-wider text-white">R</span>
-                </div>
-                <span className="font-logo-sub text-lg sm:text-xl text-zinc-500 -mt-2 ml-1 tracking-wide">entertainers</span>
+                <span className="font-logo-sub text-sm sm:text-base text-zinc-500 mb-1 tracking-[0.25em]">the</span>
+                <span className="font-logo-main text-3xl sm:text-4xl tracking-[0.18em] text-white">PRIVATE BOOK</span>
+                <span className="font-logo-sub text-[10px] sm:text-xs text-zinc-600 mt-2 tracking-[0.3em] uppercase">By invitation only</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold mb-2 text-white">Age Verification</h2>
             <p className="text-zinc-400 text-xs sm:text-sm">Please enter your date of birth to continue.</p>

@@ -19,7 +19,7 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onClose }) => {
           <p className="lead">Last Updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
           
           <h3>1. Introduction</h3>
-          <p>Welcome to Flavor Entertainers ("we", "our", "us"). We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our booking platform. By using our services, you agree to the collection and use of information in accordance with this policy.</p>
+          <p>Welcome to The Private Book ("we", "our", "us"). We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our booking platform. By using our services, you agree to the collection and use of information in accordance with this policy.</p>
 
           <h3>2. Information We Collect</h3>
           <p>We may collect personal information from you in a variety of ways, including, but not limited to, when you create a booking, communicate with us, or use our platform. The types of personal information we may collect include:</p>

@@ -176,7 +176,7 @@ const PerformerOnboarding: React.FC<PerformerOnboardingProps> = ({ onSubmit, onC
           </div>
           <h2 className="text-2xl font-bold text-white">Application Submitted!</h2>
           <p className="text-zinc-400 max-w-md mx-auto">
-            Thank you for applying to join FLAVR. Our admin team will review your application and verify your details shortly. We will contact you once your profile is approved.
+            Thank you for applying to join The Private Book. Our admin team will review your application and verify your details shortly. We will contact you once your profile is approved.
           </p>
           <div className="pt-8">
             <button onClick={onCancel} className="btn-primary">Return to Home</button>

@@ -54,7 +54,7 @@ const FAQ: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
         <div>
           <h1 className="text-4xl font-bold text-white">Frequently Asked Questions</h1>
-          <p className="text-zinc-400 mt-1">Everything you need to know about Flavor Entertainers.</p>
+          <p className="text-zinc-400 mt-1">Everything you need to know about The Private Book.</p>
         </div>
       </div>
 
