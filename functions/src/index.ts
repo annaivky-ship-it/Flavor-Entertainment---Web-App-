@@ -564,7 +564,7 @@ export const notificationOutboxWorker = fns.firestore
             bookingId: data.bookingId,
             templateKey: 'NEW_BOOKING_ADMIN',
             to: adminNum,
-            body: `[Flavor Entertainers] Payment confirmed for booking ${data.bookingReference}. Client: ${data.clientName}.`
+            body: `[The Private Book] Payment confirmed for booking ${data.bookingReference}. Client: ${data.clientName}.`
           });
         }
       } else if (data.type === 'booking_expired') {
@@ -574,7 +574,7 @@ export const notificationOutboxWorker = fns.firestore
             bookingId: data.bookingId,
             templateKey: 'CANCELLED_ALL',
             to: data.clientPhone,
-            body: `[Flavor Entertainers] Your booking ${data.bookingReference} has expired due to non-payment. Please rebook if you'd still like to proceed.`
+            body: `[The Private Book] Your booking ${data.bookingReference} has expired due to non-payment. Please rebook if you'd still like to proceed.`
           });
         }
       } else if (data.type === 'payment_review') {
@@ -584,7 +584,7 @@ export const notificationOutboxWorker = fns.firestore
             bookingId: data.bookingId,
             templateKey: 'NEW_BOOKING_ADMIN',
             to: adminNum,
-            body: `[Flavor Entertainers] Payment for booking ${data.bookingReference} requires manual review (amount mismatch or issue).`
+            body: `[The Private Book] Payment for booking ${data.bookingReference} requires manual review (amount mismatch or issue).`
           });
         }
       }
@@ -787,7 +787,7 @@ export const submitIncidentReport = fns.https.onCall(async (data: any, context: 
       bookingId: booking_id || 'incident',
       templateKey: 'KYC_FLAGGED_ADMIN' as any,
       to: num,
-      body: `[Flavor Entertainers] ⚠️ New incident report: ${client_name} (${risk_level}). "${incident_description.substring(0, 80)}..." Review in admin dashboard.`,
+      body: `[The Private Book] ⚠️ New incident report: ${client_name} (${risk_level}). "${incident_description.substring(0, 80)}..." Review in admin dashboard.`,
     });
   }
 

@@ -1,4 +1,4 @@
-# Firestore Database Schema - Flavor Entertainers
+# Firestore Database Schema - The Private Book
 
 ## /users
 - `uid`: string (doc ID)

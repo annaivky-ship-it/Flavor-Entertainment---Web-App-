@@ -41,7 +41,7 @@
     "providers": {
       "emailPassword": true,
       "googleSignIn": {
-        "oAuthBrandDisplayName": "Flavor Entertainers",
+        "oAuthBrandDisplayName": "The Private Book",
         "supportEmail": "annaivky@gmail.com"
       }
     }

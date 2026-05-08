@@ -19,10 +19,10 @@ const TermsOfService: React.FC<TermsOfServiceProps> = ({ onClose }) => {
           <p className="lead">Last Updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
           
           <h3>1. Acceptance of Terms</h3>
-          <p>By accessing or using the Flavor Entertainers platform ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you disagree with any part of the terms, you may not access the Service. You affirm that you are at least 18 years of age.</p>
+          <p>By accessing or using the The Private Book platform ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you disagree with any part of the terms, you may not access the Service. You affirm that you are at least 18 years of age.</p>
 
           <h3>2. Description of Service</h3>
-          <p>Flavor Entertainers acts as a booking agency. We provide a platform for clients ("Clients") to book professional entertainers ("Performers") for events. We are responsible for facilitating the booking, vetting clients, and processing deposits. The performance itself is a contract between the Client and the Performer.</p>
+          <p>The Private Book acts as a booking agency. We provide a platform for clients ("Clients") to book professional entertainers ("Performers") for events. We are responsible for facilitating the booking, vetting clients, and processing deposits. The performance itself is a contract between the Client and the Performer.</p>
           
           <h3>3. User Obligations</h3>
           <p>As a Client, you agree to:</p>
@@ -45,7 +45,7 @@ const TermsOfService: React.FC<TermsOfServiceProps> = ({ onClose }) => {
           <p>Our platform is built on mutual respect. The Performer has the right to leave the event at any time, without a refund, if they feel unsafe, harassed, or if the Client attempts to solicit illegal or non-agreed-upon services. Such incidents will result in the Client being permanently added to our 'Do Not Serve' list.</p>
 
           <h3>6. Limitation of Liability</h3>
-          <p>Flavor Entertainers is not liable for any incidents, damages, or disputes that may occur during an event between the Client and the Performer. Our liability is limited strictly to the booking process and the deposit amount paid through our platform.</p>
+          <p>The Private Book is not liable for any incidents, damages, or disputes that may occur during an event between the Client and the Performer. Our liability is limited strictly to the booking process and the deposit amount paid through our platform.</p>
 
           <h3>7. Governing Law</h3>
           <p>These Terms shall be governed and construed in accordance with the laws of Western Australia, without regard to its conflict of law provisions.</p>

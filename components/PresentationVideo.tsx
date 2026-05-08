@@ -68,12 +68,8 @@ const scenes = [
     vo: 'Ready to transform your agency? Visit our site to schedule a full demo and discuss licensing opportunities.',
     visuals: () => (
       <div className="flex flex-col items-center text-white">
-        <div className="flex items-center">
-            <span className="font-logo-main text-6xl tracking-wider">FLAV</span>
-            <span className="text-6xl mx-[-0.15em] relative" style={{top: "-0.05em"}}>🍑</span>
-            <span className="font-logo-main text-6xl tracking-wider">R</span>
-        </div>
-        <span className="font-logo-sub text-3xl text-zinc-400 -mt-2 ml-1 tracking-wide">entertainers</span>
+        <span className="font-logo-sub text-2xl text-zinc-400 mb-2 tracking-[0.25em]">the</span>
+        <span className="font-logo-main text-5xl tracking-[0.18em] text-white">PRIVATE BOOK</span>
       </div>
     ),
   },

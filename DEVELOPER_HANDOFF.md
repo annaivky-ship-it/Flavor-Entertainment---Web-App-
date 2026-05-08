@@ -1,4 +1,4 @@
-# Developer Handoff: Flavor Entertainers — PayID / Monoova Integration
+# Developer Handoff: The Private Book — PayID / Monoova Integration
 
 **Date:** April 2026
 **Branch:** `claude/payid-monoova-integration-lgzsE`
@@ -8,7 +8,7 @@
 
 ## 1. What Has Been Built
 
-A complete PayID deposit payment flow using Monoova webhooks, integrated into the existing Flavor Entertainers booking app.
+A complete PayID deposit payment flow using Monoova webhooks, integrated into the existing The Private Book booking app.
 
 ### Completed Features
 
@@ -123,7 +123,7 @@ firebase functions:config:set app.booking_payment_hold_minutes=30
 In `.env.production`, ensure these are set to the real PayID details:
 ```
 VITE_PAY_ID_NAME=<Your PayID recipient business name>
-VITE_PAY_ID_EMAIL=<Your PayID email, e.g. payments@flavorentertainers.com.au>
+VITE_PAY_ID_EMAIL=<Your PayID email, e.g. payments@theprivatebook.au>
 ```
 
 #### 2.4 Create Firestore Indexes

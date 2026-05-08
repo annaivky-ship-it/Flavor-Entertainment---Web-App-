@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /api/
 
-Sitemap: https://flavorentertainers.com/sitemap.xml
+Sitemap: https://theprivatebook.au/sitemap.xml

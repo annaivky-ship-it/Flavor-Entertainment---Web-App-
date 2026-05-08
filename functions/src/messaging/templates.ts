@@ -14,7 +14,7 @@ export type TemplateKey =
 
 export function renderTemplate(key: TemplateKey, data: any): string {
   const optOut = " Reply STOP to opt out.";
-  const business = "Flavor Entertainers";
+  const business = "The Private Book";
 
   const clientName = data.clientName || data.fullName || 'Client';
   const performerName = data.performerName || 'Performer';
