@@ -441,6 +441,16 @@ export const onBookingStatusChanged = fns.firestore
 
     if (before.status === after.status) return;
 
+    // Auto-flip performer status (available ↔ busy) on commit/release.
+    // Wrapped in a try so a status-flip failure never blocks downstream
+    // SMS/template work below.
+    try {
+      const { syncPerformerStatusOnBookingChange } = await import('./triggers/performerStatus');
+      await syncPerformerStatusOnBookingChange(db, bookingId, after.performer_id, before.status, after.status);
+    } catch (err) {
+      console.warn(`Performer auto-status sync failed for booking ${bookingId}:`, err);
+    }
+
     // Cleanup slot lock if booking is rejected or cancelled
     if (after.status === 'rejected' || after.status === 'DECLINED' || after.status === 'cancelled' || after.status === 'CANCELLED') {
       if (after.slotLock) {
