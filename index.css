@@ -1,23 +1,61 @@
 @import "tailwindcss";
 
+/*
+ * Tailwind v4 theme — The Private Book
+ *
+ * The brand palette is registered via @theme so utilities like `text-magenta`,
+ * `bg-grey-mid`, `tracking-brand` work out of the box. Tailwind's stock
+ * `orange-*` palette is also overridden to point at magenta so existing
+ * className usage (text-orange-400, bg-orange-500/10, etc.) renders in the
+ * new accent without a sweeping classname rename. Future cleanup can rename
+ * those to `*-magenta-*` at leisure; the visual result is identical.
+ */
+@theme {
+  --color-magenta: #FF0080;
+  --color-magenta-soft: #FF66B3;
+  --color-grey: #1A1A1A;
+  --color-grey-mid: #2A2A2A;
+
+  --color-orange-50: #FFE5F2;
+  --color-orange-100: #FFCCE5;
+  --color-orange-200: #FF99CC;
+  --color-orange-300: #FF66B3;
+  --color-orange-400: #FF3399;
+  --color-orange-500: #FF0080;
+  --color-orange-600: #E60073;
+  --color-orange-700: #CC0066;
+  --color-orange-800: #B30059;
+  --color-orange-900: #99004D;
+  --color-orange-950: #660033;
+
+  --font-display: 'Jost', system-ui, sans-serif;
+  --font-serif: '"Cormorant Garamond"', serif;
+  --font-mono: '"DM Mono"', monospace;
+  --font-sans: 'Jost', system-ui, sans-serif;
+
+  --tracking-brand: 0.12em;
+  --tracking-tag: 0.25em;
+}
+
 :root {
-  --color-bg: #0A0A0A;
-  --color-bg-light: #18181B;
-  --color-border: #27272A;
-  --color-primary: #F97316;
-  --color-primary-hover: #EA580C;
-  --color-primary-light: #FB923C;
+  --color-bg: #000000;
+  --color-bg-light: #1A1A1A;
+  --color-border: #2A2A2A;
+  --color-primary: #FF0080;
+  --color-primary-hover: #E60073;
+  --color-primary-light: #FF66B3;
 }
 body {
   background-color: var(--color-bg);
   color: #A1A1AA;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Jost', system-ui, sans-serif;
+  font-weight: 300;
   background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
   background-size: 20px 20px;
 }
-.font-logo-main { font-family: 'Anton', sans-serif; }
-.font-logo-sub { font-family: 'Special Elite', monospace; }
-h1, h2, h3, h4 { font-family: 'Poppins', sans-serif; font-weight: 700; color: #F4F4F5; }
+.font-logo-main { font-family: 'Jost', system-ui, sans-serif; font-weight: 500; letter-spacing: 0.12em; }
+.font-logo-sub { font-family: '"DM Mono"', monospace; font-weight: 400; letter-spacing: 0.25em; }
+h1, h2, h3, h4 { font-family: 'Jost', system-ui, sans-serif; font-weight: 500; color: #FFFFFF; letter-spacing: 0.02em; }
 .card-base {
   background-color: var(--color-bg-light);
   border: 1px solid var(--color-border);
@@ -28,18 +66,18 @@ h1, h2, h3, h4 { font-family: 'Poppins', sans-serif; font-weight: 700; color: #F
 .btn-primary {
   background-color: var(--color-primary);
   color: white;
-  font-weight: 600;
+  font-weight: 500;
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
   transition: all 0.3s ease;
 }
 .input-base {
   width: 100%;
-  background-color: #09090b;
+  background-color: #0A0A0A;
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   padding: 0.75rem 1rem;
-  color: #f4f4f5;
+  color: #FFFFFF;
 }
 .input-with-icon {
   padding-left: 2.75rem;
