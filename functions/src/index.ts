@@ -574,6 +574,18 @@ export const notificationOutboxWorker = fns.firestore
             body: `[Flavor Entertainers] Your booking ${data.bookingReference} has expired due to non-payment. Please rebook if you'd still like to proceed.`
           });
         }
+      } else if (data.type === 'asap_reassigned') {
+        // Auto-cascade reassigned to a backup performer — alert admin so a
+        // human can confirm the new performer is awake/online if no
+        // performer-side SMS confirmation comes in.
+        for (const adminNum of adminNumbers) {
+          await sendMessage({
+            bookingId: data.bookingId,
+            templateKey: 'NEW_BOOKING_ADMIN',
+            to: adminNum,
+            body: `[Flavor Entertainers] ASAP booking ${data.bookingReference} auto-reassigned: ${data.previousPerformerName || 'previous performer'} → ${data.performerName}. Client: ${data.clientName}, ${data.clientPhone}, arrival by ${data.eventTime}. Confirm ${data.performerName} is responsive.`
+          });
+        }
       } else if (data.type === 'asap_cascaded') {
         // Performer didn't respond in time — apologise to client, alert admin to reassign.
         if (data.clientPhone) {
