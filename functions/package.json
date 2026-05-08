@@ -1,5 +1,5 @@
 {
-    "name": "flavor-entertainers-functions",
+    "name": "the-private-book-functions",
     "scripts": {
         "build": "tsc",
         "build:watch": "tsc --watch",
