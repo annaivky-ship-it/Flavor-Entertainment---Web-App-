@@ -67,9 +67,10 @@ const scenes = [
     title: 'Call to Action',
     vo: 'Ready to transform your agency? Visit our site to schedule a full demo and discuss licensing opportunities.',
     visuals: () => (
-      <div className="flex flex-col items-center text-white">
-        <span className="font-logo-sub text-2xl text-zinc-400 mb-2 tracking-[0.25em]">the</span>
-        <span className="font-logo-main text-5xl tracking-[0.18em] text-white">PRIVATE BOOK</span>
+      <div className="flex flex-col items-center text-white leading-none">
+        <span className="font-logo-script text-6xl text-white -mb-4">The</span>
+        <span className="font-logo-main text-5xl text-white">PRIVATE BOOK</span>
+        <span className="font-logo-sub text-sm text-zinc-400 mt-3">PERTH</span>
       </div>
     ),
   },

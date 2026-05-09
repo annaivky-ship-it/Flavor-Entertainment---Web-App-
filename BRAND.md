@@ -41,16 +41,23 @@
 
 | Family | Weights | Use |
 |---|---|---|
-| **Jost** | 200, 300, 400, 500 | Display + UI sans-serif. Headings, navigation, buttons, body. |
-| **Cormorant Garamond** | 300, 400 (also italics 300, 400) | Serif accents, pull quotes, hero subtitles, editorial moments |
-| **DM Mono** | 300, 400, 500 | Code, references, microscopic UI labels (e.g., booking IDs) |
+| **Pinyon Script** | 400 | Calligraphic *The* in the wordmark lockup. **Logo only** — never in body or UI copy. |
+| **Playfair Display** | 900 (Black) | High-contrast caps for *PRIVATE BOOK* in the wordmark and major editorial headings. |
+| **Jost** | 200, 300, 400, 500 | Display + UI sans-serif. Headings, navigation, buttons, body, the *PERTH* tagline under the wordmark. |
+| **Cormorant Garamond** | 300, 400 (also italics 300, 400) | Pull quotes, hero subtitles, editorial moments outside the lockup. |
+| **DM Mono** | 300, 400, 500 | Code, references, microscopic UI labels (e.g., booking IDs). |
 
-**Letter-spacing utilities**:
-- `tracking-brand` (`0.12em`) — for the wordmark and headline lockups
-- `tracking-tag` (`0.25em`) — for small caps tags like *BY INVITATION ONLY*
+**CSS classes** (defined in `index.css`):
+- `.font-logo-script` — Pinyon Script for *The*
+- `.font-logo-main` — Playfair Display 900 for *PRIVATE BOOK*
+- `.font-logo-sub` — Jost 300 with `letter-spacing: 0.35em` for *PERTH* / *BY INVITATION ONLY*
 
-**Type-style anchors**:
-- Hero wordmark: Jost 500, `tracking-brand`, magenta underline.
+**Wordmark composition** (mirrors `public/brand/wordmark.svg`):
+1. *The* — Pinyon Script, larger than the caps line. Slight overlap with the line below (`-mb-2` to `-mb-4`).
+2. *PRIVATE BOOK* — Playfair Display 900, all-caps, `letter-spacing: 0.04em`.
+3. *PERTH* — Jost 300, smaller, `letter-spacing: 0.35em`, sits below the caps line.
+
+**Type-style anchors** (outside the wordmark):
 - Section heading: Jost 400, `tracking-tag`, all-caps.
 - Body: Jost 300, regular tracking, line-height 1.6.
 - Pull quote: Cormorant Garamond italic 300.

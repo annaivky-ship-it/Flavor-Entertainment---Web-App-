@@ -1,4 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <style><![CDATA[
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&display=swap');
+      .display { font-family: 'Playfair Display', Georgia, serif; font-weight: 900; fill: #FFFFFF; letter-spacing: 0.04em; }
+    ]]></style>
+  </defs>
   <rect width="64" height="64" fill="#000000"/>
-  <text x="32" y="44" text-anchor="middle" font-family="Jost, system-ui, sans-serif" font-weight="600" font-size="34" fill="#FFFFFF">PB</text>
+  <text x="32" y="46" text-anchor="middle" class="display" font-size="36">PB</text>
 </svg>

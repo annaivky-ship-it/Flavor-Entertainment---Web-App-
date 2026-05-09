@@ -32,6 +32,8 @@
   --font-serif: '"Cormorant Garamond"', serif;
   --font-mono: '"DM Mono"', monospace;
   --font-sans: 'Jost', system-ui, sans-serif;
+  --font-logo-display: '"Playfair Display"', 'Georgia', serif;
+  --font-logo-script: '"Pinyon Script"', cursive;
 
   --tracking-brand: 0.12em;
   --tracking-tag: 0.25em;
@@ -53,8 +55,14 @@ body {
   background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
   background-size: 20px 20px;
 }
-.font-logo-main { font-family: 'Jost', system-ui, sans-serif; font-weight: 500; letter-spacing: 0.12em; }
-.font-logo-sub { font-family: '"DM Mono"', monospace; font-weight: 400; letter-spacing: 0.25em; }
+/* Brand lockup
+ *   .font-logo-script — calligraphic "The" (Pinyon Script)
+ *   .font-logo-main   — high-contrast caps "PRIVATE BOOK" (Playfair Display 900)
+ *   .font-logo-sub    — small-caps tagline "PERTH" / "BY INVITATION ONLY" (Jost light)
+ */
+.font-logo-script { font-family: 'Pinyon Script', cursive; font-weight: 400; letter-spacing: 0.01em; }
+.font-logo-main { font-family: 'Playfair Display', Georgia, serif; font-weight: 900; letter-spacing: 0.04em; }
+.font-logo-sub { font-family: 'Jost', system-ui, sans-serif; font-weight: 300; letter-spacing: 0.35em; }
 h1, h2, h3, h4 { font-family: 'Jost', system-ui, sans-serif; font-weight: 500; color: #FFFFFF; letter-spacing: 0.02em; }
 .card-base {
   background-color: var(--color-bg-light);

@@ -22,10 +22,11 @@ const Header: React.FC<HeaderProps> = ({ children, searchQuery, onSearchChange, 
     <header className="bg-black/30 backdrop-blur-lg sticky top-0 z-50 border-b border-zinc-800">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
-          <a href="/" onClick={(e) => { e.preventDefault(); handleNavigate('available_now'); }} className="flex items-center gap-2 cursor-pointer no-underline group flex-shrink-0">
-            <div className="flex flex-col items-start">
-              <span className="font-logo-sub text-[10px] sm:text-xs text-zinc-500 group-hover:text-zinc-300 transition-colors duration-300">the</span>
-              <span className="font-logo-main text-lg sm:text-2xl tracking-[0.18em] text-white group-hover:text-orange-400 transition-colors duration-300 leading-none">PRIVATE BOOK</span>
+          <a href="/" onClick={(e) => { e.preventDefault(); handleNavigate('available_now'); }} className="flex items-center cursor-pointer no-underline group flex-shrink-0">
+            <div className="flex flex-col items-center leading-none">
+              <span className="font-logo-script text-2xl sm:text-3xl text-white group-hover:text-orange-400 transition-colors duration-300 -mb-1 sm:-mb-2">The</span>
+              <span className="font-logo-main text-base sm:text-2xl text-white group-hover:text-orange-400 transition-colors duration-300">PRIVATE BOOK</span>
+              <span className="font-logo-sub text-[8px] sm:text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors duration-300 mt-0.5">PERTH</span>
             </div>
           </a>
 
