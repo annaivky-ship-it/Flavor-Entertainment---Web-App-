@@ -6,6 +6,7 @@ import { calculateBookingCost } from '../utils/bookingUtils';
 import { resetDemoData, isDemoMode, api } from '../services/api';
 import ChatDialog from './ChatDialog';
 import PaymentReconciliation from './PaymentReconciliation';
+import PayIdConfirmQueue from '../src/components/admin/PayIdConfirmQueue';
 
 interface AdminDashboardProps {
   bookings: Booking[];
@@ -1032,6 +1033,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
       )}
 
       {activeTab === 'payments' && (
+        <>
+        <div className="card-base !p-6 mb-6">
+            <PayIdConfirmQueue />
+        </div>
         <div className="card-base !p-0">
             <h2 className="text-2xl font-semibold text-white mb-4 p-6">Payment Tracking</h2>
              <div className="overflow-x-auto">
@@ -1114,8 +1119,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 </table>
              </div>
         </div>
+        </>
       )}
-      
+
       {activeTab === 'reconciliation' && (
         <PaymentReconciliation bookings={bookings} />
       )}
