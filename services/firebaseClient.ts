@@ -9,7 +9,20 @@ import type { FirebaseStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 import type { Functions } from 'firebase/functions';
 
-// Firebase configuration for The Private Book
+// Firebase web SDK config — sourced entirely from VITE_FIREBASE_* env vars.
+//
+// Note on the security boundary: a Firebase web API key is intentionally
+// public — it identifies the project, not a privileged caller. Real access
+// control is enforced by:
+//   1. Firestore Security Rules (`firestore.rules`)
+//   2. Storage Security Rules (`storage.rules`)
+//   3. Cloud Function auth checks (`context.auth` / `isAdmin()` in `functions/src/index.ts`)
+//   4. Firebase App Check (see `docs/deployment-checklist.md`) once enabled
+//
+// These layers must remain audited; rotating the API key alone does not
+// substitute for them. The key still lives in env vars so non-prod builds
+// can target a separate Firebase project without a code change and so the
+// key can be rotated via the hosting environment.
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -19,19 +32,30 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
+const ENV_VAR_NAMES: Record<string, string> = {
+  apiKey: 'VITE_FIREBASE_API_KEY',
+  authDomain: 'VITE_FIREBASE_AUTH_DOMAIN',
+  projectId: 'VITE_FIREBASE_PROJECT_ID',
+  storageBucket: 'VITE_FIREBASE_STORAGE_BUCKET',
+  messagingSenderId: 'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  appId: 'VITE_FIREBASE_APP_ID',
+};
+
 const missingVars = Object.entries(firebaseConfig)
   .filter(([, v]) => !v)
-  .map(([k]) => `VITE_${k.replace(/([A-Z])/g, '_$1').toUpperCase()}`);
+  .map(([k]) => ENV_VAR_NAMES[k] || k);
 
-if (missingVars.length > 0) {
-  console.warn(`Missing required environment variables: ${missingVars.join(', ')}. Firebase services will not work correctly.`);
-  // Use dummy values if missing to prevent crash
-  firebaseConfig.apiKey = firebaseConfig.apiKey || 'dummy-key';
-  firebaseConfig.authDomain = firebaseConfig.authDomain || 'dummy-auth-domain';
-  firebaseConfig.projectId = firebaseConfig.projectId || 'dummy-project-id';
-  firebaseConfig.storageBucket = firebaseConfig.storageBucket || 'dummy-storage-bucket';
-  firebaseConfig.messagingSenderId = firebaseConfig.messagingSenderId || 'dummy-sender-id';
-  firebaseConfig.appId = firebaseConfig.appId || 'dummy-app-id';
+// Demo mode is allowed to skip Firebase entirely — the app uses dev seed data.
+const isDemoMode = import.meta.env.VITE_APP_MODE === 'demo';
+
+if (missingVars.length > 0 && !isDemoMode) {
+  const message =
+    `Missing required Firebase environment variables: ${missingVars.join(', ')}. ` +
+    `Configure them in the hosting environment (Vercel project settings) and redeploy.`;
+  if (import.meta.env.PROD) {
+    throw new Error(message);
+  }
+  console.warn(message + ' (dev build — Firebase services will be unavailable.)');
 }
 
 /**
