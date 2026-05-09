@@ -593,7 +593,7 @@ export const notificationOutboxWorker = fns.firestore
             bookingId: data.bookingId,
             templateKey: 'NEW_BOOKING_ADMIN',
             to: adminNum,
-            body: `[Flavor Entertainers] ASAP booking ${data.bookingReference} auto-reassigned: ${data.previousPerformerName || 'previous performer'} → ${data.performerName}. Client: ${data.clientName}, ${data.clientPhone}, arrival by ${data.eventTime}. Confirm ${data.performerName} is responsive.`
+            body: `[The Private Book] ASAP booking ${data.bookingReference} auto-reassigned: ${data.previousPerformerName || 'previous performer'} → ${data.performerName}. Client: ${data.clientName}, ${data.clientPhone}, arrival by ${data.eventTime}. Confirm ${data.performerName} is responsive.`
           });
         }
       } else if (data.type === 'asap_cascaded') {
@@ -603,7 +603,7 @@ export const notificationOutboxWorker = fns.firestore
             bookingId: data.bookingId,
             templateKey: 'CANCELLED_ALL',
             to: data.clientPhone,
-            body: `[Flavor Entertainers] Sorry — ${data.performerName || 'your performer'} couldn't confirm in time for your ASAP booking. We're finding you another performer now and will be in touch within 5 minutes.`
+            body: `[The Private Book] Sorry — ${data.performerName || 'your performer'} couldn't confirm in time for your ASAP booking. We're finding you another performer now and will be in touch within 5 minutes.`
           });
         }
         for (const adminNum of adminNumbers) {
@@ -611,7 +611,7 @@ export const notificationOutboxWorker = fns.firestore
             bookingId: data.bookingId,
             templateKey: 'MANUAL_REVIEW_ADMIN',
             to: adminNum,
-            body: `[Flavor Entertainers] URGENT: ASAP booking ${data.bookingReference} cascaded — ${data.performerName || 'performer'} didn't respond. Client: ${data.clientName}, ${data.clientPhone}, arrival needed by ${data.eventTime}. Reassign now.`
+            body: `[The Private Book] URGENT: ASAP booking ${data.bookingReference} cascaded — ${data.performerName || 'performer'} didn't respond. Client: ${data.clientName}, ${data.clientPhone}, arrival needed by ${data.eventTime}. Reassign now.`
           });
         }
       } else if (data.type === 'payment_review') {

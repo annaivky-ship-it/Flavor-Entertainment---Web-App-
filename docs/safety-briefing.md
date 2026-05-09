@@ -8,7 +8,7 @@
 
 ## 1. Welcome
 
-Flavor Entertainers is a booking platform for non-contact entertainment in Western Australia. Your safety — physical, emotional, and financial — is the platform's primary responsibility.
+The Private Book is a booking platform for non-contact entertainment in Western Australia. Your safety — physical, emotional, and financial — is the platform's primary responsibility.
 
 This briefing is mandatory before your profile goes live. Please read it in full. You'll be asked to acknowledge that you've understood and agreed to the safety practices outlined here. The acknowledgement is logged for compliance.
 
