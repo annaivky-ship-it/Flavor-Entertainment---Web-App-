@@ -1,9 +1,20 @@
 import { allServices } from '../data/mockData';
-import { DEPOSIT_PERCENTAGE, TRAVEL_FEE_THRESHOLD_KM, TRAVEL_FEE_RATE_PER_KM } from '../constants';
+import {
+    DEPOSIT_PERCENTAGE, TRAVEL_FEE_THRESHOLD_KM, TRAVEL_FEE_RATE_PER_KM,
+    ASAP_SURCHARGE_PERCENT,
+} from '../constants';
 import { calculateTravelFee, getSuburbDistance } from '../data/suburbs';
 
-export const calculateBookingCost = (durationHours: number, serviceIds: string[], numPerformers: number, suburbName?: string) => {
-    if (!serviceIds || serviceIds.length === 0 || numPerformers === 0) return { totalCost: 0, depositAmount: 0, travelFee: 0 };
+export const calculateBookingCost = (
+    durationHours: number,
+    serviceIds: string[],
+    numPerformers: number,
+    suburbName?: string,
+    isAsap: boolean = false,
+) => {
+    if (!serviceIds || serviceIds.length === 0 || numPerformers === 0) {
+        return { totalCost: 0, depositAmount: 0, travelFee: 0, asapSurcharge: 0 };
+    }
 
     const durationNum = durationHours || 0;
     let hourlyCost = 0;
@@ -24,9 +35,11 @@ export const calculateBookingCost = (durationHours: number, serviceIds: string[]
     const distanceKm = suburbName ? getSuburbDistance(suburbName) : null;
     const travelFee = distanceKm !== null ? calculateTravelFee(distanceKm, TRAVEL_FEE_THRESHOLD_KM, TRAVEL_FEE_RATE_PER_KM) : 0;
 
-    const totalCost = (hourlyCost * numPerformers) + flatCost + travelFee;
+    const subtotal = (hourlyCost * numPerformers) + flatCost + travelFee;
+    const asapSurcharge = isAsap ? subtotal * ASAP_SURCHARGE_PERCENT : 0;
+    const totalCost = subtotal + asapSurcharge;
     const depositAmount = totalCost * DEPOSIT_PERCENTAGE;
-    return { totalCost, depositAmount, travelFee };
+    return { totalCost, depositAmount, travelFee, asapSurcharge };
 };
 
 

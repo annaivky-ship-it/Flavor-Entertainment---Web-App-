@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import type { Performer } from '../types';
 import { calculateBookingCost, getBookingDurationInfo } from '../utils/bookingUtils';
-import { DEPOSIT_PERCENTAGE } from '../constants';
-import { DollarSign, Clock, AlertTriangle, Navigation } from 'lucide-react';
+import { DEPOSIT_PERCENTAGE, ASAP_SURCHARGE_PERCENT } from '../constants';
+import { DollarSign, Clock, AlertTriangle, Navigation, Zap } from 'lucide-react';
 import { allServices } from '../data/mockData';
 
 interface BookingCostCalculatorProps {
@@ -10,6 +10,7 @@ interface BookingCostCalculatorProps {
   durationHours: number;
   performers: Performer[];
   suburbName?: string;
+  isAsap?: boolean;
   className?: string;
   onClearAll?: () => void;
 }
@@ -19,12 +20,13 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
   durationHours,
   performers,
   suburbName,
+  isAsap = false,
   className = '',
   onClearAll,
 }) => {
-  const { totalCost, depositAmount, travelFee } = useMemo(() => {
-    return calculateBookingCost(durationHours, selectedServices, performers.length, suburbName);
-  }, [selectedServices, durationHours, performers, suburbName]);
+  const { totalCost, depositAmount, travelFee, asapSurcharge = 0 } = useMemo(() => {
+    return calculateBookingCost(durationHours, selectedServices, performers.length, suburbName, isAsap);
+  }, [selectedServices, durationHours, performers, suburbName, isAsap]);
 
   const { formattedTotalDuration } = useMemo(() => {
     return getBookingDurationInfo(durationHours, selectedServices);
@@ -84,6 +86,16 @@ const BookingCostCalculator: React.FC<BookingCostCalculatorProps> = ({
               Travel Fee (incl.)
             </span>
             <span className="font-semibold text-blue-400">${travelFee.toFixed(2)}</span>
+          </div>
+        )}
+
+        {asapSurcharge > 0 && (
+          <div className="flex justify-between items-center p-2.5 bg-pink-500/5 rounded-xl border border-pink-500/20">
+            <span className="text-sm text-pink-200/80 flex items-center gap-1.5">
+              <Zap size={14} className="text-pink-400" />
+              ASAP Rush ({Math.round(ASAP_SURCHARGE_PERCENT * 100)}%, incl.)
+            </span>
+            <span className="font-semibold text-pink-400">${asapSurcharge.toFixed(2)}</span>
           </div>
         )}
 

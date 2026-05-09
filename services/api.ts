@@ -346,7 +346,7 @@ export const api = {
       const user = auth.currentUser;
       if (!user) throw new Error("Authentication required for booking submission");
       const userUid = user.uid;
-      const submissionId = `booking_kyc_${timestamp}`;
+      const submissionId = `booking_${timestamp}`;
 
       // Validate and upload files
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -453,6 +453,20 @@ export const api = {
       }
       const docRef = doc(db, 'performers', String(performerId));
       await updateDoc(docRef, { status });
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  },
+
+  async updatePerformerAcceptsAsap(performerId: number, acceptsAsap: boolean) {
+    if (!db) return { error: new Error('Firebase not initialized') };
+    try {
+      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
+        return { error: null };
+      }
+      const docRef = doc(db, 'performers', String(performerId));
+      await updateDoc(docRef, { accepts_asap: acceptsAsap });
       return { error: null };
     } catch (err: unknown) {
       return { error: err instanceof Error ? err : new Error(String(err)) };
@@ -589,19 +603,4 @@ export const api = {
     }
   },
 
-  async initializeDiditSession(bookingId: string) {
-    if (!functions) return { verificationUrl: null, error: new Error('Firebase functions not initialized') };
-    try {
-      const initDidit = httpsCallable(functions, 'initializeDiditSession');
-      const result = await initDidit({ bookingId });
-      const data = result.data as any;
-      if (data.success && data.url) {
-        return { verificationUrl: data.url, sessionId: data.sessionId, error: null };
-      }
-      return { verificationUrl: null, error: new Error(data.message || 'Failed to initialize Didit session') };
-    } catch (error: unknown) {
-      console.error('Error initializing Didit API:', error);
-      return { verificationUrl: null, error: error instanceof Error ? error : new Error(String(error)) };
-    }
-  }
 };

@@ -1,39 +1,48 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    
+
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isAdmin() {
       return isSignedIn() && (request.auth.token.admin == true);
     }
-    
-    // Vetting storage rules
-    match /vetting/{uid}/{appId}/{fileName} {
-      // Allow user to upload to their own path if they own the application
-      // We check uid in path against auth.uid
-      allow write: if isSignedIn() && request.auth.uid == uid;
-      
-      // Only admins can read files. Owners cannot read after upload for security.
-      allow read: if isAdmin();
-      
-      // Block overwriting files (prevent swapping IDs after submission)
-      // This is handled by checking if the resource already exists
-      allow create: if isSignedIn() && request.auth.uid == uid;
-      allow update: if false; 
+
+    // --- studio-4495412314-3b1ce-id-uploads ---
+    // Performer ID images. Direct client access is forbidden — uploads happen
+    // via 15-minute signed PUT URLs (see performerRequestIdUploadUrl), reads
+    // happen via 5-minute signed READ URLs (see adminGetIdImageReviewUrl).
+    // Cloud Functions delete objects after admin review. The bucket also has
+    // a lifecycle rule (1-day TTL on pending-review/*) as a backstop.
+    match /b/studio-4495412314-3b1ce-id-uploads/o/{allPaths=**} {
+      allow read, write: if false;
     }
-    
-    // Default public/private rules for other paths
+
+    // --- Vetting storage (legacy path; same rules) ---
+    match /vetting/{uid}/{appId}/{fileName} {
+      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow update: if false;
+    }
+
+    // --- Performer public assets (portfolio photos / video intros) ---
     match /performers/{allPaths=**} {
       allow read: if true;
       allow write: if isAdmin();
     }
-    
+
+    // --- Legacy ID upload path (kept for backward compat; no new uploads) ---
     match /ids/{allPaths=**} {
-      allow write: if isSignedIn();
+      allow write: if false;
       allow read: if isAdmin();
+    }
+
+    // --- Default deny ---
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

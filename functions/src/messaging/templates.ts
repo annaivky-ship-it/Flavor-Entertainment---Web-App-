@@ -7,10 +7,10 @@ export type TemplateKey =
   | 'CONFIRMED_PERFORMER'
   | 'DECLINED_CLIENT'
   | 'CANCELLED_ALL'
-  | 'KYC_LINK_CLIENT'
-  | 'KYC_PASS_CLIENT'
-  | 'KYC_FAIL_CLIENT'
-  | 'KYC_FLAGGED_ADMIN';
+  | 'OTP_CLIENT'
+  | 'VERIFICATION_PENDING_CLIENT'
+  | 'MANUAL_REVIEW_ADMIN'
+  | 'PERFORMER_FLAGGED_ADMIN';
 
 export function renderTemplate(key: TemplateKey, data: any): string {
   const optOut = " Reply STOP to opt out.";
@@ -23,12 +23,18 @@ export function renderTemplate(key: TemplateKey, data: any): string {
   const depositAmount = data.depositAmount || 'required amount';
   const payIdDetails = data.payIdDetails || 'our PayID';
   const payIdReference = data.payIdReference || data.id || 'your booking ID';
+  const otpCode = data.otpCode || '------';
+  const isAsap = !!(data.isAsap || data.is_asap);
+  const eventTime = data.eventTime || data.event_time;
+  const asapTag = isAsap ? 'ASAP - ' : '';
 
   switch (key) {
     case 'NEW_BOOKING_ADMIN':
-      return `[${business}] New booking request from ${clientName} for ${performerName} on ${eventDate}.`;
+      return `[${business}] ${asapTag}New booking request from ${clientName} for ${performerName} on ${eventDate}.`;
     case 'NEW_BOOKING_PERFORMER':
-      return `[${business}] You have a new booking request on ${eventDate} in ${suburb}. Check your dashboard.`;
+      return isAsap
+        ? `[${business}] URGENT ASAP booking - arrival needed by ${eventTime || 'within 60 minutes'} at ${suburb}. Open dashboard NOW to accept or decline.`
+        : `[${business}] You have a new booking request on ${eventDate} in ${suburb}. Check your dashboard.`;
     case 'RECEIVED_CLIENT':
       return `[${business}] We received your booking request for ${performerName}. We will notify you once approved.${optOut}`;
     case 'APPROVED_PAYID_CLIENT':
@@ -41,14 +47,14 @@ export function renderTemplate(key: TemplateKey, data: any): string {
       return `[${business}] Unfortunately, your booking request for ${performerName} could not be fulfilled at this time.${optOut}`;
     case 'CANCELLED_ALL':
       return `[${business}] The booking on ${eventDate} has been cancelled.`;
-    case 'KYC_LINK_CLIENT':
-      return `[${business}] To complete your booking, please verify your identity. Click here to start: ${data.verificationUrl || 'Check your email for the link.'} This step helps keep everyone safe.${optOut}`;
-    case 'KYC_PASS_CLIENT':
-      return `[${business}] Your identity has been verified successfully! Your booking for ${performerName} on ${eventDate} is now CONFIRMED. Thank you!${optOut}`;
-    case 'KYC_FAIL_CLIENT':
-      return `[${business}] Unfortunately, we were unable to verify your identity. Your deposit will be refunded. If you believe this is an error, please contact us.${optOut}`;
-    case 'KYC_FLAGGED_ADMIN':
-      return `[${business}] ⚠️ KYC flagged for booking ${data.id || data.booking_id || 'unknown'}. Client ${clientName} has AML flags. Manual review required.`;
+    case 'OTP_CLIENT':
+      return `[${business}] Your verification code is ${otpCode}. It expires in 10 minutes. Do not share this code.`;
+    case 'VERIFICATION_PENDING_CLIENT':
+      return `[${business}] Your booking is pending a quick verification step. Please check the booking page to continue.${optOut}`;
+    case 'MANUAL_REVIEW_ADMIN':
+      return `[${business}] ⚠️ Booking ${payIdReference} requires manual review. Reasons: ${data.reasons || 'see queue'}.`;
+    case 'PERFORMER_FLAGGED_ADMIN':
+      return `[${business}] ⚠️ Performer flagged a customer on booking ${payIdReference}. Reason: ${data.reason || 'see flag'}.`;
     default:
       return `[${business}] Notification regarding your booking.`;
   }

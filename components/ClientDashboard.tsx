@@ -33,6 +33,7 @@ const statusConfig: Record<Booking['status'], {
   rejected: { color: 'text-red-400', borderColor: 'border-red-500', Icon: AlertTriangle, title: "Booking Rejected", description: "Unfortunately, this booking could not be completed at this time." },
   expired: { color: 'text-zinc-500', borderColor: 'border-zinc-600', Icon: X, title: "Booking Expired", description: "This booking expired due to non-payment within the hold time." },
   payment_review: { color: 'text-yellow-400', borderColor: 'border-yellow-500', Icon: LoaderCircle, title: "Payment Under Review", description: "Your payment is being reviewed by our team. We'll update you shortly." },
+  asap_cascaded: { color: 'text-pink-400', borderColor: 'border-pink-500', Icon: AlertTriangle, title: "Reassigning Performer", description: "The performer didn't respond in time — we're finding you another performer for your ASAP booking right now." },
 };
 
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ bookings, onBrowsePerformers, onShowSettings, onCancelBooking }) => {

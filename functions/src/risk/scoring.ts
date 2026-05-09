@@ -6,7 +6,7 @@ const getDb = () => getFirestore('default');
 // --- Types ---
 
 export interface RiskFactors {
-    identityVerification: number;    // 0–25 points
+    verificationSignals: number;     // 0–25 points (replaces identityVerification)
     dnsMatch: number;                // 0–30 points
     repeatClientTrust: number;       // -20 to 0 (reduces risk)
     failedAttempts: number;          // 0–15 points
@@ -31,17 +31,21 @@ export interface RiskAssessment {
  */
 export async function calculateRiskScore(params: {
     bookingId: string;
+    customerId?: string;
     clientEmail: string;
     clientPhone: string;
     clientEmailHash: string;
     clientPhoneHash: string;
     ipAddress?: string;
     deviceFingerprint?: string;
-    kycStatus?: string;
-    kycConfidence?: number;
+    verificationStatus?: 'pending' | 'cleared' | 'manual_review' | 'denied';
+    smsOtpVerified?: boolean;
+    livenessVerified?: boolean;
+    payIdMatched?: boolean;
+    trustTier?: 'unverified' | 'verified' | 'trusted';
 }): Promise<RiskAssessment> {
     const factors: RiskFactors = {
-        identityVerification: 0,
+        verificationSignals: 0,
         dnsMatch: 0,
         repeatClientTrust: 0,
         failedAttempts: 0,
@@ -50,30 +54,25 @@ export async function calculateRiskScore(params: {
     };
     const reasons: string[] = [];
 
-    // --- Factor 1: Identity Verification (0–25 points) ---
-    if (params.kycStatus === 'FAIL') {
-        factors.identityVerification = 25;
-        reasons.push('Identity verification failed');
-    } else if (params.kycStatus === 'PASS_WITH_FLAGS') {
-        factors.identityVerification = 15;
-        reasons.push('Identity verified with AML flags');
-    } else if (params.kycStatus === 'ERROR') {
-        factors.identityVerification = 10;
-        reasons.push('Identity verification error');
-    } else if (params.kycStatus === 'NOT_STARTED') {
-        factors.identityVerification = 5;
-        reasons.push('Identity verification not yet completed');
-    } else if (params.kycStatus === 'PASS') {
-        factors.identityVerification = 0;
-    } else if (params.kycStatus === 'BYPASSED') {
-        factors.identityVerification = 0;
-        // Trusted repeat client
-    }
-
-    // Confidence score penalty
-    if (params.kycConfidence !== undefined && params.kycConfidence < 0.7) {
-        factors.identityVerification += 5;
-        reasons.push(`Low verification confidence: ${(params.kycConfidence * 100).toFixed(0)}%`);
+    // --- Factor 1: Verification Signals (0–25 points) ---
+    // Self-hosted signals replace third-party KYC.
+    if (params.verificationStatus === 'denied') {
+        factors.verificationSignals = 25;
+        reasons.push('Verification denied');
+    } else if (params.verificationStatus === 'manual_review') {
+        factors.verificationSignals = 15;
+        reasons.push('Verification routed to manual review');
+    } else if (params.verificationStatus === 'pending') {
+        let pending = 10;
+        if (params.smsOtpVerified) pending -= 3;
+        if (params.livenessVerified) pending -= 3;
+        if (params.payIdMatched) pending -= 4;
+        factors.verificationSignals = Math.max(0, pending);
+        if (factors.verificationSignals > 0) {
+            reasons.push('Some verification signals still pending');
+        }
+    } else if (params.verificationStatus === 'cleared') {
+        factors.verificationSignals = 0;
     }
 
     // --- Factor 2: DNS Register Match (0–30 points) ---
@@ -88,16 +87,16 @@ export async function calculateRiskScore(params: {
 
     // --- Factor 3: Repeat Client Trust (-20 to 0) ---
     const trustResult = await checkRepeatClientTrust(params.clientEmailHash, params.clientPhoneHash);
-    if (trustResult.isTrusted) {
+    if (trustResult.isTrusted || params.trustTier === 'trusted') {
         factors.repeatClientTrust = -20;
-        reasons.push(`Trusted repeat client (${trustResult.previousBookings} successful bookings)`);
-    } else if (trustResult.previousBookings > 0) {
+        reasons.push(`Trusted client (${trustResult.previousBookings} successful bookings)`);
+    } else if (trustResult.previousBookings > 0 || params.trustTier === 'verified') {
         factors.repeatClientTrust = -10;
         reasons.push(`Returning client (${trustResult.previousBookings} previous bookings)`);
     }
 
     // --- Factor 4: Failed Verification Attempts (0–15 points) ---
-    const failedCount = await getFailedVerificationCount(params.clientEmail, params.clientPhone);
+    const failedCount = await getFailedVerificationCount(params.customerId, params.clientPhoneHash);
     if (failedCount >= 3) {
         factors.failedAttempts = 15;
         reasons.push(`${failedCount} failed verification attempts`);
@@ -122,7 +121,6 @@ export async function calculateRiskScore(params: {
         }
     }
 
-    // --- Calculate Final Score ---
     const rawScore = Object.values(factors).reduce((sum, val) => sum + val, 0);
     const score = Math.max(0, Math.min(100, rawScore));
 
@@ -140,7 +138,6 @@ export async function calculateRiskScore(params: {
         decision = 'REJECT';
     }
 
-    // Override: DNS block always rejects
     if (dnsResult.blocked) {
         decision = 'REJECT';
         level = 'BLOCK';
@@ -155,7 +152,6 @@ export async function calculateRiskScore(params: {
         timestamp: new Date().toISOString(),
     };
 
-    // Store risk score in Firestore
     await getDb().collection('risk_scores').add({
         booking_id: params.bookingId,
         client_email_hash: params.clientEmailHash,
@@ -164,26 +160,19 @@ export async function calculateRiskScore(params: {
         created_at: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Audit log
     await getDb().collection('audit_log').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         actor_id: 'system',
         actor_role: 'system',
         action: 'RISK_SCORE_CALCULATED',
         booking_id: params.bookingId,
-        details: {
-            score,
-            level,
-            decision,
-            factors,
-            reasons,
-        },
+        details: { score, level, decision, factors, reasons },
     });
 
     return assessment;
 }
 
-// --- DNS Register Check (enhanced) ---
+// --- DNS Register Check ---
 
 async function checkDnsRegister(emailHash: string, phoneHash: string, rawEmail?: string): Promise<{
     blocked: boolean;
@@ -191,7 +180,6 @@ async function checkDnsRegister(emailHash: string, phoneHash: string, rawEmail?:
     matchType: string;
     reason: string;
 }> {
-    // Check hashed entries (privacy-safe)
     const hashQuery = await getDb().collection('dns_entries')
         .where('status', '==', 'ACTIVE')
         .where('match_keys', 'array-contains-any', [emailHash, phoneHash])
@@ -208,7 +196,6 @@ async function checkDnsRegister(emailHash: string, phoneHash: string, rawEmail?:
         };
     }
 
-    // Check legacy do_not_serve collection (backward compat)
     if (rawEmail) {
         const legacyQuery = await getDb().collection('do_not_serve')
             .where('client_email', '==', rawEmail.toLowerCase().trim())
@@ -234,12 +221,11 @@ async function checkDnsRegister(emailHash: string, phoneHash: string, rawEmail?:
 export interface TrustResult {
     isTrusted: boolean;
     previousBookings: number;
-    lastVerifiedAt: string | null;
-    verificationAge: number | null; // days since last verification
+    lastBookingAt: string | null;
+    bookingAge: number | null; // days since last successful booking
 }
 
 async function checkRepeatClientTrust(emailHash: string, phoneHash: string): Promise<TrustResult> {
-    // Check for previous successful bookings
     const emailBookings = await getDb().collection('bookings')
         .where('client_email_hash', '==', emailHash)
         .where('status', 'in', ['CONFIRMED', 'confirmed', 'completed'])
@@ -250,74 +236,74 @@ async function checkRepeatClientTrust(emailHash: string, phoneHash: string): Pro
         .where('status', 'in', ['CONFIRMED', 'confirmed', 'completed'])
         .get();
 
-    // Deduplicate by booking ID
     const allBookingIds = new Set<string>();
-    [...emailBookings.docs, ...phoneBookings.docs].forEach(doc => allBookingIds.add(doc.id));
+    let mostRecent: Date | null = null;
+    [...emailBookings.docs, ...phoneBookings.docs].forEach(doc => {
+        allBookingIds.add(doc.id);
+        const ts = doc.data().created_at?.toDate?.();
+        if (ts && (!mostRecent || ts > mostRecent)) mostRecent = ts;
+    });
     const previousBookings = allBookingIds.size;
 
     if (previousBookings === 0) {
-        return { isTrusted: false, previousBookings: 0, lastVerifiedAt: null, verificationAge: null };
+        return { isTrusted: false, previousBookings: 0, lastBookingAt: null, bookingAge: null };
     }
 
-    // Check last KYC verification
-    const kycQuery = await getDb().collection('kyc_sessions')
-        .where('status', '==', 'Approved')
-        .orderBy('completed_at', 'desc')
-        .limit(1)
-        .get();
-
-    let lastVerifiedAt: string | null = null;
-    let verificationAge: number | null = null;
-
-    if (!kycQuery.empty) {
-        const kycData = kycQuery.docs[0].data();
-        const completedAt = kycData.completed_at?.toDate?.() || new Date(kycData.completed_at);
-        lastVerifiedAt = completedAt.toISOString();
-        verificationAge = Math.floor((Date.now() - completedAt.getTime()) / (1000 * 60 * 60 * 24));
+    let lastBookingAt: string | null = null;
+    let bookingAge: number | null = null;
+    if (mostRecent) {
+        lastBookingAt = (mostRecent as Date).toISOString();
+        bookingAge = Math.floor((Date.now() - (mostRecent as Date).getTime()) / (1000 * 60 * 60 * 24));
     }
 
-    // Trust if: verified within 12 months + successful bookings + no DNS
-    const isTrusted = previousBookings >= 1 && verificationAge !== null && verificationAge < 365;
+    // Trust if 5+ successful bookings within 12 months and no DNS hit (checked elsewhere).
+    const isTrusted = previousBookings >= 5 && bookingAge !== null && bookingAge < 365;
 
-    return { isTrusted, previousBookings, lastVerifiedAt, verificationAge };
+    return { isTrusted, previousBookings, lastBookingAt, bookingAge };
 }
 
 /**
- * Check if a client should skip KYC (trusted repeat client).
+ * Check if a customer qualifies for the trusted-tier shortcut.
  */
-export async function shouldSkipKyc(emailHash: string, phoneHash: string): Promise<{
-    skip: boolean;
+export async function isTrustedCustomer(emailHash: string, phoneHash: string): Promise<{
+    trusted: boolean;
     reason: string;
 }> {
     const trust = await checkRepeatClientTrust(emailHash, phoneHash);
 
     if (!trust.isTrusted) {
-        return { skip: false, reason: 'New or unverified client' };
+        return { trusted: false, reason: 'Insufficient verified booking history' };
     }
 
-    // Also verify no DNS entries have been added since last booking
     const dnsCheck = await checkDnsRegister(emailHash, phoneHash);
     if (dnsCheck.blocked || dnsCheck.review) {
-        return { skip: false, reason: 'DNS register match found since last booking' };
+        return { trusted: false, reason: 'DNS register match found' };
     }
 
     return {
-        skip: true,
-        reason: `Trusted repeat client: ${trust.previousBookings} bookings, verified ${trust.verificationAge} days ago`,
+        trusted: true,
+        reason: `${trust.previousBookings} successful bookings, last ${trust.bookingAge} days ago`,
     };
 }
 
 // --- Failed Verification Count ---
 
-async function getFailedVerificationCount(email: string, phone: string): Promise<number> {
+async function getFailedVerificationCount(customerId: string | undefined, phoneHash: string): Promise<number> {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const failedQuery = await getDb().collection('kyc_sessions')
-        .where('client_email', '==', email.toLowerCase().trim())
-        .where('status', 'in', ['Declined', 'FAIL'])
-        .where('created_at', '>=', thirtyDaysAgo)
-        .get();
+    let query = getDb().collection('verificationRecords')
+        .where('result', '==', 'fail')
+        .where('completedAt', '>=', thirtyDaysAgo);
 
+    if (customerId) {
+        query = query.where('subjectId', '==', customerId);
+    } else if (phoneHash) {
+        query = query.where('subjectPhoneHash', '==', phoneHash);
+    } else {
+        return 0;
+    }
+
+    const failedQuery = await query.get();
     return failedQuery.size;
 }
 
@@ -333,7 +319,6 @@ async function detectBehaviorAnomalies(email: string, phone: string): Promise<{
     const oneHourAgo = new Date(now - 60 * 60 * 1000);
     const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
 
-    // Check rapid booking attempts (more than 3 in 1 hour)
     const rapidBookings = await getDb().collection('bookings')
         .where('client_email', '==', email.toLowerCase().trim())
         .where('created_at', '>=', oneHourAgo)
@@ -344,7 +329,6 @@ async function detectBehaviorAnomalies(email: string, phone: string): Promise<{
         reasons.push(`${rapidBookings.size} booking attempts in the last hour`);
     }
 
-    // Check multiple different performers in 24h (possible scanning)
     const dayBookings = await getDb().collection('bookings')
         .where('client_email', '==', email.toLowerCase().trim())
         .where('created_at', '>=', oneDayAgo)
@@ -361,14 +345,13 @@ async function detectBehaviorAnomalies(email: string, phone: string): Promise<{
 
 // --- Device/IP Risk ---
 
-async function checkDeviceRisk(fingerprint: string, ipAddress?: string): Promise<{
+async function checkDeviceRisk(fingerprint: string, _ipAddress?: string): Promise<{
     score: number;
     reasons: string[];
 }> {
     let score = 0;
     const reasons: string[] = [];
 
-    // Check if fingerprint was used by multiple blocked clients
     const blockedWithFingerprint = await getDb().collection('bookings')
         .where('device_fingerprint', '==', fingerprint)
         .where('status', 'in', ['DENIED', 'rejected'])
@@ -383,7 +366,6 @@ async function checkDeviceRisk(fingerprint: string, ipAddress?: string): Promise
         reasons.push('Device fingerprint linked to a previously blocked booking');
     }
 
-    // Check fingerprint used by different emails (potential fraud)
     if (fingerprint) {
         const multipleEmails = await getDb().collection('bookings')
             .where('device_fingerprint', '==', fingerprint)

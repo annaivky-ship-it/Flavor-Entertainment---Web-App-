@@ -87,16 +87,6 @@ describe('Firestore Rules - User Data Protection', () => {
     expect(auditSection).toContain('allow write: if false');
   });
 
-  it('KYC sessions are admin-read only, cloud function write only', () => {
-    expect(rulesContent).toContain('match /kyc_sessions/{sessionId}');
-    const kycSection = rulesContent.substring(
-      rulesContent.indexOf('match /kyc_sessions/{sessionId}'),
-      rulesContent.indexOf('match /risk_scores')
-    );
-    expect(kycSection).toContain('allow read: if isAdmin()');
-    expect(kycSection).toContain('allow write: if false');
-  });
-
   it('has a default deny-all rule', () => {
     expect(rulesContent).toContain('match /{document=**}');
     // The last match block should deny everything

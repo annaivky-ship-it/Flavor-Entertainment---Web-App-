@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Performer, PerformerStatus, Booking, Communication, AuditLog, BookingStatus } from '../types';
-import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History, MapPin, Sparkles } from 'lucide-react';
+import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History, MapPin, Sparkles, Zap, Bell, BellOff } from 'lucide-react';
 import ChatDialog from './ChatDialog';
 import { api } from '../services/api';
+import { usePerformerAsapAlert } from './usePerformerAsapAlert';
 
 interface PerformerDashboardProps {
   performer: Performer;
@@ -10,6 +11,7 @@ interface PerformerDashboardProps {
   communications: Communication[];
   auditLogs: AuditLog[];
   onToggleStatus: (status: PerformerStatus) => Promise<void>;
+  onToggleAcceptsAsap?: (accepts: boolean) => Promise<void>;
   onViewDoNotServe: () => void;
   onBookingDecision: (bookingId: string, decision: 'accepted' | 'declined', eta?: number) => Promise<void>;
   onUpdateEta: (bookingId: string, eta: number) => Promise<void>;
@@ -72,7 +74,8 @@ const bookingStatusClasses: Record<Booking['status'], string> = {
   cancelled: 'text-zinc-500',
   rejected: 'text-red-400',
   expired: 'text-zinc-500',
-  payment_review: 'text-yellow-400'
+  payment_review: 'text-yellow-400',
+  asap_cascaded: 'text-pink-400'
 }
 
 interface BookingCardProps {
@@ -126,7 +129,13 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
   const isPending = booking.status !== 'confirmed' && booking.status !== 'rejected' && !['en_route', 'arrived', 'in_progress', 'completed', 'cancelled'].includes(booking.status);
 
   return (
-    <div className="bg-zinc-900/70 p-4 rounded-lg border border-zinc-700/50 hover:border-zinc-600 transition-colors">
+    <div className={`bg-zinc-900/70 p-4 rounded-lg border transition-colors ${booking.is_asap ? 'border-pink-500 ring-2 ring-pink-500/40 animate-pulse-slow' : 'border-zinc-700/50 hover:border-zinc-600'}`}>
+        {booking.is_asap && booking.status === 'pending_performer_acceptance' && (
+            <div className="mb-3 -mt-1 flex items-center gap-2 text-pink-300 font-bold uppercase tracking-wider text-xs">
+                <Zap className="h-4 w-4" />
+                ASAP — arrival needed by {booking.event_time}
+            </div>
+        )}
         <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2">
             <div>
                 <p className="font-bold text-lg text-white">{booking.event_type}</p>
@@ -215,9 +224,11 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onDecision, etaValue
 };
 
 
-const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onViewDoNotServe, onBookingDecision, onUpdateEta, onUpdateBookingStatus }) => {
+const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, bookings, communications, auditLogs, onToggleStatus, onToggleAcceptsAsap, onViewDoNotServe, onBookingDecision, onUpdateEta, onUpdateBookingStatus }) => {
   const [etas, setEtas] = useState<Record<string, string>>({});
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<PerformerStatus | null>(null);
+  const [isTogglingAsap, setIsTogglingAsap] = useState(false);
+  const { permission: asapAlertPermission, enable: enableAsapAlerts } = usePerformerAsapAlert(bookings, performer.id);
   
   // Chat State
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
@@ -346,6 +357,69 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                {statusConfig[performer.status].description}
              </p>
           </div>
+
+          {onToggleAcceptsAsap && (
+            <div className="mt-6 p-4 rounded-xl border border-zinc-800 bg-zinc-950/40">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-9 w-9 rounded-full bg-pink-500/15 text-pink-400 flex items-center justify-center flex-shrink-0">
+                    <Zap className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white">Accept ASAP bookings</p>
+                    <p className="text-[11px] text-zinc-400">Clients can request you for arrival within 60 minutes (urgent SMS).</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsTogglingAsap(true);
+                    try {
+                      await onToggleAcceptsAsap(performer.accepts_asap === false);
+                    } finally {
+                      setIsTogglingAsap(false);
+                    }
+                  }}
+                  disabled={isTogglingAsap}
+                  aria-pressed={performer.accepts_asap !== false}
+                  className={`h-6 w-11 rounded-full p-0.5 transition flex-shrink-0 ${performer.accepts_asap !== false ? 'bg-pink-500' : 'bg-zinc-700'} ${isTogglingAsap ? 'opacity-60' : ''}`}
+                >
+                  <div className={`h-5 w-5 rounded-full bg-white transition ${performer.accepts_asap !== false ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {asapAlertPermission !== 'unsupported' && performer.accepts_asap !== false && (
+            <div className="mt-3 p-4 rounded-xl border border-zinc-800 bg-zinc-950/40">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${asapAlertPermission === 'granted' ? 'bg-pink-500/15 text-pink-400' : 'bg-zinc-800 text-zinc-400'}`}>
+                    {asapAlertPermission === 'granted' ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white">In-app ASAP alerts</p>
+                    <p className="text-[11px] text-zinc-400">
+                      {asapAlertPermission === 'granted'
+                        ? 'Sound + browser notification when an ASAP request lands while this tab is open.'
+                        : asapAlertPermission === 'denied'
+                          ? 'Notifications blocked. Re-enable in your browser site settings to get alerts.'
+                          : 'Enable to hear a chime when ASAP requests come in (this tab must stay open).'}
+                    </p>
+                  </div>
+                </div>
+                {asapAlertPermission === 'default' && (
+                  <button
+                    type="button"
+                    onClick={enableAsapAlerts}
+                    className="text-xs bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-3 rounded-md flex items-center gap-1.5 transition-colors flex-shrink-0"
+                  >
+                    <Bell size={12} /> Enable
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
          <div className="card-base !p-6 lg:col-span-2">

@@ -70,7 +70,7 @@ const DEMO_SCENARIOS: DemoScenario[] = [
         description: 'Returning client, verified within 12 months',
         icon: <Users className="h-5 w-5" />,
         color: 'blue',
-        outcome: '⚡ KYC bypassed → Direct payment',
+        outcome: '⚡ Verification skipped → Direct payment',
         riskScore: 0,
         riskLevel: 'SAFE',
     },
@@ -100,21 +100,21 @@ const WALKTHROUGH_STEPS: WalkthroughStep[] = [
         safetyNote: 'DNS check is synchronous and invisible to the client. Blocked clients receive generic "not available" responses.',
     },
     {
-        id: 'kyc',
-        title: 'Step 3 — Identity Verification (KYC)',
-        body: 'New clients are redirected to Didit\'s hosted verification page.\n\nThey upload a government ID, complete a liveness selfie check, and pass AML/sanctions screening — all without leaving your platform flow.',
-        safetyNote: 'Raw ID images are never stored. Only verification session IDs and pass/fail results are retained.',
+        id: 'verification',
+        title: 'Step 3 — Self-Hosted Verification',
+        body: 'New clients receive an SMS one-time code. For premium-tier bookings, an on-device liveness check (a quick blink-and-look) runs in the browser — no images leave the device.\n\nDeposit payment via PayID also acts as an identity signal: the bank-provided account name must match the booking name.',
+        safetyNote: 'No government ID is collected. No biometric image is uploaded. Only short numeric verification records are retained.',
     },
     {
         id: 'risk-score',
         title: 'Step 4 — Risk Scoring Engine',
-        body: 'After KYC, a 6-factor risk score (0–100) is calculated:\n\n• Identity verification result\n• DNS register matches\n• Repeat client history\n• Failed verification attempts\n• Booking behaviour patterns\n• Device fingerprint analysis',
+        body: 'A 6-factor risk score (0–100) is calculated:\n\n• Verification signals (OTP, liveness, PayID match)\n• DNS register matches\n• Repeat client history\n• Failed verification attempts\n• Booking behaviour patterns\n• Device fingerprint analysis',
         safetyNote: 'Score ≤30: Auto-approve. 31–60: Manual review. ≥61: Auto-reject.',
     },
     {
         id: 'admin-review',
         title: 'Step 5 — Admin Review Queue',
-        body: 'Borderline cases land in the admin review dashboard. Admins see the full client profile, risk score breakdown, KYC result, DNS matches, and booking history.\n\nOne click to approve, reject, or escalate to a DNS entry.',
+        body: 'Borderline cases land in the admin review dashboard. Admins see the full client profile, risk score breakdown, verification signals, DNS matches, and booking history.\n\nOne click to approve, reject, or escalate to a DNS entry.',
         role: 'Admin',
         safetyNote: 'Every admin decision is logged with timestamp, actor ID, and reasoning for legal audit trails.',
         actionLabel: 'Switch to Admin View',
@@ -136,7 +136,7 @@ const WALKTHROUGH_STEPS: WalkthroughStep[] = [
     {
         id: 'complete',
         title: 'Ready to See the Real Thing?',
-        body: 'This platform is available as a white-label SaaS for entertainment agencies.\n\nEvery feature you\'ve seen — KYC, DNS, risk scoring, performer safety tools — is production-ready and connects to live services.',
+        body: 'This platform is available as a white-label SaaS for entertainment agencies.\n\nEvery feature you\'ve seen — self-hosted verification, DNS, risk scoring, performer safety tools — is production-ready and connects to live services.',
         safetyNote: 'Contact us to discuss pricing, setup, and customisation for your agency.',
     },
 ];
@@ -248,10 +248,10 @@ const ScenarioPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             </div>
 
                             <p className="text-xs text-zinc-500 leading-relaxed">
-                                {activeScenario.id === 'safe' && 'Identity confirmed via Didit. No DNS matches. Score below threshold — booking auto-approved and moved to payment step.'}
-                                {activeScenario.id === 'suspicious' && 'Identity confirmed but 4 booking attempts across 3 performers in 24h detected. System flags for manual review. Admin receives WhatsApp alert.'}
+                                {activeScenario.id === 'safe' && 'SMS OTP confirmed and PayID name matches the booking. No DNS matches. Score below threshold — booking auto-approved and moved to payment step.'}
+                                {activeScenario.id === 'suspicious' && 'OTP confirmed but 4 booking attempts across 3 performers in 24h detected. System flags for manual review. Admin receives WhatsApp alert.'}
                                 {activeScenario.id === 'blocked' && 'Phone hash matched a HIGH-risk DNS entry. Client receives a generic "not available" response. Performer and admin are silently notified.'}
-                                {activeScenario.id === 'trusted' && 'Client verified 94 days ago with clean history. KYC bypassed. Booking moves directly to payment — saving 2–5 minutes per returning client.'}
+                                {activeScenario.id === 'trusted' && 'Client has 5+ successful bookings within 12 months and clean history. Verification signals skipped. Booking moves directly to payment — saving 2–5 minutes per returning client.'}
                             </p>
                         </div>
                     ) : (
