@@ -1,8 +1,8 @@
-# Flavor Entertainers - Business & Technical Overview
+# The Private Book - Business & Technical Overview
 
-## 1. Introduction: What is Flavor Entertainers?
+## 1. Introduction: What is The Private Book?
 
-Flavor Entertainers is a premium, web-based platform designed to connect clients in Western Australia with professional, vetted entertainers. Our mission is to provide a secure, compliant, and seamless booking experience that automates agency logistics.
+The Private Book is a premium, web-based platform designed to connect clients in Western Australia with professional, vetted entertainers. Our mission is to provide a secure, compliant, and seamless booking experience that automates agency logistics.
 
 The system is built with a focus on three core pillars: **unmatched performer safety**, **intelligent operational efficiency**, and **a premium user experience**.
 
@@ -10,7 +10,7 @@ The system is built with a focus on three core pillars: **unmatched performer sa
 
 ## 2. The Competitive Advantage
 
-The Flavor Entertainers platform is more than a booking website; it's a complete business management system engineered to solve the core problems of the entertainment booking industry.
+The The Private Book platform is more than a booking website; it's a complete business management system engineered to solve the core problems of the entertainment booking industry.
 
 *   **Unmatched Performer Safety:** Our primary differentiator is the proactive, admin-vetted **'Do Not Serve' List**. Unlike simple review systems, our platform *automatically blocks* applications from blacklisted individuals *before* a performer is ever notified, creating a powerful, preventative safety net.
 
@@ -82,7 +82,7 @@ The platform is engineered for scalability and efficiency, resulting in a remark
 
 **(5-15 seconds) - The Old Way vs. The New Way**
 
-*   **Visuals:** Split screen. Left: The chaos from before. Right: The sleek, calm Admin Dashboard of Flavor Entertainers. A cursor glides over the dashboard, managing bookings with a single click.
+*   **Visuals:** Split screen. Left: The chaos from before. Right: The sleek, calm Admin Dashboard of The Private Book. A cursor glides over the dashboard, managing bookings with a single click.
 *   **VO:** *You're stuck managing logistics instead of growing your business. What if you could automate the chaos and focus on what matters?*
 
 ---
@@ -93,7 +93,7 @@ The platform is engineered for scalability and efficiency, resulting in a remark
     *   `Shield Icon`: "Automated Safety Net" - shows the 'Do Not Serve' list blocking a booking.
     *   `Magnifying Glass Icon`: "Multi-Layered Vetting" - shows the performer -> admin -> deposit workflow.
     *   `Fast-Forward Icon`: "VIP Client Workflow" - shows a "Verified" client bypassing steps.
-*   **VO:** *Introducing the Flavor Entertainers Platform. This isn't just a booking site; it's a complete business management system. Our competitive advantage is our intelligent automation: an **unmatched safety system** that automatically blocks problem clients, a **robust vetting process** that qualifies every lead, and a **VIP workflow** that fast-tracks your best customers.*
+*   **VO:** *Introducing the The Private Book Platform. This isn't just a booking site; it's a complete business management system. Our competitive advantage is our intelligent automation: an **unmatched safety system** that automatically blocks problem clients, a **robust vetting process** that qualifies every lead, and a **VIP workflow** that fast-tracks your best customers.*
 
 ---
 
@@ -113,6 +113,6 @@ The platform is engineered for scalability and efficiency, resulting in a remark
 
 **(55-60 seconds) - Call to Action**
 
-*   **Visuals:** The Flavor Entertainers logo animates onto the center of the screen. A clear URL and contact email appear below.
+*   **Visuals:** The The Private Book logo animates onto the center of the screen. A clear URL and contact email appear below.
 *   **VO:** *Ready to transform your agency? Visit our site to schedule a full demo and discuss licensing opportunities.*
 *   **Text on Screen:** **FLAV🍑R** Entertainers Platform | yourwebsite.com | sales@youremail.com

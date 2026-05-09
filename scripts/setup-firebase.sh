@@ -1,5 +1,5 @@
 #!/bin/bash
-# Flavor Entertainers — Firebase Setup Script
+# The Private Book — Firebase Setup Script
 # Run this from the project root on your local machine.
 #
 # Prerequisites:
@@ -13,7 +13,7 @@ set -e
 PROJECT_ID="studio-4495412314-3b1ce"
 REGION="australia-southeast1"
 
-echo "=== Flavor Entertainers — Firebase Setup ==="
+echo "=== The Private Book — Firebase Setup ==="
 echo ""
 
 # Step 1: Check Firebase CLI
@@ -66,6 +66,6 @@ echo ""
 echo "  2. Get your UID from the Authentication console, then run:"
 echo "     firebase firestore:set admins/YOUR_UID '{\"email\":\"annaivky@gmail.com\"}'"
 echo ""
-echo "  3. Go to https://flavorentertainers.com → Log in → Click 'Seed Database'"
+echo "  3. Go to https://theprivatebook.au → Log in → Click 'Seed Database'"
 echo ""
 echo "  4. Your site is live!"

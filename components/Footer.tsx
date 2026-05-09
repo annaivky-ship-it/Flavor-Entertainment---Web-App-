@@ -19,23 +19,21 @@ const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfServi
           <div className="sm:col-span-2 lg:col-span-1 space-y-4">
             <div className="flex flex-col items-start">
               <div className="flex items-center">
-                <span className="font-logo-main text-2xl tracking-wider text-white">FLAV</span>
-                <span className="text-2xl mx-[-0.1em] relative" style={{top: "-0.05em"}}>🍑</span>
-                <span className="font-logo-main text-2xl tracking-wider text-white">R</span>
+                <span className="font-logo-sub text-xs text-zinc-500 mb-1">the</span>
               </div>
-              <span className="font-logo-sub text-xs text-zinc-500 -mt-1 tracking-widest">entertainers</span>
+              <span className="font-logo-main text-2xl tracking-[0.18em] text-white">PRIVATE BOOK</span>
             </div>
             <p className="text-sm text-zinc-400 leading-relaxed max-w-xs">
-              Western Australia's premium entertainment booking platform. Professional, secure, and discreet.
+              By invitation only.
             </p>
             <div className="flex gap-3 pt-1">
-              <a href="https://www.instagram.com/flavorentertainers" target="_blank" rel="noopener noreferrer" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
+              <a href="https://www.instagram.com/theprivatebook" target="_blank" rel="noopener noreferrer" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
                 <Instagram size={18} className="text-zinc-400 group-hover:text-orange-400 transition-colors" />
               </a>
-              <a href="mailto:bookings@flavorentertainers.com" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
+              <a href="mailto:bookings@theprivatebook.au" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group">
                 <Mail size={18} className="text-zinc-400 group-hover:text-orange-400 transition-colors" />
               </a>
-              <a href="https://www.instagram.com/flavorentertainers" target="_blank" rel="noopener noreferrer" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group" title="Contact via Instagram DM">
+              <a href="https://www.instagram.com/theprivatebook" target="_blank" rel="noopener noreferrer" className="bg-zinc-800 hover:bg-orange-500/20 border border-zinc-700 hover:border-orange-500/40 rounded-lg p-2.5 transition-all group" title="Contact via Instagram DM">
                 <Phone size={18} className="text-zinc-400 group-hover:text-orange-400 transition-colors" />
               </a>
             </div>
@@ -86,7 +84,7 @@ const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfServi
       {/* Bottom Bar */}
       <div className="border-t border-zinc-800/50">
         <div className="container mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
-          <p className="text-xs text-zinc-600">&copy; {new Date().getFullYear()} Flavor Entertainers. All Rights Reserved.</p>
+          <p className="text-xs text-zinc-600">&copy; {new Date().getFullYear()} The Private Book. All Rights Reserved.</p>
           <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-700 font-bold">Professional & Discreet Services &mdash; Western Australia</p>
         </div>
       </div>

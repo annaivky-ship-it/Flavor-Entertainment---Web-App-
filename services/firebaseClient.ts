@@ -9,7 +9,7 @@ import type { FirebaseStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 import type { Functions } from 'firebase/functions';
 
-// Firebase configuration for Flavor Entertainers
+// Firebase configuration for The Private Book
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,

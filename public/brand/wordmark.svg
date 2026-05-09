@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" width="800" height="200" role="img" aria-label="The Private Book">
+  <rect width="800" height="200" fill="#000000"/>
+  <text x="400" y="100" text-anchor="middle" font-family="Jost, system-ui, sans-serif" font-weight="300" font-size="32" fill="#FFFFFF" letter-spacing="6">the</text>
+  <text x="400" y="155" text-anchor="middle" font-family="Jost, system-ui, sans-serif" font-weight="500" font-size="58" fill="#FFFFFF" letter-spacing="14">PRIVATE BOOK</text>
+  <line x1="280" y1="175" x2="520" y2="175" stroke="#FF0080" stroke-width="2"/>
+</svg>

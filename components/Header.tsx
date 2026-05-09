@@ -24,12 +24,8 @@ const Header: React.FC<HeaderProps> = ({ children, searchQuery, onSearchChange, 
         <div className="flex items-center justify-between h-20">
           <a href="/" onClick={(e) => { e.preventDefault(); handleNavigate('available_now'); }} className="flex items-center gap-2 cursor-pointer no-underline group flex-shrink-0">
             <div className="flex flex-col items-start">
-              <div className="flex items-center">
-                  <span className="font-logo-main text-xl sm:text-3xl tracking-wider text-white group-hover:text-orange-400 transition-colors duration-300">FLAV</span>
-                  <span className="text-xl sm:text-3xl mx-[-0.15em] relative transform group-hover:scale-110 transition-transform duration-300" style={{top: "-0.05em"}}>🍑</span>
-                  <span className="font-logo-main text-xl sm:text-3xl tracking-wider text-white group-hover:text-orange-400 transition-colors duration-300">R</span>
-              </div>
-              <span className="font-logo-sub text-[10px] sm:text-base text-zinc-500 -mt-0.5 sm:-mt-1 ml-0.5 sm:ml-1 tracking-wide group-hover:text-zinc-300 transition-colors duration-300">entertainers</span>
+              <span className="font-logo-sub text-[10px] sm:text-xs text-zinc-500 group-hover:text-zinc-300 transition-colors duration-300">the</span>
+              <span className="font-logo-main text-lg sm:text-2xl tracking-[0.18em] text-white group-hover:text-orange-400 transition-colors duration-300 leading-none">PRIVATE BOOK</span>
             </div>
           </a>
 

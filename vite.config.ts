@@ -16,13 +16,13 @@ export default defineConfig(({ mode: _mode }) => {
         tailwindcss(),
         VitePWA({
           registerType: 'autoUpdate',
-          includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+          includeAssets: ['brand/monogram-favicon.svg', 'brand/monogram.svg', 'brand/wordmark.svg'],
           manifest: {
-            name: 'Flavor Entertainers',
-            short_name: 'Flavor',
-            description: 'Premium Entertainment Booking',
-            theme_color: '#F97316',
-            background_color: '#0A0A0A',
+            name: 'The Private Book',
+            short_name: 'Private Book',
+            description: 'By invitation only.',
+            theme_color: '#000000',
+            background_color: '#000000',
             display: 'standalone',
             icons: [
               {
