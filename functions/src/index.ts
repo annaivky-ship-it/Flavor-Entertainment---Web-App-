@@ -876,40 +876,32 @@ export const assessBookingRisk = fns.https.onCall(async (data: any, context: any
   };
 });
 
-export const addAnnaTest = fns.https.onRequest(async (req: any, res: any) => {
-  try {
-    const newPerformer = {
-      id: 6,
-      name: 'Anna Ivky',
-      tagline: 'Sophistication and a hint of mystery.',
-      photo_url: 'https://picsum.photos/seed/anna/800/1200',
-      bio: 'Anna is the epitome of grace and professionalism. Her experience with exclusive, private events makes her the ideal choice for clients seeking a discreet yet impactful presence. Her poise and charm elevate any gathering.',
-      service_ids: ['waitress-lingerie', 'show-toy', 'show-works-greek', 'show-absolute-works'],
-      service_areas: ['Perth South', 'Southwest'],
-      status: 'available',
-      rating: 5.0,
-      review_count: 89,
-      min_booking_duration_hours: 3,
-      created_at: admin.firestore.FieldValue.serverTimestamp()
-    };
-    await db.collection('performers').doc('6').set(newPerformer);
-    res.json({ success: true, message: 'Anna added properly' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: String(error) });
-  }
-});
-
 /**
- * seedDatabase — Public HTTPS endpoint to populate Firestore with sample data.
- * Uses Admin SDK so Firestore security rules are bypassed.
- * Only seeds if the performers collection is empty (idempotent).
+ * seedDatabase — Idempotent Firestore seeder for non-production environments.
+ *
+ * Disabled by default. Set the ALLOW_PUBLIC_SEED env var to "true" on the
+ * function (e.g. via `firebase functions:config` or the GCP console) to enable
+ * temporarily, then unset it once seeding is done. Also runs unconditionally
+ * inside the local Functions Emulator.
+ *
+ * Only seeds if the performers collection is empty.
  */
 export const seedDatabase = fns.https.onRequest(async (req: any, res: any) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+  const allowSeed =
+    process.env.FUNCTIONS_EMULATOR === 'true' ||
+    process.env.ALLOW_PUBLIC_SEED === 'true';
+  if (!allowSeed) {
+    res.status(403).json({
+      success: false,
+      error: 'Seed endpoint disabled. Set ALLOW_PUBLIC_SEED=true on the function to enable temporarily.',
+    });
+    return;
+  }
 
   try {
     const existing = await db.collection('performers').limit(1).get();
@@ -921,8 +913,6 @@ export const seedDatabase = fns.https.onRequest(async (req: any, res: any) => {
     const batch = db.batch();
 
     const performers = [
-      { id: 5, name: 'April Flavor', tagline: 'Sweet, sassy, and always a delight.', photo_url: 'https://picsum.photos/seed/april/800/1200', bio: 'April brings a fresh and exciting energy to every event. With a background in dance and modeling, she captivates audiences and ensures a memorable experience.', service_ids: ['waitress-topless', 'show-hot-cream', 'show-pearl', 'show-deluxe-works', 'misc-promo-model'], service_areas: ['Perth North', 'Perth South'], status: 'available', rating: 4.9, review_count: 124, min_booking_duration_hours: 2, created_at: admin.firestore.FieldValue.serverTimestamp() },
-      { id: 6, name: 'Anna Ivky', tagline: 'Sophistication and a hint of mystery.', photo_url: 'https://picsum.photos/seed/anna/800/1200', bio: 'Anna is the epitome of grace and professionalism. Her experience with exclusive, private events makes her the ideal choice for clients seeking a discreet yet impactful presence.', service_ids: ['waitress-lingerie', 'show-toy', 'show-works-greek', 'show-absolute-works'], service_areas: ['Perth South', 'Southwest'], status: 'available', rating: 5.0, review_count: 89, min_booking_duration_hours: 3, created_at: admin.firestore.FieldValue.serverTimestamp() },
       { id: 1, name: 'Scarlett', tagline: 'The life of the party, guaranteed.', photo_url: 'https://picsum.photos/seed/scarlett/800/1200', bio: 'With over a decade of experience in corporate events and private parties, Scarlett knows exactly how to get the crowd going.', service_ids: ['waitress-topless', 'waitress-nude', 'show-hot-cream', 'misc-atmospheric'], service_areas: ['Perth North', 'Perth South', 'Southwest'], status: 'available', rating: 4.8, review_count: 215, min_booking_duration_hours: 2, created_at: admin.firestore.FieldValue.serverTimestamp() },
       { id: 2, name: 'Jasmine', tagline: 'Elegance and charm for your special event.', photo_url: 'https://picsum.photos/seed/jasmine/800/1200', bio: 'Jasmine specializes in high-end events, bringing a touch of class and sophistication.', service_ids: ['misc-promo-model', 'misc-atmospheric', 'waitress-lingerie'], service_areas: ['Perth South'], status: 'busy', rating: 4.7, review_count: 56, min_booking_duration_hours: 2, created_at: admin.firestore.FieldValue.serverTimestamp() },
       { id: 3, name: 'Amber', tagline: 'Bringing warmth and energy to every room.', photo_url: 'https://picsum.photos/seed/amber/800/1200', bio: 'Amber\'s infectious energy and friendly approach make her perfect for creating a relaxed and fun atmosphere.', service_ids: ['waitress-topless', 'misc-games-host', 'show-pearl'], service_areas: ['Perth North', 'Northwest'], status: 'available', rating: 4.9, review_count: 142, min_booking_duration_hours: 1, created_at: admin.firestore.FieldValue.serverTimestamp() },

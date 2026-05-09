@@ -19,12 +19,25 @@ import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PerformerStatus, AuditLog, VettingApplication } from '../types';
 import { BookingFormState } from '../components/BookingProcess';
-import { mockPerformers, mockBookings, mockDoNotServeList, mockCommunications } from '../data/mockData';
 
 /** Whether the app is running in demo mode (mock data, no real Firebase writes) */
 export const isDemoMode = import.meta.env.VITE_APP_MODE === 'demo';
 
+// Dev/demo-only seed loader. The dynamic `import()` is gated on the build-time
+// constants `import.meta.env.DEV`/`isDemoMode`, so Vite tree-shakes the module
+// out of production bundles entirely.
+const loadDevSeed = async () => {
+  if (!import.meta.env.DEV && !isDemoMode) {
+    throw new Error('Demo seed data requested in a production build — refusing.');
+  }
+  return import('../src/dev/seed/mockData');
+};
+
 export const resetDemoData = async () => {
+  if (!import.meta.env.DEV && !isDemoMode) {
+    console.error('resetDemoData() called in a production build — ignoring.');
+    return;
+  }
   if (!db) {
     console.error('Database not initialized. Check environment variables.');
     alert('Database not initialized. Check Firebase config.');
@@ -33,15 +46,13 @@ export const resetDemoData = async () => {
   console.log("Starting database seed...");
   try {
     const batch = writeBatch(db);
+    const { mockPerformers } = await loadDevSeed();
+    const { allServices } = await import('../data/mockData');
 
-    // Seed Performers
     for (const p of mockPerformers) {
       const pRef = doc(db, 'performers', String(p.id));
       batch.set(pRef, { ...p, created_at: new Date().toISOString() });
     }
-
-    // Seed Services
-    const { allServices } = await import('../data/mockData');
     for (const s of allServices) {
       const sRef = doc(db, 'services', s.id);
       batch.set(sRef, s);
@@ -59,17 +70,23 @@ export const resetDemoData = async () => {
 
 export const api = {
   async getInitialData(role?: string, uid?: string, performerId?: number) {
-    const isMock = isDemoMode || import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '';
-
-    if (isMock || !db) {
-      console.warn("Using mock data because Firebase is not configured.");
+    // Demo mode: use the dev seed fixtures. Production demands real Firestore.
+    if (isDemoMode) {
+      const seed = await loadDevSeed();
       return {
-        performers: { data: mockPerformers, error: null },
-        bookings: { data: mockBookings, error: null },
-        doNotServeList: { data: mockDoNotServeList, error: null },
-        communications: { data: mockCommunications, error: null },
+        performers: { data: seed.mockPerformers, error: null },
+        bookings: { data: seed.mockBookings, error: null },
+        doNotServeList: { data: seed.mockDoNotServeList, error: null },
+        communications: { data: seed.mockCommunications, error: null },
         auditLogs: { data: [], error: null },
       };
+    }
+
+    if (!db) {
+      // In a production build the firebaseClient throws at boot if the
+      // VITE_FIREBASE_* vars are missing, so reaching here means a genuine
+      // initialisation failure. Surface it instead of substituting fake data.
+      throw new Error('Firestore is not initialized. Check VITE_FIREBASE_* configuration.');
     }
 
     const isPermissionError = (err: unknown): boolean => {
@@ -91,14 +108,6 @@ export const api = {
           return { data: [], error: null };
         }
         console.error(`Error fetching ${name}:`, err);
-        if ((err as { code?: string }).code === 'unavailable') {
-          console.warn(`Firestore is currently offline or unreachable. Returning mock data for ${name} if available.`);
-          // Fallback to mock data if connection is unavailable
-          if (name === 'performers') return { data: mockPerformers, error: null };
-          if (name === 'bookings') return { data: mockBookings, error: null };
-          if (name === 'do_not_serve') return { data: mockDoNotServeList, error: null };
-          if (name === 'communications') return { data: mockCommunications, error: null };
-        }
         return { data: [], error: err instanceof Error ? err : new Error(String(err)) };
       }
     };
@@ -327,8 +336,11 @@ export const api = {
 
   async createBookingRequest(formState: BookingFormState, performers: Performer[]) {
     if (!db || !auth || !storage || !functions) {
-      console.warn('Firebase not initialized. Simulating booking request.');
-      return { data: [], error: null };
+      if (isDemoMode || import.meta.env.DEV) {
+        console.warn('Firebase not initialized. Returning empty booking response (dev/demo).');
+        return { data: [], error: null };
+      }
+      return { data: null, error: new Error('Firebase services are not initialized.') };
     }
     try {
       if (!performers || performers.length === 0) {

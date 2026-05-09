@@ -315,7 +315,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
           <p className="text-xl text-zinc-400 mt-1">Manage bookings and monitor performers.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(import.meta.env.DEV || isDemoMode || performers.length === 0) && (
+          {(import.meta.env.DEV || isDemoMode) && (
             <button
               onClick={() => {
                 if (confirm('Seed the database with sample performers and services?')) {
