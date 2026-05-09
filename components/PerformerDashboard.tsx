@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Performer, PerformerStatus, Booking, Communication, AuditLog, BookingStatus } from '../types';
-import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History, MapPin, Sparkles, Zap } from 'lucide-react';
+import { Calendar, User, Clock, ShieldAlert, MessageSquare, Inbox, Check, X, Users, Timer, LoaderCircle, MessageCircle, Radio, EyeOff, CheckCircle, Smartphone, History, MapPin, Sparkles, Zap, Bell, BellOff } from 'lucide-react';
 import ChatDialog from './ChatDialog';
 import { api } from '../services/api';
+import { usePerformerAsapAlert } from './usePerformerAsapAlert';
 
 interface PerformerDashboardProps {
   performer: Performer;
@@ -227,6 +228,7 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
   const [etas, setEtas] = useState<Record<string, string>>({});
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<PerformerStatus | null>(null);
   const [isTogglingAsap, setIsTogglingAsap] = useState(false);
+  const { permission: asapAlertPermission, enable: enableAsapAlerts } = usePerformerAsapAlert(bookings, performer.id);
   
   // Chat State
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
@@ -384,6 +386,37 @@ const PerformerDashboard: React.FC<PerformerDashboardProps> = ({ performer, book
                 >
                   <div className={`h-5 w-5 rounded-full bg-white transition ${performer.accepts_asap !== false ? 'translate-x-5' : ''}`} />
                 </button>
+              </div>
+            </div>
+          )}
+
+          {asapAlertPermission !== 'unsupported' && performer.accepts_asap !== false && (
+            <div className="mt-3 p-4 rounded-xl border border-zinc-800 bg-zinc-950/40">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${asapAlertPermission === 'granted' ? 'bg-pink-500/15 text-pink-400' : 'bg-zinc-800 text-zinc-400'}`}>
+                    {asapAlertPermission === 'granted' ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white">In-app ASAP alerts</p>
+                    <p className="text-[11px] text-zinc-400">
+                      {asapAlertPermission === 'granted'
+                        ? 'Sound + browser notification when an ASAP request lands while this tab is open.'
+                        : asapAlertPermission === 'denied'
+                          ? 'Notifications blocked. Re-enable in your browser site settings to get alerts.'
+                          : 'Enable to hear a chime when ASAP requests come in (this tab must stay open).'}
+                    </p>
+                  </div>
+                </div>
+                {asapAlertPermission === 'default' && (
+                  <button
+                    type="button"
+                    onClick={enableAsapAlerts}
+                    className="text-xs bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-3 rounded-md flex items-center gap-1.5 transition-colors flex-shrink-0"
+                  >
+                    <Bell size={12} /> Enable
+                  </button>
+                )}
               </div>
             </div>
           )}
