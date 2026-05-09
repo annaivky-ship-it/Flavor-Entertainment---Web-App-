@@ -22,7 +22,7 @@ const PresentationVideo = React.lazy(() => import('./components/PresentationVide
 const FAQ = React.lazy(() => import('./components/FAQ'));
 const PerformerOnboarding = React.lazy(() => import('./components/PerformerOnboarding'));
 const WalkthroughOverlay = React.lazy(() => import('./components/WalkthroughOverlay'));
-import { api, resetDemoData } from './services/api';
+import { api, resetDemoData, isDemoMode } from './services/api';
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './services/firebaseClient';
@@ -860,20 +860,31 @@ const App: React.FC = () => {
     }
 
     if (performers.length === 0 && !isLoading) {
+      if (import.meta.env.DEV || isDemoMode) {
+        return (
+          <div className="text-center py-20 card-base !bg-orange-500/5 border-orange-500/20 max-w-2xl mx-auto animate-fade-in">
+            <Sparkles className="h-16 w-16 text-orange-500 mx-auto mb-6" />
+            <h2 className="text-3xl font-bold text-white mb-4">Demo Environment Ready</h2>
+            <p className="text-zinc-400 mb-8 text-lg">
+              This is a fresh demonstration environment. To begin exploring the booking flow, dashboards, and admin features, please seed the database with sample data.
+            </p>
+            <button
+              onClick={() => resetDemoData()}
+              className="btn-primary !py-4 !px-8 !text-lg flex items-center gap-3 mx-auto shadow-xl shadow-orange-500/20"
+            >
+              <Database className="h-6 w-6" />
+              Seed Demonstration Data
+            </button>
+          </div>
+        );
+      }
       return (
-        <div className="text-center py-20 card-base !bg-orange-500/5 border-orange-500/20 max-w-2xl mx-auto animate-fade-in">
+        <div className="text-center py-20 card-base max-w-2xl mx-auto animate-fade-in">
           <Sparkles className="h-16 w-16 text-orange-500 mx-auto mb-6" />
-          <h2 className="text-3xl font-bold text-white mb-4">Demo Environment Ready</h2>
-          <p className="text-zinc-400 mb-8 text-lg">
-            This is a fresh demonstration environment. To begin exploring the booking flow, dashboards, and admin features, please seed the database with sample data.
+          <h2 className="text-3xl font-bold text-white mb-4">No performers available</h2>
+          <p className="text-zinc-400 text-lg">
+            We're updating our roster. Please check back shortly.
           </p>
-          <button
-            onClick={() => resetDemoData()}
-            className="btn-primary !py-4 !px-8 !text-lg flex items-center gap-3 mx-auto shadow-xl shadow-orange-500/20"
-          >
-            <Database className="h-6 w-6" />
-            Seed Demonstration Data
-          </button>
         </div>
       );
     }

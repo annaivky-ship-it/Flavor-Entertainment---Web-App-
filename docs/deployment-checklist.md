@@ -18,7 +18,7 @@ At the Firebase project level, enable App Check for the web app:
 - [ ] Open Firebase Console → App Check → Apps → register the web app
 - [ ] Choose **reCAPTCHA Enterprise** as the provider (recommended for production)
 - [ ] In the Cloud Console, enable reCAPTCHA Enterprise API for the project
-- [ ] Create a reCAPTCHA Enterprise key for `flavorentertainers.com` and the staging domain
+- [ ] Create a reCAPTCHA Enterprise key for `theprivatebook.au` and the staging domain
 - [ ] Add to GitHub repo secrets and Vercel env: `VITE_RECAPTCHA_SITE_KEY`
 - [ ] In `src/firebase.ts` (or `services/firebaseClient.ts`), wire it up:
 

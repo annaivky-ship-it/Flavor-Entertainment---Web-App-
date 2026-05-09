@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, Shield, Building2, X, PartyPopper, User, Calendar, MapPin, Copy, Clock, LoaderCircle, AlertTriangle } from 'lucide-react';
-import { PAY_ID_NAME, PAY_ID_EMAIL, BOOKING_PAYMENT_HOLD_MINUTES, PAYMENT_MODE } from '../constants';
+import { PAY_ID_NAME, PAY_ID_EMAIL, PAY_ID_USING_DEV_PLACEHOLDER, BOOKING_PAYMENT_HOLD_MINUTES, PAYMENT_MODE } from '../constants';
 
 interface PayIDPaymentModalProps {
   amount: number;
@@ -128,6 +128,11 @@ const PayIDSimulationModal: React.FC<PayIDPaymentModalProps> = ({
 
   const WaitingContent = () => (
     <>
+      {PAY_ID_USING_DEV_PLACEHOLDER && (
+        <div className="mb-4 px-4 py-2 rounded-md bg-red-600 text-white text-xs font-bold uppercase tracking-wide">
+          DEV: PayID env vars missing — using placeholder values
+        </div>
+      )}
       <div className="mb-5">
         <h3 className="text-lg font-bold text-white border-b border-zinc-800 pb-3 flex items-center gap-2">
           <Shield className="h-5 w-5 text-orange-400" />

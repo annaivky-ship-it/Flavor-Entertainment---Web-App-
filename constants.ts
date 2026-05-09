@@ -5,8 +5,28 @@ export const DEPOSIT_PERCENTAGE = 0.25; // 25%
 export const TRAVEL_FEE_THRESHOLD_KM = 50; // No travel fee within 50km of Perth CBD
 export const TRAVEL_FEE_RATE_PER_KM = 1; // $1 per km beyond threshold
 
-export const PAY_ID_NAME = import.meta.env.VITE_PAY_ID_NAME || 'Demo PayID Name';
-export const PAY_ID_EMAIL = import.meta.env.VITE_PAY_ID_EMAIL || 'demo@example.com';
+// PayID recipient details. Sourced from VITE_PAY_ID_NAME / VITE_PAY_ID_EMAIL.
+// In production both must be set or the app will throw at boot — see check below.
+// In dev a placeholder is used and a red banner is shown on the deposit modal so
+// the missing config can't slip into a real customer-facing build unnoticed.
+const PROD_BUILD = import.meta.env.PROD;
+const DEV_PAY_ID_NAME_PLACEHOLDER = 'DEV PayID — set VITE_PAY_ID_NAME';
+const DEV_PAY_ID_EMAIL_PLACEHOLDER = 'dev@invalid.local';
+
+const _payIdName = import.meta.env.VITE_PAY_ID_NAME;
+const _payIdEmail = import.meta.env.VITE_PAY_ID_EMAIL;
+
+if (PROD_BUILD && (!_payIdName || !_payIdEmail)) {
+  throw new Error(
+    'Missing required environment variables in production build: ' +
+    'VITE_PAY_ID_NAME and VITE_PAY_ID_EMAIL must be set. ' +
+    'Configure them in the hosting environment (Vercel project settings) and redeploy.'
+  );
+}
+
+export const PAY_ID_NAME = _payIdName || DEV_PAY_ID_NAME_PLACEHOLDER;
+export const PAY_ID_EMAIL = _payIdEmail || DEV_PAY_ID_EMAIL_PLACEHOLDER;
+export const PAY_ID_USING_DEV_PLACEHOLDER = !_payIdName || !_payIdEmail;
 
 export const BOOKING_PAYMENT_HOLD_MINUTES = 30;
 export const BOOKING_REFERENCE_PREFIX = 'FE';
@@ -46,7 +66,3 @@ export const isAsapAvailableNow = (now: Date = new Date()): boolean => {
 //   'monoova' = auto-confirm via Monoova webhook (requires Monoova account + MONOOVA_WEBHOOK_SECRET)
 export const PAYMENT_MODE: 'manual' | 'monoova' =
   (import.meta.env.VITE_PAYMENT_MODE as 'manual' | 'monoova') || 'manual';
-
-if (!import.meta.env.VITE_PAY_ID_NAME || !import.meta.env.VITE_PAY_ID_EMAIL) {
-  console.warn('Missing required environment variables: VITE_PAY_ID_NAME, VITE_PAY_ID_EMAIL. Using fallback values.');
-}

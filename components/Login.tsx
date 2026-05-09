@@ -137,7 +137,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onClose, performers, onNavigateT
             <InputField icon={<Mail />} type="email" name="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <InputField icon={<Lock />} type="password" name="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             {error && <p className="text-sm text-red-400 text-center">{error}</p>}
-            <p className="text-xs text-zinc-500 text-center !mt-2">Demo password is 'password'. Performer emails are `firstname@theprivatebook.au` (e.g., `april@...`).</p>
             <button type="submit" disabled={isLoading} className="btn-primary w-full text-lg flex items-center justify-center gap-2 disabled:opacity-50">
                 <LogIn />
                 Login

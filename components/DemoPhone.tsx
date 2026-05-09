@@ -57,7 +57,7 @@ const DemoPhone: React.FC<DemoPhoneProps> = ({ message, onClose }) => {
              </div>
              <div>
                 <p className="font-semibold text-white text-sm">To: {message.for}</p>
-                <p className="text-xs text-green-400">via Flavor Messaging</p>
+                <p className="text-xs text-green-400">via The Private Book</p>
              </div>
           </div>
           <button onClick={handleClose} className="text-zinc-400 hover:text-white">
