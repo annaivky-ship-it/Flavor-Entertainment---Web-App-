@@ -340,32 +340,40 @@ export const api = {
       let idUrl = null;
       let selfieUrl = null;
 
-      // Handle parallel file uploads for legacy/demo structure
+      // Handle parallel file uploads (only for the legacy KYC path —
+      // most bookings use the self-hosted SMS-OTP verification and
+      // never attach files at this stage).
       const timestamp = Date.now();
       const uploadPromises = [];
-      const user = auth.currentUser;
-      if (!user) throw new Error("Authentication required for booking submission");
-      const userUid = user.uid;
       const submissionId = `booking_${timestamp}`;
 
       // Validate and upload files
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
       const maxFileSize = 10 * 1024 * 1024; // 10MB
 
-      if (formState.idDocument) {
-        if (!allowedTypes.includes(formState.idDocument.type)) throw new Error(`Invalid ID file type: ${formState.idDocument.type}`);
-        if (formState.idDocument.size > maxFileSize) throw new Error('ID document exceeds 10MB limit.');
-        const idPath = `vetting/${userUid}/${submissionId}/id_${formState.idDocument.name}`;
-        const idRef = ref(storage, idPath);
-        uploadPromises.push(uploadBytes(idRef, formState.idDocument).then(async res => idUrl = await getDownloadURL(res.ref)));
-      }
+      if (formState.idDocument || formState.selfieDocument) {
+        // File uploads need a UID for the storage path. Anonymous Firebase
+        // Auth normally provides one; if it doesn't (e.g. anon auth disabled),
+        // we fall back to a synthetic guest UID so the upload still namespaces
+        // cleanly. If the upload fails on Storage rules, the catch below
+        // surfaces a clear error.
+        const userUid = auth.currentUser?.uid ?? `guest_${timestamp}`;
 
-      if (formState.selfieDocument) {
-        if (!allowedTypes.includes(formState.selfieDocument.type)) throw new Error(`Invalid selfie file type: ${formState.selfieDocument.type}`);
-        if (formState.selfieDocument.size > maxFileSize) throw new Error('Selfie document exceeds 10MB limit.');
-        const selfiePath = `vetting/${userUid}/${submissionId}/selfie_${formState.selfieDocument.name}`;
-        const selfieRef = ref(storage, selfiePath);
-        uploadPromises.push(uploadBytes(selfieRef, formState.selfieDocument).then(async res => selfieUrl = await getDownloadURL(res.ref)));
+        if (formState.idDocument) {
+          if (!allowedTypes.includes(formState.idDocument.type)) throw new Error(`Invalid ID file type: ${formState.idDocument.type}`);
+          if (formState.idDocument.size > maxFileSize) throw new Error('ID document exceeds 10MB limit.');
+          const idPath = `vetting/${userUid}/${submissionId}/id_${formState.idDocument.name}`;
+          const idRef = ref(storage, idPath);
+          uploadPromises.push(uploadBytes(idRef, formState.idDocument).then(async res => idUrl = await getDownloadURL(res.ref)));
+        }
+
+        if (formState.selfieDocument) {
+          if (!allowedTypes.includes(formState.selfieDocument.type)) throw new Error(`Invalid selfie file type: ${formState.selfieDocument.type}`);
+          if (formState.selfieDocument.size > maxFileSize) throw new Error('Selfie document exceeds 10MB limit.');
+          const selfiePath = `vetting/${userUid}/${submissionId}/selfie_${formState.selfieDocument.name}`;
+          const selfieRef = ref(storage, selfiePath);
+          uploadPromises.push(uploadBytes(selfieRef, formState.selfieDocument).then(async res => selfieUrl = await getDownloadURL(res.ref)));
+        }
       }
 
       await Promise.all(uploadPromises);

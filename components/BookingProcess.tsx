@@ -62,7 +62,7 @@ const eventTypes = ['Bucks Party', 'Birthday Party', 'Corporate Event', 'Hens Pa
 
 const FORM_DRAFT_KEY = 'flavor_booking_draft';
 
-function friendlyErrorMessage(raw: string): { title: string; message: string; isAuthError: boolean } {
+export function friendlyErrorMessage(raw: string): { title: string; message: string; isAuthError: boolean } {
     const lower = raw.toLowerCase();
     if (lower.includes('popup-closed') || lower.includes('auth/') || lower.includes('unauthenticated') || lower.includes('not authenticated') || lower.includes('authentication required')) {
         return { title: 'Session Expired', message: 'Your login session has expired. Please log in again — your form data has been saved.', isAuthError: true };
@@ -439,16 +439,14 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
         setIsSubmitting(true);
         setError(null);
 
-        // Check auth session is still valid before submitting
-        if (auth) {
-            const currentUser = auth.currentUser;
-            if (!currentUser) {
-                setError('Your login session has expired. Please log in again — your form data has been saved.');
-                setIsSubmitting(false);
-                return;
-            }
+        // For users who explicitly logged in, refresh their token before
+        // submitting so we catch token-refresh failures upfront with a
+        // friendly re-login prompt. Anonymous customers (no currentUser, or
+        // signed in anonymously) don't need a session — the
+        // createBookingRequest callable accepts unauthenticated calls.
+        if (auth?.currentUser && !auth.currentUser.isAnonymous) {
             try {
-                await currentUser.getIdToken(true);
+                await auth.currentUser.getIdToken(true);
             } catch {
                 setError('Your login session has expired. Please log in again — your form data has been saved.');
                 setIsSubmitting(false);
