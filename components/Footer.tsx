@@ -17,11 +17,10 @@ const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfServi
 
           {/* Brand Column */}
           <div className="sm:col-span-2 lg:col-span-1 space-y-4">
-            <div className="flex flex-col items-start">
-              <div className="flex items-center">
-                <span className="font-logo-sub text-xs text-zinc-500 mb-1">the</span>
-              </div>
-              <span className="font-logo-main text-2xl tracking-[0.18em] text-white">PRIVATE BOOK</span>
+            <div className="flex flex-col items-start leading-none">
+              <span className="font-logo-script text-3xl text-white -mb-2">The</span>
+              <span className="font-logo-main text-2xl text-white">PRIVATE BOOK</span>
+              <span className="font-logo-sub text-[10px] text-zinc-500 mt-1">PERTH</span>
             </div>
             <p className="text-sm text-zinc-400 leading-relaxed max-w-xs">
               By invitation only.

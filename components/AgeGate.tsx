@@ -97,10 +97,11 @@ const AgeGate: React.FC<AgeGateProps> = ({ onVerified, onShowPrivacyPolicy, onSh
     <div role="dialog" aria-modal="true" aria-label="Age verification" className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full text-white shadow-2xl shadow-black/50 animate-fade-in ring-1 ring-white/10">
         <div className="text-center mb-6 sm:mb-8">
-            <div className="flex flex-col items-center cursor-pointer no-underline group mb-4 sm:mb-6">
-                <span className="font-logo-sub text-sm sm:text-base text-zinc-500 mb-1 tracking-[0.25em]">the</span>
-                <span className="font-logo-main text-3xl sm:text-4xl tracking-[0.18em] text-white">PRIVATE BOOK</span>
-                <span className="font-logo-sub text-[10px] sm:text-xs text-zinc-600 mt-2 tracking-[0.3em] uppercase">By invitation only</span>
+            <div className="flex flex-col items-center cursor-pointer no-underline group mb-4 sm:mb-6 leading-none">
+                <span className="font-logo-script text-4xl sm:text-5xl text-white -mb-3 sm:-mb-4">The</span>
+                <span className="font-logo-main text-3xl sm:text-4xl text-white">PRIVATE BOOK</span>
+                <span className="font-logo-sub text-[10px] sm:text-xs text-zinc-500 mt-2">PERTH</span>
+                <span className="font-logo-sub text-[9px] sm:text-[10px] text-zinc-600 mt-3 uppercase">By invitation only</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold mb-2 text-white">Age Verification</h2>
             <p className="text-zinc-400 text-xs sm:text-sm">Please enter your date of birth to continue.</p>
