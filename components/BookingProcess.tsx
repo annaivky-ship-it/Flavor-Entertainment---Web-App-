@@ -8,7 +8,7 @@ import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
 import BookingConfirmationDialog from './BookingConfirmationDialog';
 import PayIDSimulationModal from './PayIDSimulationModal';
-import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, ShieldCheck, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, Navigation, LogIn, Search, Zap } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Calendar, Clock, MapPin, PartyPopper, Send, ListChecks, Info, AlertTriangle, ShieldX, CheckCircle, ChevronDown, LoaderCircle, Users as UsersIcon, Shield, Wallet, Briefcase, LogIn, Search, Zap } from 'lucide-react';
 import { ASAP_LEAD_TIME_MINUTES, ASAP_SURCHARGE_PERCENT, ASAP_OPERATING_HOURS, isAsapAvailableNow } from '../constants';
 import { api } from '../services/api';
 import VerificationStep from '../src/components/verification/VerificationStep';
@@ -123,27 +123,49 @@ const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children
 
 
 const wizardSteps = [
-    { id: 1, name: 'Client Details', icon: User },
-    { id: 2, name: 'Event Details', icon: Calendar },
-    { id: 3, name: 'Services', icon: ListChecks },
-    { id: 4, name: 'Identity & Safety', icon: ShieldCheck },
+    { id: 1, name: 'Your Details', icon: User },
+    { id: 2, name: 'The Event', icon: Calendar },
+    { id: 3, name: 'Services & Confirm', icon: ListChecks },
 ];
 
+const TOTAL_STEPS = wizardSteps.length;
+
 const ProgressIndicator: React.FC<{ currentStep: number }> = ({ currentStep }) => (
-    <nav aria-label="Progress">
-        <ol role="list" className="space-y-4 md:flex md:space-x-8 md:space-y-0 mb-10">
-            {wizardSteps.map((step) => {
+    <nav aria-label="Progress" className="mb-10">
+        <ol role="list" className="flex items-center justify-between gap-2 sm:gap-4">
+            {wizardSteps.map((step, index) => {
                 const isCompleted = currentStep > step.id;
                 const isCurrent = currentStep === step.id;
+                const Icon = step.icon;
+                const isLast = index === wizardSteps.length - 1;
 
                 return (
-                    <li key={step.name} className="md:flex-1">
-                        <div className={`group flex flex-col border-l-4 py-2 pl-4 transition-colors md:border-l-0 md:border-t-4 md:pl-0 md:pt-4 md:pb-0 ${isCompleted ? 'border-orange-500' : isCurrent ? 'border-orange-500' : 'border-zinc-700'}`}>
-                            <span className={`text-sm font-medium transition-colors ${isCompleted ? 'text-orange-400' : isCurrent ? 'text-orange-400' : 'text-zinc-400'}`}>
-                                Step {step.id}
-                            </span>
-                            <span className="text-sm font-medium text-white">{step.name}</span>
+                    <li key={step.name} className="flex-1 flex items-center min-w-0">
+                        <div className="flex flex-col items-center gap-2 min-w-0">
+                            <div
+                                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                                    isCompleted
+                                        ? 'bg-orange-500 border-orange-500 text-white shadow-[0_0_18px_rgba(255,0,128,0.45)]'
+                                        : isCurrent
+                                            ? 'bg-orange-500/15 border-orange-500 text-orange-400 ring-4 ring-orange-500/20'
+                                            : 'bg-zinc-900 border-zinc-700 text-zinc-500'
+                                }`}
+                                aria-current={isCurrent ? 'step' : undefined}
+                            >
+                                {isCompleted ? <CheckCircle size={20} /> : <Icon size={18} />}
+                            </div>
+                            <div className="text-center min-w-0">
+                                <p className={`text-[10px] font-bold uppercase tracking-wider ${isCurrent || isCompleted ? 'text-orange-400' : 'text-zinc-500'}`}>
+                                    Step {step.id}
+                                </p>
+                                <p className={`text-xs sm:text-sm font-medium truncate ${isCurrent ? 'text-white' : isCompleted ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                                    {step.name}
+                                </p>
+                            </div>
                         </div>
+                        {!isLast && (
+                            <div className={`flex-1 h-0.5 mx-2 sm:mx-4 -mt-8 transition-colors duration-300 ${isCompleted ? 'bg-orange-500' : 'bg-zinc-800'}`} />
+                        )}
                     </li>
                 );
             })}
@@ -394,11 +416,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                 break;
             case 3:
                 if (form.selectedServices.length === 0) errors.selectedServices = "Select at least one service.";
-                break;
-            case 4:
-                if (!isVerifiedBooker) {
-                    if (!agreedTerms) errors.agreedTerms = "Agreement required.";
-                }
+                if (!isVerifiedBooker && !agreedTerms) errors.agreedTerms = "Agreement required.";
                 break;
         }
 
@@ -408,7 +426,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
     const handleNext = () => {
         if (validateStep(currentStep)) {
-            if (currentStep < 4) {
+            if (currentStep < TOTAL_STEPS) {
                 setCurrentStep(currentStep + 1);
                 window.scrollTo(0, 0);
             } else {
@@ -581,19 +599,31 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
                         {currentStep === 1 && (
                             <div className="space-y-6 animate-fade-in">
-                                <div><h2 className="text-2xl font-bold text-white mb-2">Client Details</h2><p className="text-zinc-400">Match these to your identification documents.</p></div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white mb-2">Tell us about you</h2>
+                                    <p className="text-zinc-400">Use the name on your ID — it speeds up verification.</p>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField icon={<User />} label="Legal Full Name" name="fullName" value={form.fullName} onChange={handleChange} required error={fieldErrors.fullName} />
                                     <InputField icon={<Mail />} label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} required error={fieldErrors.email} />
-                                    <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} />
+                                    <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} placeholder="04XX XXX XXX" />
                                     <InputField icon={<Calendar />} label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} required error={fieldErrors.dob} />
                                 </div>
-                                {isVerifiedBooker && <div className="p-4 bg-green-900/20 border border-green-500/50 rounded-lg flex items-center gap-3"><CheckCircle className="text-green-400" /> <p className="text-sm text-green-200">Verified Trusted Client detected. Verification skipped.</p></div>}
+                                {isVerifiedBooker && (
+                                    <div className="p-4 bg-green-900/20 border border-green-500/40 rounded-lg flex items-center gap-3">
+                                        <CheckCircle className="text-green-400 flex-shrink-0" />
+                                        <p className="text-sm text-green-200">Verified Trusted Client detected — verification will be skipped.</p>
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {currentStep === 2 && (
                             <div className="space-y-6 animate-fade-in">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white mb-2">Where & when</h2>
+                                    <p className="text-zinc-400">Tell us about the event so we can match the right performer.</p>
+                                </div>
                                 {(() => {
                                     const asapBlocker = performers.find(p => p.accepts_asap === false);
                                     const outsideHours = !isAsapAvailableNow();
@@ -735,7 +765,16 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         )}
 
                         {currentStep === 3 && (
-                            <div className="space-y-6 animate-fade-in">
+                            <div className="space-y-8 animate-fade-in">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white mb-2">Choose your services</h2>
+                                    <p className="text-zinc-400">Select one or more — pricing updates instantly on the right.</p>
+                                </div>
+                                {fieldErrors.selectedServices && (
+                                    <div className="p-3 bg-red-900/30 border border-red-500/40 rounded-lg flex items-center gap-2 text-sm text-red-300">
+                                        <AlertTriangle size={16} /> {fieldErrors.selectedServices}
+                                    </div>
+                                )}
                                 <div className="space-y-8">
                                     {(Object.entries(servicesByCategory) as [string, Service[]][]).map(([category, services]) => (
                                         <div key={category}>
@@ -744,12 +783,12 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                                 {services.map(service => {
                                                     const isSelected = form.selectedServices.includes(service.id);
                                                     return (
-                                                        <div key={service.id} onClick={() => handleServiceChange(service.id)} className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center group ${isSelected ? 'bg-orange-500/10 border-orange-500' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'}`}>
-                                                            <div className="flex-1">
+                                                        <button type="button" key={service.id} onClick={() => handleServiceChange(service.id)} className={`p-4 rounded-xl border text-left transition-all duration-200 flex justify-between items-center group focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${isSelected ? 'bg-orange-500/10 border-orange-500 shadow-[0_0_18px_rgba(255,0,128,0.15)]' : 'bg-zinc-900 border-zinc-800 hover:border-orange-500/40'}`}>
+                                                            <div className="flex-1 min-w-0">
                                                                 <p className={`font-bold ${isSelected ? 'text-orange-400' : 'text-zinc-200'}`}>{service.name}</p>
-                                                                <p className="text-xs text-zinc-500">{service.description}</p>
+                                                                <p className="text-xs text-zinc-500 mt-0.5">{service.description}</p>
                                                             </div>
-                                                            <div className="ml-4 text-right flex flex-col items-end gap-1">
+                                                            <div className="ml-4 text-right flex flex-col items-end gap-1 flex-shrink-0">
                                                                 <span className="text-sm font-bold block text-zinc-300">${service.rate}{service.rate_type === 'per_hour' ? '/hr' : ''}</span>
                                                                 {(service.duration_minutes || service.min_duration_hours) && (
                                                                     <span className="text-xs text-zinc-500 font-medium">
@@ -758,58 +797,53 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                                                 )}
                                                                 {isSelected && <CheckCircle size={18} className="text-orange-400 inline mt-1" />}
                                                             </div>
-                                                        </div>
+                                                        </button>
                                                     );
                                                 })}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                                <div className="mt-8"><label className="block text-sm font-medium text-zinc-400 mb-2">Special Notes (Optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-24 resize-none" /></div>
-                            </div>
-                        )}
 
-                        {currentStep === 4 && (
-                            <div className="space-y-8 animate-fade-in">
-                                <div className="mb-6"><h2 className="text-2xl font-bold text-white mb-2">Safety Verification</h2><p className="text-zinc-400">To protect our performers, we require all new clients to verify their identity.</p></div>
-                                {isVerifiedBooker ? (
-                                    <div className="p-8 bg-green-900/20 border border-green-500/50 rounded-2xl text-center space-y-4"><CheckCircle className="h-16 w-16 text-green-500 mx-auto" /><h3 className="text-2xl font-bold text-white">Verified Trust Status</h3><p className="text-green-200">You are pre-cleared for this booking. Proceed to confirmation.</p></div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        <div className="p-4 bg-blue-950/40 border border-blue-500/50 rounded-xl flex items-start gap-4">
-                                            <Shield className="h-6 w-6 text-blue-400 mt-1 flex-shrink-0" />
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-400 mb-2">Special Notes (Optional)</label>
+                                    <textarea name="client_message" value={form.client_message} onChange={handleChange} placeholder="Anything we should know? Theme, music preferences, accessibility, etc." className="input-base h-24 resize-none" />
+                                </div>
+
+                                <div className="pt-6 border-t border-zinc-800 space-y-4">
+                                    {isVerifiedBooker ? (
+                                        <div className="p-4 bg-green-900/20 border border-green-500/40 rounded-xl flex items-center gap-3">
+                                            <CheckCircle className="h-6 w-6 text-green-400 flex-shrink-0" />
                                             <div>
-                                                <h4 className="font-bold text-blue-300">Quick Verification</h4>
-                                                <p className="text-sm text-blue-200/80 leading-relaxed mt-1 mb-3">
-                                                    After submitting, we'll send a one-time SMS code to your phone. Higher-tier bookings include a brief on-device liveness check (a quick blink-and-look at your camera). Takes about 60 seconds.
-                                                </p>
-                                                <div className="space-y-1.5 text-xs text-blue-200/60">
-                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> No government ID is uploaded or stored at any point</p>
-                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Liveness frames stay on your device — only a numeric verification record is saved</p>
-                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Returning clients with verified history skip these steps automatically</p>
-                                                </div>
+                                                <p className="font-semibold text-white text-sm">Verified Trusted Client</p>
+                                                <p className="text-xs text-green-200/80">You're pre-cleared — verification will be skipped.</p>
                                             </div>
                                         </div>
-
-                                        <div className="space-y-4 pt-6 border-t border-zinc-800">
-                                            <label className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-700 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors">
-                                                <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-6 w-6 rounded border-zinc-700 bg-zinc-900 text-orange-500 focus:ring-orange-500" />
-                                                <span className="text-sm text-zinc-300">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-orange-400 underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-orange-400 underline">Privacy Policy</a>. I am 18+.</span>
-                                            </label>
-                                            {fieldErrors.agreedTerms && <p className="text-xs text-red-400 font-medium pl-1">Agreement required.</p>}
+                                    ) : (
+                                        <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-xl flex items-start gap-3">
+                                            <Shield className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
+                                            <div className="text-xs text-zinc-400 leading-relaxed">
+                                                <span className="font-semibold text-zinc-200">Quick verification after submit.</span> We'll send a one-time SMS code (~60s). No ID is uploaded or stored. Returning clients skip this automatically.
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+
+                                    <label className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-colors border ${agreedTerms ? 'bg-orange-500/5 border-orange-500/40' : 'bg-zinc-900 border-zinc-700 hover:bg-zinc-800'}`}>
+                                        <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-5 w-5 rounded border-zinc-700 bg-zinc-900 text-orange-500 focus:ring-orange-500" />
+                                        <span className="text-sm text-zinc-300">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-orange-400 underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-orange-400 underline">Privacy Policy</a>. I am 18+.</span>
+                                    </label>
+                                    {fieldErrors.agreedTerms && <p className="text-xs text-red-400 font-medium pl-1">{fieldErrors.agreedTerms}</p>}
+                                </div>
                             </div>
                         )}
 
                         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                            <div className="text-sm text-zinc-500">Step {currentStep} of 4</div>
+                            <div className="text-sm text-zinc-500">Step {currentStep} of {TOTAL_STEPS}</div>
                             <div className="flex gap-4 w-full sm:w-auto">
-                                <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-lg transition-colors">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
-                                <button onClick={handleNext} disabled={isSubmitting} className="flex-1 sm:flex-none btn-primary px-8 py-3 flex items-center justify-center gap-2">
-                                    {isSubmitting ? <LoaderCircle className="animate-spin" /> : currentStep === 4 ? <Send size={18} /> : null}
-                                    {isSubmitting ? 'Processing...' : currentStep === 4 ? 'Review Request' : 'Continue'}
+                                <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
+                                <button onClick={handleNext} disabled={isSubmitting} className="flex-1 sm:flex-none btn-primary px-8 py-3 flex items-center justify-center gap-2 disabled:opacity-60">
+                                    {isSubmitting ? <LoaderCircle className="animate-spin" size={18} /> : currentStep === TOTAL_STEPS ? <Send size={18} /> : null}
+                                    {isSubmitting ? 'Processing...' : currentStep === TOTAL_STEPS ? 'Review & Submit' : 'Continue'}
                                 </button>
                             </div>
                         </div>
