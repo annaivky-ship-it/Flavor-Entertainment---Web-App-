@@ -23,7 +23,7 @@ const FAQ = React.lazy(() => import('./components/FAQ'));
 const PerformerOnboarding = React.lazy(() => import('./components/PerformerOnboarding'));
 const WalkthroughOverlay = React.lazy(() => import('./components/WalkthroughOverlay'));
 import { api, resetDemoData } from './services/api';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './services/firebaseClient';
 import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
@@ -230,6 +230,16 @@ const App: React.FC = () => {
       } else {
         setFirebaseUid(null);
         setAuthedUser(null);
+        // Sign in anonymously so every visitor has a stable UID for
+        // storage-path namespacing and return-customer tracking. The
+        // `createBookingRequest` callable doesn't require auth, so this
+        // failing (e.g. anonymous auth disabled in Firebase console) is
+        // non-fatal — the app keeps working without a UID.
+        signInAnonymously(auth!).catch(err => {
+          console.warn('Anonymous sign-in failed (non-fatal):', err.message);
+          setAuthReady(true);
+        });
+        return; // wait for the next onAuthStateChanged callback after anon sign-in
       }
       setAuthReady(true);
     });
