@@ -123,9 +123,8 @@ const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children
 
 
 const wizardSteps = [
-    { id: 1, name: 'Your Details', icon: User },
-    { id: 2, name: 'The Event', icon: Calendar },
-    { id: 3, name: 'Services & Confirm', icon: ListChecks },
+    { id: 1, name: 'Booking Details', icon: Calendar },
+    { id: 2, name: 'Services & Confirm', icon: ListChecks },
 ];
 
 const TOTAL_STEPS = wizardSteps.length;
@@ -360,6 +359,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
         switch (step) {
             case 1:
+                // Your details
                 if (!form.fullName.trim()) errors.fullName = "Full name is required.";
                 if (!form.email.trim()) errors.email = "Email address is required.";
                 else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email format.";
@@ -379,8 +379,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         errors.dob = "You must be at least 18 years old.";
                     }
                 }
-                break;
-            case 2:
+                // Event details
                 if (!form.eventDate) errors.eventDate = "Date required.";
                 if (!form.eventTime) errors.eventTime = "Time required.";
                 if (!form.eventAddress.trim()) errors.eventAddress = "Address required.";
@@ -406,7 +405,6 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         errors.eventTime = `Time conflict: ${names} already booked for this date/time.`;
                     }
                 }
-                // Block ASAP if any selected performer has opted out
                 if (form.isAsap) {
                     const blocker = performers.find(p => p.accepts_asap === false);
                     if (blocker) {
@@ -414,7 +412,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                     }
                 }
                 break;
-            case 3:
+            case 2:
                 if (form.selectedServices.length === 0) errors.selectedServices = "Select at least one service.";
                 if (!isVerifiedBooker && !agreedTerms) errors.agreedTerms = "Agreement required.";
                 break;
@@ -598,32 +596,33 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         <ErrorDisplay message={error} onLogin={() => window.location.reload()} />
 
                         {currentStep === 1 && (
-                            <div className="space-y-6 animate-fade-in">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-white mb-2">Tell us about you</h2>
-                                    <p className="text-zinc-400">Use the name on your ID — it speeds up verification.</p>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <InputField icon={<User />} label="Legal Full Name" name="fullName" value={form.fullName} onChange={handleChange} required error={fieldErrors.fullName} />
-                                    <InputField icon={<Mail />} label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} required error={fieldErrors.email} />
-                                    <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} placeholder="04XX XXX XXX" />
-                                    <InputField icon={<Calendar />} label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} required error={fieldErrors.dob} />
-                                </div>
-                                {isVerifiedBooker && (
-                                    <div className="p-4 bg-green-900/20 border border-green-500/40 rounded-lg flex items-center gap-3">
-                                        <CheckCircle className="text-green-400 flex-shrink-0" />
-                                        <p className="text-sm text-green-200">Verified Trusted Client detected — verification will be skipped.</p>
+                            <div className="space-y-8 animate-fade-in">
+                                <section className="space-y-4">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white">Your details</h2>
+                                        <p className="text-sm text-zinc-400">Use the name on your ID — it speeds up verification.</p>
                                     </div>
-                                )}
-                            </div>
-                        )}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <InputField icon={<User />} label="Legal Full Name" name="fullName" value={form.fullName} onChange={handleChange} required error={fieldErrors.fullName} />
+                                        <InputField icon={<Mail />} label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} required error={fieldErrors.email} />
+                                        <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} placeholder="04XX XXX XXX" />
+                                        <InputField icon={<Calendar />} label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} required error={fieldErrors.dob} />
+                                    </div>
+                                    {isVerifiedBooker && (
+                                        <div className="p-3 bg-green-900/20 border border-green-500/40 rounded-lg flex items-center gap-3">
+                                            <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
+                                            <p className="text-xs text-green-200">Trusted client — verification will be skipped after submission.</p>
+                                        </div>
+                                    )}
+                                </section>
 
-                        {currentStep === 2 && (
-                            <div className="space-y-6 animate-fade-in">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-white mb-2">Where & when</h2>
-                                    <p className="text-zinc-400">Tell us about the event so we can match the right performer.</p>
-                                </div>
+                                <hr className="border-zinc-800" />
+
+                                <section className="space-y-4">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white">Where & when</h2>
+                                        <p className="text-sm text-zinc-400">Tell us about the event so we can match the right performer.</p>
+                                    </div>
                                 {(() => {
                                     const asapBlocker = performers.find(p => p.accepts_asap === false);
                                     const outsideHours = !isAsapAvailableNow();
@@ -761,10 +760,11 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                         </div>
                                     </div>
                                 </div>
+                                </section>
                             </div>
                         )}
 
-                        {currentStep === 3 && (
+                        {currentStep === 2 && (
                             <div className="space-y-8 animate-fade-in">
                                 <div>
                                     <h2 className="text-2xl font-bold text-white mb-2">Choose your services</h2>
@@ -858,7 +858,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                             performers={performers}
                             suburbName={form.eventSuburb || undefined}
                             isAsap={!!form.isAsap}
-                            onClearAll={currentStep === 3 ? handleClearAll : undefined}
+                            onClearAll={currentStep === 2 ? handleClearAll : undefined}
                         />
 
                         {currentStep > 1 && (
