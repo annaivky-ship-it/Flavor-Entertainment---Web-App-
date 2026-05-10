@@ -719,10 +719,13 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                                 <span className="absolute left-12 top-1/2 -translate-y-1/2 text-zinc-200 pointer-events-none">{form.eventSuburb}</span>
                                             )}
                                             {isSuburbOpen && (
-                                                <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-lg max-h-48 overflow-y-auto z-50 shadow-xl">
+                                                <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-lg max-h-64 overflow-y-auto z-50 shadow-xl">
                                                     {perthSuburbs
                                                         .filter(s => !suburbSearch || s.name.toLowerCase().includes(suburbSearch.toLowerCase()))
-                                                        .slice(0, 20)
+                                                        // Show all matches when the user has typed something; cap at 50
+                                                        // when the dropdown is opened with no search to keep first
+                                                        // paint snappy. perthSuburbs has 300+ entries; type to narrow.
+                                                        .slice(0, suburbSearch ? perthSuburbs.length : 50)
                                                         .map(s => (
                                                             <button
                                                                 key={s.name}

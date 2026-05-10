@@ -56,7 +56,10 @@ describe('calculateBookingCost', () => {
   });
 
   it('adds no travel fee for suburbs at exactly 50km', () => {
-    const result = calculateBookingCost(2, ['waitress-topless'], 1, 'Two Rocks');
+    // Gingin sits exactly on the 50km threshold in the suburb dataset and
+    // is intentionally pinned there as a stable test fixture for this
+    // edge-case rather than being moved during data refreshes.
+    const result = calculateBookingCost(2, ['waitress-topless'], 1, 'Gingin');
     expect(result.travelFee).toBe(0);
     expect(result.totalCost).toBe(320);
   });
