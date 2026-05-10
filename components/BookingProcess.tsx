@@ -123,10 +123,8 @@ const StatusScreen: React.FC<StatusScreenProps> = ({ icon: Icon, title, children
 
 
 const wizardSteps = [
-    { id: 1, name: 'Client Details', icon: User },
-    { id: 2, name: 'Event Details', icon: Calendar },
-    { id: 3, name: 'Services', icon: ListChecks },
-    { id: 4, name: 'Identity & Safety', icon: ShieldCheck },
+    { id: 1, name: 'Booking Details', icon: Calendar },
+    { id: 2, name: 'Services & Confirm', icon: ListChecks },
 ];
 
 const ProgressIndicator: React.FC<{ currentStep: number }> = ({ currentStep }) => (
@@ -338,6 +336,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
         switch (step) {
             case 1:
+                // Your details
                 if (!form.fullName.trim()) errors.fullName = "Full name is required.";
                 if (!form.email.trim()) errors.email = "Email address is required.";
                 else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email format.";
@@ -357,8 +356,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         errors.dob = "You must be at least 18 years old.";
                     }
                 }
-                break;
-            case 2:
+                // Event details
                 if (!form.eventDate) errors.eventDate = "Date required.";
                 if (!form.eventTime) errors.eventTime = "Time required.";
                 if (!form.eventAddress.trim()) errors.eventAddress = "Address required.";
@@ -384,7 +382,6 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         errors.eventTime = `Time conflict: ${names} already booked for this date/time.`;
                     }
                 }
-                // Block ASAP if any selected performer has opted out
                 if (form.isAsap) {
                     const blocker = performers.find(p => p.accepts_asap === false);
                     if (blocker) {
@@ -392,13 +389,9 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                     }
                 }
                 break;
-            case 3:
+            case 2:
                 if (form.selectedServices.length === 0) errors.selectedServices = "Select at least one service.";
-                break;
-            case 4:
-                if (!isVerifiedBooker) {
-                    if (!agreedTerms) errors.agreedTerms = "Agreement required.";
-                }
+                if (!isVerifiedBooker && !agreedTerms) errors.agreedTerms = "Agreement required.";
                 break;
         }
 
@@ -408,7 +401,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
     const handleNext = () => {
         if (validateStep(currentStep)) {
-            if (currentStep < 4) {
+            if (currentStep < 2) {
                 setCurrentStep(currentStep + 1);
                 window.scrollTo(0, 0);
             } else {
@@ -580,20 +573,25 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                         <ErrorDisplay message={error} onLogin={() => window.location.reload()} />
 
                         {currentStep === 1 && (
-                            <div className="space-y-6 animate-fade-in">
-                                <div><h2 className="text-2xl font-bold text-white mb-2">Client Details</h2><p className="text-zinc-400">Match these to your identification documents.</p></div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <InputField icon={<User />} label="Legal Full Name" name="fullName" value={form.fullName} onChange={handleChange} required error={fieldErrors.fullName} />
-                                    <InputField icon={<Mail />} label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} required error={fieldErrors.email} />
-                                    <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} />
-                                    <InputField icon={<Calendar />} label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} required error={fieldErrors.dob} />
-                                </div>
-                                {isVerifiedBooker && <div className="p-4 bg-green-900/20 border border-green-500/50 rounded-lg flex items-center gap-3"><CheckCircle className="text-green-400" /> <p className="text-sm text-green-200">Verified Trusted Client detected. Verification skipped.</p></div>}
-                            </div>
-                        )}
+                            <div className="space-y-8 animate-fade-in">
+                                <section className="space-y-4">
+                                    <div className="flex items-baseline gap-3">
+                                        <h2 className="text-xl font-bold text-white">Your details</h2>
+                                        <span className="text-xs uppercase tracking-[0.25em] text-zinc-500">Step 1 of 2</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <InputField icon={<User />} label="Legal Full Name" name="fullName" value={form.fullName} onChange={handleChange} required error={fieldErrors.fullName} />
+                                        <InputField icon={<Mail />} label="Email Address" type="email" name="email" value={form.email} onChange={handleChange} required error={fieldErrors.email} />
+                                        <InputField icon={<Phone />} label="Mobile Number" type="tel" name="mobile" value={form.mobile} onChange={handleChange} required error={fieldErrors.mobile} />
+                                        <InputField icon={<Calendar />} label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} required error={fieldErrors.dob} />
+                                    </div>
+                                    {isVerifiedBooker && <div className="p-3 bg-green-900/20 border border-green-500/40 rounded-lg flex items-center gap-3"><CheckCircle className="text-green-400 h-4 w-4 flex-shrink-0" /> <p className="text-xs text-green-200">Trusted client — verification will be skipped after submission.</p></div>}
+                                </section>
 
-                        {currentStep === 2 && (
-                            <div className="space-y-6 animate-fade-in">
+                                <hr className="border-zinc-800" />
+
+                                <section className="space-y-4">
+                                    <h2 className="text-xl font-bold text-white">Event details</h2>
                                 {(() => {
                                     const asapBlocker = performers.find(p => p.accepts_asap === false);
                                     const outsideHours = !isAsapAvailableNow();
@@ -731,11 +729,17 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                         </div>
                                     </div>
                                 </div>
+                                </section>
                             </div>
                         )}
 
-                        {currentStep === 3 && (
-                            <div className="space-y-6 animate-fade-in">
+                        {currentStep === 2 && (
+                            <div className="space-y-8 animate-fade-in">
+                                <section className="space-y-4">
+                                    <div className="flex items-baseline gap-3">
+                                        <h2 className="text-xl font-bold text-white">Choose services</h2>
+                                        <span className="text-xs uppercase tracking-[0.25em] text-zinc-500">Step 2 of 2</span>
+                                    </div>
                                 <div className="space-y-8">
                                     {(Object.entries(servicesByCategory) as [string, Service[]][]).map(([category, services]) => (
                                         <div key={category}>
@@ -765,51 +769,39 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                                         </div>
                                     ))}
                                 </div>
-                                <div className="mt-8"><label className="block text-sm font-medium text-zinc-400 mb-2">Special Notes (Optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-24 resize-none" /></div>
-                            </div>
-                        )}
+                                <div><label className="block text-sm font-medium text-zinc-400 mb-2">Special notes (optional)</label><textarea name="client_message" value={form.client_message} onChange={handleChange} className="input-base h-20 resize-none" placeholder="Anything the performer should know — dress code, vibe, theme, dietary requirements…" /></div>
+                                </section>
 
-                        {currentStep === 4 && (
-                            <div className="space-y-8 animate-fade-in">
-                                <div className="mb-6"><h2 className="text-2xl font-bold text-white mb-2">Safety Verification</h2><p className="text-zinc-400">To protect our performers, we require all new clients to verify their identity.</p></div>
-                                {isVerifiedBooker ? (
-                                    <div className="p-8 bg-green-900/20 border border-green-500/50 rounded-2xl text-center space-y-4"><CheckCircle className="h-16 w-16 text-green-500 mx-auto" /><h3 className="text-2xl font-bold text-white">Verified Trust Status</h3><p className="text-green-200">You are pre-cleared for this booking. Proceed to confirmation.</p></div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        <div className="p-4 bg-blue-950/40 border border-blue-500/50 rounded-xl flex items-start gap-4">
-                                            <Shield className="h-6 w-6 text-blue-400 mt-1 flex-shrink-0" />
-                                            <div>
-                                                <h4 className="font-bold text-blue-300">Quick Verification</h4>
-                                                <p className="text-sm text-blue-200/80 leading-relaxed mt-1 mb-3">
-                                                    After submitting, we'll send a one-time SMS code to your phone. Higher-tier bookings include a brief on-device liveness check (a quick blink-and-look at your camera). Takes about 60 seconds.
-                                                </p>
-                                                <div className="space-y-1.5 text-xs text-blue-200/60">
-                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> No government ID is uploaded or stored at any point</p>
-                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Liveness frames stay on your device — only a numeric verification record is saved</p>
-                                                    <p className="flex items-center gap-2"><CheckCircle size={12} className="text-green-400" /> Returning clients with verified history skip these steps automatically</p>
-                                                </div>
-                                            </div>
-                                        </div>
+                                <hr className="border-zinc-800" />
 
-                                        <div className="space-y-4 pt-6 border-t border-zinc-800">
-                                            <label className="flex items-center gap-4 p-4 bg-zinc-900 border border-zinc-700 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors">
-                                                <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-6 w-6 rounded border-zinc-700 bg-zinc-900 text-orange-500 focus:ring-orange-500" />
-                                                <span className="text-sm text-zinc-300">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-orange-400 underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-orange-400 underline">Privacy Policy</a>. I am 18+.</span>
-                                            </label>
-                                            {fieldErrors.agreedTerms && <p className="text-xs text-red-400 font-medium pl-1">Agreement required.</p>}
+                                <section className="space-y-3">
+                                    {isVerifiedBooker ? (
+                                        <div className="p-4 bg-green-900/20 border border-green-500/40 rounded-lg flex items-center gap-3">
+                                            <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
+                                            <p className="text-sm text-green-200">Trusted client — verification skipped, you're pre-cleared.</p>
                                         </div>
-                                    </div>
-                                )}
+                                    ) : (
+                                        <p className="text-xs text-zinc-500 flex items-start gap-2">
+                                            <Shield className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-zinc-500" />
+                                            After you submit we'll text a one-time code to verify your number. Takes ~30 seconds. No ID is uploaded or stored.
+                                        </p>
+                                    )}
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="h-5 w-5 rounded border-zinc-700 bg-zinc-900 text-orange-500 focus:ring-orange-500 flex-shrink-0" />
+                                        <span className="text-sm text-zinc-400 group-hover:text-zinc-200 transition-colors">I agree to the <a href="#" onClick={(e) => { e.preventDefault(); onShowTermsOfService(); }} className="text-orange-400 hover:underline">Terms</a> & <a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacyPolicy(); }} className="text-orange-400 hover:underline">Privacy Policy</a>. I am 18 or older.</span>
+                                    </label>
+                                    {fieldErrors.agreedTerms && <p className="text-xs text-red-400 font-medium pl-8">Agreement required.</p>}
+                                </section>
                             </div>
                         )}
 
                         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                            <div className="text-sm text-zinc-500">Step {currentStep} of 4</div>
+                            <div className="text-sm text-zinc-500">Step {currentStep} of 2</div>
                             <div className="flex gap-4 w-full sm:w-auto">
                                 <button onClick={handleBack} disabled={isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-lg transition-colors">{currentStep === 1 ? 'Cancel' : 'Back'}</button>
                                 <button onClick={handleNext} disabled={isSubmitting} className="flex-1 sm:flex-none btn-primary px-8 py-3 flex items-center justify-center gap-2">
-                                    {isSubmitting ? <LoaderCircle className="animate-spin" /> : currentStep === 4 ? <Send size={18} /> : null}
-                                    {isSubmitting ? 'Processing...' : currentStep === 4 ? 'Review Request' : 'Continue'}
+                                    {isSubmitting ? <LoaderCircle className="animate-spin" /> : currentStep === 2 ? <Send size={18} /> : null}
+                                    {isSubmitting ? 'Processing...' : currentStep === 2 ? 'Review Request' : 'Continue'}
                                 </button>
                             </div>
                         </div>
@@ -824,7 +816,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
                             performers={performers}
                             suburbName={form.eventSuburb || undefined}
                             isAsap={!!form.isAsap}
-                            onClearAll={currentStep === 3 ? handleClearAll : undefined}
+                            onClearAll={currentStep === 2 ? handleClearAll : undefined}
                         />
 
                         {currentStep > 1 && (
