@@ -444,7 +444,11 @@ const App: React.FC = () => {
     setBookings(updatedBookings);
 
     try {
-      const { error: apiError } = await api.updateBookingStatus(bookingId, status, updatedBookingData);
+      const actorRole: 'admin' | 'performer' | 'client' =
+        authedUser?.role === 'admin' ? 'admin'
+        : authedUser?.role === 'performer' ? 'performer'
+        : 'client';
+      const { error: apiError } = await api.updateBookingStatus(bookingId, status, updatedBookingData, actorRole);
       if (apiError) throw apiError;
 
       const { totalCost, depositAmount } = calculateBookingCost(booking.duration_hours, booking.services_requested || [], 1);
@@ -542,30 +546,53 @@ const App: React.FC = () => {
     if (!booking) return;
 
     const performerName = booking.performer?.name || 'The performer';
+    const originalBookings = bookings;
+
+    // For admin acting on behalf of performer, use admin callables. Otherwise
+    // use the performer-scoped callable which enforces booking ownership.
+    const isAdminActor = authedUser?.role === 'admin';
 
     if (decision === 'declined') {
-      await handleUpdateBookingStatus(bookingId, 'rejected');
-      addCommunication({ sender: performerName, recipient: 'admin', message: `${performerName} has DECLINED the booking request from ${booking.client_name}.`, type: 'admin_message' });
-      addCommunication({ sender: 'System', recipient: 'user', message: `We're sorry, ${performerName} is unable to accept your booking request at this time. Please try booking another performer. We have many other talented entertainers available!`, booking_id: booking.id, type: 'booking_update' });
+      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'rejected' as const } : b));
+      try {
+        const { error } = isAdminActor
+          ? await api.adminUpdateBookingStatus(bookingId, 'rejected')
+          : await api.performerDecideBooking(bookingId, 'declined');
+        if (error) throw error;
+        addCommunication({ sender: performerName, recipient: 'admin', message: `${performerName} has DECLINED the booking request from ${booking.client_name}.`, type: 'admin_message' });
+        addCommunication({ sender: 'System', recipient: 'user', message: `We're sorry, ${performerName} is unable to accept your booking request at this time. Please try booking another performer.`, booking_id: booking.id, type: 'booking_update' });
+      } catch (err) {
+        console.error('Failed performer decline:', err);
+        setBookings(originalBookings);
+        setError('Failed to decline the booking.');
+      }
       return;
     }
 
-    const isVerifiedBooker = bookings.some(b =>
-      b.status === 'confirmed' && b.client_email.toLowerCase() === booking.client_email.toLowerCase()
-    );
-    const newStatus = isVerifiedBooker ? 'deposit_pending' : 'pending_vetting';
+    // Trust tier is server-resolved; the server will pick deposit_pending or
+    // pending_vetting based on the booking's stored trustTier. Optimistic UI
+    // shows pending_vetting which is the safer default.
+    const optimisticStatus: BookingStatus = 'pending_vetting';
+    const isVerifiedBooker = booking.trustTier === 'trusted';
+    const newStatus: BookingStatus = isVerifiedBooker ? 'deposit_pending' : optimisticStatus;
 
     const updateData: Partial<Booking> = { status: newStatus };
-    if (eta && eta > 0) {
-      updateData.performer_eta_minutes = eta;
-    }
+    if (eta && eta > 0) updateData.performer_eta_minutes = eta;
 
-    const originalBookings = bookings;
     setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, ...updateData } : b));
 
     try {
-      const { error: apiError } = await api.updateBookingStatus(bookingId, newStatus, updateData);
-      if (apiError) throw apiError;
+      if (isAdminActor) {
+        const { error: apiError } = await api.adminUpdateBookingStatus(bookingId, newStatus, updateData);
+        if (apiError) throw apiError;
+      } else {
+        const { data, error: apiError } = await api.performerDecideBooking(bookingId, 'accepted', eta);
+        if (apiError) throw apiError;
+        // Reflect server's chosen status (trust-tier driven)
+        if (data?.status) {
+          setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: data.status as BookingStatus } : b));
+        }
+      }
 
       const etaMessagePartAdmin = eta && eta > 0 ? ` with an ETA of ${eta} minutes` : '';
       const etaMessagePartUser = eta && eta > 0 ? ` Her ETA is ~${eta} minutes.` : '';
@@ -600,7 +627,9 @@ const App: React.FC = () => {
     setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, ...updateData } : b));
 
     try {
-      const { error: apiError } = await api.updateBookingStatus(bookingId, booking.status, updateData);
+      const { error: apiError } = authedUser?.role === 'admin'
+        ? await api.adminUpdateBookingStatus(bookingId, booking.status, updateData)
+        : await api.performerUpdateEta(bookingId, eta);
       if (apiError) throw apiError;
 
       const performerName = booking.performer?.name || 'Performer';
@@ -647,8 +676,10 @@ const App: React.FC = () => {
     } : b));
 
     try {
-      const { error: apiError } = await api.updateBookingStatus(bookingId, 'pending_performer_acceptance', updates);
+      const { error: apiError } = await api.adminReassignPerformer(bookingId, newPerformerId);
       if (apiError) throw apiError;
+      // Server already set status to pending_performer_acceptance and recorded the previous performer id.
+      void updates;
 
       addCommunication({ sender: 'Admin', recipient: 'admin', message: `Booking for ${booking.client_name} has been reassigned from ${oldPerformerName} to ${newPerformer.name}.`, type: 'admin_message' });
       addCommunication({ sender: 'Admin', recipient: 'user', message: `An update on your booking: ${newPerformer.name} has now been assigned to your event. We are awaiting their confirmation.`, booking_id: booking.id, type: 'booking_update' });

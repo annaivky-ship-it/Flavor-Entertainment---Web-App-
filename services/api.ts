@@ -6,7 +6,6 @@ import {
   query,
   where,
   orderBy,
-  updateDoc,
   addDoc,
   getDoc,
   serverTimestamp,
@@ -17,7 +16,10 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import type { Performer, Booking, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PerformerStatus, AuditLog, VettingApplication } from '../types';
+import type {
+  Performer, Booking, BookingStatus, DoNotServeEntry, DoNotServeStatus,
+  Communication, PerformerStatus, AuditLog, VettingApplication
+} from '../types';
 import { BookingFormState } from '../components/BookingProcess';
 
 /** Whether the app is running in demo mode (mock data, no real Firebase writes) */
@@ -40,10 +42,8 @@ export const resetDemoData = async () => {
   }
   if (!db) {
     console.error('Database not initialized. Check environment variables.');
-    alert('Database not initialized. Check Firebase config.');
     return;
   }
-  console.log("Starting database seed...");
   try {
     const batch = writeBatch(db);
     const { mockPerformers } = await loadDevSeed();
@@ -59,18 +59,39 @@ export const resetDemoData = async () => {
     }
 
     await batch.commit();
-    console.log("Database seeded successfully.");
     window.location.reload();
   } catch (error: unknown) {
-    console.error("Error seeding database:", error);
-    const msg = error instanceof Error ? error.message : String(error);
-    alert("Seeding failed: " + msg + "\n\nIf permission denied, open Firestore rules temporarily.");
+    console.error('Error seeding database:', error);
   }
+};
+
+// --- Internal helpers ---
+
+function requireFunctions() {
+  if (!functions) throw new Error('Firebase Functions not initialized.');
+  return functions;
+}
+
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+async function callFn<TIn, TOut>(name: string, payload: TIn): Promise<TOut> {
+  const callable = httpsCallable(requireFunctions(), name);
+  const result = await callable(payload as any);
+  return result.data as TOut;
+}
+
+const isPermissionError = (err: unknown): boolean => {
+  const e = err as { code?: string; message?: string };
+  return e.code === 'permission-denied' ||
+    e.code === 'PERMISSION_DENIED' ||
+    !!e.message?.includes('Missing or insufficient permissions') ||
+    !!e.message?.includes('permission-denied');
 };
 
 export const api = {
   async getInitialData(role?: string, uid?: string, performerId?: number) {
-    // Demo mode: use the dev seed fixtures. Production demands real Firestore.
     if (isDemoMode) {
       const seed = await loadDevSeed();
       return {
@@ -83,53 +104,58 @@ export const api = {
     }
 
     if (!db) {
-      // In a production build the firebaseClient throws at boot if the
-      // VITE_FIREBASE_* vars are missing, so reaching here means a genuine
-      // initialisation failure. Surface it instead of substituting fake data.
       throw new Error('Firestore is not initialized. Check VITE_FIREBASE_* configuration.');
     }
-
-    const isPermissionError = (err: unknown): boolean => {
-      const e = err as { code?: string; message?: string };
-      return e.code === 'permission-denied' ||
-        e.code === 'PERMISSION_DENIED' ||
-        !!e.message?.includes('Missing or insufficient permissions') ||
-        !!e.message?.includes('permission-denied');
-    };
 
     const fetchCollection = async (name: string, q: any) => {
       try {
         const snap = await getDocs(q);
-        return { data: snap.docs.map(d => ({ ...(d.data() as any), id: name === 'performers' ? Number(d.id) : d.id })), error: null };
+        return {
+          data: snap.docs.map(d => ({
+            ...(d.data() as any),
+            id: name === 'performers' ? Number(d.id) : d.id,
+          })),
+          error: null,
+        };
       } catch (err: unknown) {
-        // Permission errors are expected for restricted collections — return empty, not an error
         if (isPermissionError(err)) {
           console.warn(`No permission for ${name} — returning empty.`);
           return { data: [], error: null };
         }
         console.error(`Error fetching ${name}:`, err);
-        return { data: [], error: err instanceof Error ? err : new Error(String(err)) };
+        return { data: [], error: toError(err) };
       }
     };
 
-    // Build role-scoped booking query
     let bookingsQuery;
     if (role === 'admin') {
-      bookingsQuery = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+      bookingsQuery = query(collection(db, 'bookings'), orderBy('created_at', 'desc'), limit(500));
     } else if (role === 'performer' && performerId) {
-      bookingsQuery = query(collection(db, 'bookings'), where('performer_id', '==', performerId), orderBy('created_at', 'desc'));
+      bookingsQuery = query(
+        collection(db, 'bookings'),
+        where('performer_id', '==', performerId),
+        orderBy('created_at', 'desc')
+      );
     } else if (uid) {
-      bookingsQuery = query(collection(db, 'bookings'), where('client_uid', '==', uid), orderBy('created_at', 'desc'));
+      bookingsQuery = query(
+        collection(db, 'bookings'),
+        where('client_uid', '==', uid),
+        orderBy('created_at', 'desc')
+      );
     } else {
       bookingsQuery = null;
     }
 
-    // Build role-scoped communications query
     let commsQuery;
     if (role === 'admin') {
-      commsQuery = query(collection(db, 'communications'), orderBy('created_at', 'desc'));
+      commsQuery = query(collection(db, 'communications'), orderBy('createdAt', 'desc'), limit(200));
     } else if (uid) {
-      commsQuery = query(collection(db, 'communications'), where('participant_uids', 'array-contains', uid), orderBy('created_at', 'desc'));
+      commsQuery = query(
+        collection(db, 'communications'),
+        where('participant_uids', 'array-contains', uid),
+        orderBy('createdAt', 'desc'),
+        limit(200)
+      );
     } else {
       commsQuery = null;
     }
@@ -161,20 +187,14 @@ export const api = {
 
   subscribeToBookings(callback: (bookings: Booking[]) => void, role?: string, uid?: string, performerId?: number) {
     if (!db) return () => { };
-    // Scope query to match Firestore security rules:
-    // - Admins can read all bookings
-    // - Performers can only read bookings where performer_id matches
-    // - Clients can only read bookings where client_uid matches
-    // An unscoped query will be rejected by Firestore for non-admins
     let q;
     if (role === 'admin') {
-      q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+      q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'), limit(500));
     } else if (role === 'performer' && performerId) {
       q = query(collection(db, 'bookings'), where('performer_id', '==', performerId), orderBy('created_at', 'desc'));
     } else if (uid) {
       q = query(collection(db, 'bookings'), where('client_uid', '==', uid), orderBy('created_at', 'desc'));
     } else {
-      // Not authenticated — return empty, don't query
       callback([]);
       return () => { };
     }
@@ -182,19 +202,23 @@ export const api = {
       const bookings = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Booking[];
       callback(bookings);
     }, (err) => {
-      console.warn("Bookings subscription error (likely auth issue):", err.message);
+      console.warn('Bookings subscription error (likely auth issue):', err.message);
       callback([]);
     });
   },
 
   subscribeToCommunications(callback: (comms: Communication[]) => void, role?: string, uid?: string) {
     if (!db) return () => { };
-    // Admins see all; others see only their conversations
     let q;
     if (role === 'admin') {
-      q = query(collection(db, 'communications'), orderBy('created_at', 'desc'));
+      q = query(collection(db, 'communications'), orderBy('createdAt', 'desc'), limit(200));
     } else if (uid) {
-      q = query(collection(db, 'communications'), where('participant_uids', 'array-contains', uid), orderBy('created_at', 'desc'));
+      q = query(
+        collection(db, 'communications'),
+        where('participant_uids', 'array-contains', uid),
+        orderBy('createdAt', 'desc'),
+        limit(200)
+      );
     } else {
       callback([]);
       return () => { };
@@ -203,7 +227,7 @@ export const api = {
       const comms = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Communication[];
       callback(comms);
     }, (err) => {
-      console.warn("Communications subscription error:", err.message);
+      console.warn('Communications subscription error:', err.message);
       callback([]);
     });
   },
@@ -215,13 +239,12 @@ export const api = {
       const performers = snap.docs.map(d => ({ ...d.data(), id: Number(d.id) })) as Performer[];
       callback(performers);
     }, (err) => {
-      console.error("Error subscribing to performers:", err);
+      console.error('Error subscribing to performers:', err);
     });
   },
 
   subscribeToDoNotServe(callback: (entries: DoNotServeEntry[]) => void, role?: string) {
     if (!db) return () => { };
-    // Only admins can read do_not_serve
     if (role !== 'admin') {
       callback([]);
       return () => { };
@@ -231,14 +254,13 @@ export const api = {
       const entries = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DoNotServeEntry[];
       callback(entries);
     }, (err) => {
-      console.warn("DNS subscription error:", err.message);
+      console.warn('DNS subscription error:', err.message);
       callback([]);
     });
   },
 
   subscribeToAuditLogs(callback: (logs: AuditLog[]) => void, role?: string) {
     if (!db) return () => { };
-    // Only admins can read audit logs
     if (role !== 'admin') {
       callback([]);
       return () => { };
@@ -248,33 +270,16 @@ export const api = {
       const logs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as AuditLog[];
       callback(logs);
     }, (err) => {
-      console.warn("Audit log subscription error:", err.message);
+      console.warn('Audit log subscription error:', err.message);
       callback([]);
     });
   },
 
-  // Fix: Added createAuditLog to allow manual logging of actions to the audit_logs collection.
-  async createAuditLog(action: string, actorUid: string, details: any = {}, actorRole: 'client' | 'admin' | 'system' = 'system') {
-    if (!db) return { id: null, error: new Error('Firebase not initialized') };
-    try {
-      const docRef = await addDoc(collection(db, 'audit_logs'), {
-        action,
-        actorUid,
-        actorRole,
-        details,
-        createdAt: serverTimestamp()
-      });
-      return { id: docRef.id, error: null };
-    } catch (err: unknown) {
-      console.error("Error creating audit log:", err);
-      return { id: null, error: err instanceof Error ? err : new Error(String(err)) };
-    }
-  },
-
+  // --- Vetting flow (still uses Firebase Storage directly for upload) ---
   async createVettingDraft(data: Partial<VettingApplication>) {
-    if (!db || !auth) throw new Error("Firebase not initialized");
+    if (!db || !auth) throw new Error('Firebase not initialized');
     const user = auth.currentUser;
-    if (!user) throw new Error("Authentication required");
+    if (!user) throw new Error('Authentication required');
 
     const appRef = doc(collection(db, 'vetting_applications'));
     const application: Partial<VettingApplication> = {
@@ -284,7 +289,7 @@ export const api = {
       userId: user.uid,
       status: 'draft',
       riskFlags: [],
-      lastUpdatedAt: new Date().toISOString()
+      lastUpdatedAt: new Date().toISOString(),
     };
 
     await setDoc(appRef, application);
@@ -292,13 +297,12 @@ export const api = {
   },
 
   async uploadVettingFiles(applicationId: string, idFile: File, selfieFile: File) {
-    if (!db || !auth || !storage) throw new Error("Firebase not initialized");
+    if (!db || !auth || !storage) throw new Error('Firebase not initialized');
     const user = auth.currentUser;
-    if (!user) throw new Error("Authentication required");
+    if (!user) throw new Error('Authentication required');
 
-    // Validate file types and sizes
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024;
     for (const file of [idFile, selfieFile]) {
       if (!allowedTypes.includes(file.type)) {
         throw new Error(`Invalid file type: ${file.type}. Allowed: JPEG, PNG, WebP, PDF.`);
@@ -316,24 +320,25 @@ export const api = {
 
     await Promise.all([
       uploadBytes(idRef, idFile),
-      uploadBytes(selfieRef, selfieFile)
+      uploadBytes(selfieRef, selfieFile),
     ]);
 
-    await updateDoc(doc(db, 'vetting_applications', applicationId), {
+    // Vetting application doc update is owner-only per firestore.rules; the
+    // ID + selfie path live on the draft and are written here.
+    await setDoc(doc(db, 'vetting_applications', applicationId), {
       idFilePath: idPath,
       selfieFilePath: selfiePath,
-      lastUpdatedAt: new Date().toISOString()
-    });
+      lastUpdatedAt: new Date().toISOString(),
+    }, { merge: true });
 
     return { idPath, selfiePath };
   },
 
   async submitVettingApplication(applicationId: string) {
-    if (!functions) throw new Error("Firebase not initialized");
-    const submitFn = httpsCallable(functions, 'submitApplication');
-    return await submitFn({ applicationId });
+    return callFn<{ applicationId: string }, { success: boolean }>('submitApplication', { applicationId });
   },
 
+  // --- Booking creation (server callable) ---
   async createBookingRequest(formState: BookingFormState, performers: Performer[]) {
     if (!db || !auth || !storage || !functions) {
       if (isDemoMode || import.meta.env.DEV) {
@@ -343,153 +348,301 @@ export const api = {
       return { data: null, error: new Error('Firebase services are not initialized.') };
     }
     try {
-      if (!performers || performers.length === 0) {
-        throw new Error('No performers selected.');
-      }
+      if (!performers || performers.length === 0) throw new Error('No performers selected.');
 
-      const callCreateBooking = httpsCallable(functions, 'createBookingRequest');
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      const maxFileSize = 10 * 1024 * 1024;
 
-      let idUrl = null;
-      let selfieUrl = null;
-
-      // Handle parallel file uploads (only for the legacy KYC path —
-      // most bookings use the self-hosted SMS-OTP verification and
-      // never attach files at this stage).
+      let idUrl: string | null = null;
+      let selfieUrl: string | null = null;
       const timestamp = Date.now();
-      const uploadPromises = [];
       const submissionId = `booking_${timestamp}`;
 
-      // Validate and upload files
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-      const maxFileSize = 10 * 1024 * 1024; // 10MB
-
       if (formState.idDocument || formState.selfieDocument) {
-        // File uploads need a UID for the storage path. Anonymous Firebase
-        // Auth normally provides one; if it doesn't (e.g. anon auth disabled),
-        // we fall back to a synthetic guest UID so the upload still namespaces
-        // cleanly. If the upload fails on Storage rules, the catch below
-        // surfaces a clear error.
-        const userUid = auth.currentUser?.uid ?? `guest_${timestamp}`;
+        const currentUid = auth.currentUser?.uid;
+        if (!currentUid || auth.currentUser?.isAnonymous === false) {
+          // anonymous OK; we just need *some* UID for the path
+        }
+        const userUid = currentUid ?? `guest_${timestamp}`;
+        const uploadPromises: Promise<void>[] = [];
 
         if (formState.idDocument) {
-          if (!allowedTypes.includes(formState.idDocument.type)) throw new Error(`Invalid ID file type: ${formState.idDocument.type}`);
+          if (!allowedTypes.includes(formState.idDocument.type)) {
+            throw new Error(`Invalid ID file type: ${formState.idDocument.type}`);
+          }
           if (formState.idDocument.size > maxFileSize) throw new Error('ID document exceeds 10MB limit.');
           const idPath = `vetting/${userUid}/${submissionId}/id_${formState.idDocument.name}`;
           const idRef = ref(storage, idPath);
-          uploadPromises.push(uploadBytes(idRef, formState.idDocument).then(async res => idUrl = await getDownloadURL(res.ref)));
+          uploadPromises.push(
+            uploadBytes(idRef, formState.idDocument).then(async res => {
+              idUrl = await getDownloadURL(res.ref);
+            })
+          );
         }
 
         if (formState.selfieDocument) {
-          if (!allowedTypes.includes(formState.selfieDocument.type)) throw new Error(`Invalid selfie file type: ${formState.selfieDocument.type}`);
+          if (!allowedTypes.includes(formState.selfieDocument.type)) {
+            throw new Error(`Invalid selfie file type: ${formState.selfieDocument.type}`);
+          }
           if (formState.selfieDocument.size > maxFileSize) throw new Error('Selfie document exceeds 10MB limit.');
           const selfiePath = `vetting/${userUid}/${submissionId}/selfie_${formState.selfieDocument.name}`;
           const selfieRef = ref(storage, selfiePath);
-          uploadPromises.push(uploadBytes(selfieRef, formState.selfieDocument).then(async res => selfieUrl = await getDownloadURL(res.ref)));
+          uploadPromises.push(
+            uploadBytes(selfieRef, formState.selfieDocument).then(async res => {
+              selfieUrl = await getDownloadURL(res.ref);
+            })
+          );
         }
+
+        await Promise.all(uploadPromises);
       }
 
-      await Promise.all(uploadPromises);
-
-      const result = await callCreateBooking({
+      const response = await callFn<
+        { formState: any; performerIds: (string | number)[] },
+        { success: boolean; bookingIds: string[]; trustTier?: string }
+      >('createBookingRequest', {
         formState: {
           ...formState,
           id_document_path: idUrl,
           selfie_document_path: selfieUrl,
           idDocument: null,
-          selfieDocument: null
+          selfieDocument: null,
         },
-        performerIds: performers.filter(p => p && p.id != null).map(p => p.id)
-      }) as { data: { success: boolean; bookingIds: string[] } };
+        performerIds: performers.filter(p => p && p.id != null).map(p => p.id),
+      });
 
-      const responseData = result.data;
-      if (!responseData?.success || !responseData?.bookingIds?.length) {
+      if (!response?.success || !response?.bookingIds?.length) {
         throw new Error('Booking creation failed — no bookings were returned from the server.');
       }
-      const { bookingIds } = responseData;
 
-      const newBookings = await Promise.all(bookingIds.map(async (id) => {
+      const newBookings = await Promise.all(response.bookingIds.map(async (id) => {
         const bDoc = await getDoc(doc(db!, 'bookings', id));
         return { ...bDoc.data(), id: bDoc.id } as Booking;
       }));
 
       return { data: newBookings, error: null };
     } catch (err: unknown) {
-      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
+      return { data: null, error: toError(err) };
     }
   },
 
-  async updateBookingStatus(bookingId: string, status: BookingStatus, updates: any = {}) {
-    if (!db) return { error: new Error('Firebase not initialized') };
+  // --- Booking lifecycle: thin callable wrappers ---
+  async clientCancelBooking(bookingId: string, reason: string) {
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { error: null };
-      }
-      const docRef = doc(db, 'bookings', bookingId);
-      await updateDoc(docRef, {
-        status,
-        ...updates,
-        ...(status === 'confirmed' ? { verified_at: new Date().toISOString() } : {})
-      });
+      await callFn<{ bookingId: string; reason: string }, { success: boolean }>(
+        'clientCancelBooking',
+        { bookingId, reason }
+      );
       return { error: null };
     } catch (err: unknown) {
-      return { error: err instanceof Error ? err : new Error(String(err)) };
+      return { error: toError(err) };
     }
   },
 
+  async performerDecideBooking(bookingId: string, decision: 'accepted' | 'declined', etaMinutes?: number) {
+    try {
+      const data = await callFn<
+        { bookingId: string; decision: string; etaMinutes?: number },
+        { success: boolean; status: string }
+      >('performerDecideBooking', { bookingId, decision, etaMinutes });
+      return { data, error: null };
+    } catch (err: unknown) {
+      return { data: null, error: toError(err) };
+    }
+  },
+
+  async performerUpdateEta(bookingId: string, etaMinutes: number) {
+    try {
+      await callFn<{ bookingId: string; etaMinutes: number }, { success: boolean }>(
+        'performerUpdateEta',
+        { bookingId, etaMinutes }
+      );
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: toError(err) };
+    }
+  },
+
+  async performerUpdateLiveStatus(bookingId: string, status: 'en_route' | 'arrived' | 'in_progress' | 'completed') {
+    try {
+      await callFn<{ bookingId: string; status: string }, { success: boolean }>(
+        'performerUpdateLiveStatus',
+        { bookingId, status }
+      );
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: toError(err) };
+    }
+  },
+
+  async adminUpdateBookingStatus(bookingId: string, status: BookingStatus, updates: any = {}) {
+    try {
+      await callFn<{ bookingId: string; status: string; updates: any }, { success: boolean }>(
+        'adminUpdateBookingStatus',
+        { bookingId, status, updates }
+      );
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: toError(err) };
+    }
+  },
+
+  async adminCancelBooking(bookingId: string, reason: string) {
+    try {
+      await callFn<{ bookingId: string; reason: string }, { success: boolean }>(
+        'adminCancelBooking',
+        { bookingId, reason }
+      );
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: toError(err) };
+    }
+  },
+
+  async adminReassignPerformer(bookingId: string, newPerformerId: number | string) {
+    try {
+      await callFn<{ bookingId: string; newPerformerId: string }, { success: boolean }>(
+        'adminReassignPerformer',
+        { bookingId, newPerformerId: String(newPerformerId) }
+      );
+      return { error: null };
+    } catch (err: unknown) {
+      return { error: toError(err) };
+    }
+  },
+
+  // Unified entry point — picks the right callable based on the actor role.
+  async updateBookingStatus(
+    bookingId: string,
+    status: BookingStatus,
+    updates: any = {},
+    actorRole: 'admin' | 'performer' | 'client' = 'admin'
+  ) {
+    if (actorRole === 'admin') {
+      return api.adminUpdateBookingStatus(bookingId, status, updates);
+    }
+    if (actorRole === 'performer') {
+      // Performer-allowed transitions are routed through performerUpdateLiveStatus
+      // or performerDecideBooking. ETA updates go through performerUpdateEta.
+      if (status === 'en_route' || status === 'arrived' || status === 'in_progress' || status === 'completed') {
+        return api.performerUpdateLiveStatus(bookingId, status);
+      }
+      return { error: new Error('Use adminUpdateBookingStatus or performerDecideBooking for this status.') };
+    }
+    if (actorRole === 'client' && status === 'cancelled') {
+      return api.clientCancelBooking(bookingId, updates?.cancellation_reason || '');
+    }
+    return { error: new Error('Unsupported status transition for actor role.') };
+  },
+
+  async cancelBooking(bookingId: string, reason: string, cancelledBy: 'client' | 'admin' | 'performer') {
+    if (cancelledBy === 'admin') return api.adminCancelBooking(bookingId, reason);
+    if (cancelledBy === 'client') return api.clientCancelBooking(bookingId, reason);
+    // performer cancellation: rejected-via-decision
+    return api.performerDecideBooking(bookingId, 'declined') as any;
+  },
+
+  // --- Communications ---
   async getBookingMessages(bookingId: string) {
     if (!db) return { data: [], error: null };
     try {
-      const q = query(collection(db, 'communications'), where('booking_id', '==', bookingId), orderBy('created_at', 'asc'));
+      const q = query(
+        collection(db, 'communications'),
+        where('booking_id', '==', bookingId),
+        orderBy('createdAt', 'asc')
+      );
       const snap = await getDocs(q);
       return { data: snap.docs.map(d => ({ ...d.data(), id: d.id })) as Communication[], error: null };
     } catch (err: unknown) {
-      return { data: [], error: err instanceof Error ? err : new Error(String(err)) };
+      return { data: [], error: toError(err) };
     }
   },
 
+  // System / local-only communication for in-app UX. Server-broadcast messages
+  // for cross-role threads should go through sendBookingMessage callable.
   async addCommunication(commData: Omit<Communication, 'id' | 'created_at' | 'read'>) {
-    if (!db) return { data: null, error: new Error('Firebase not initialized') };
-    try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { data: [{ ...commData, id: `msg-${Date.now()}`, created_at: new Date().toISOString(), read: false }] as Communication[], error: null };
+    // The communications collection is now create-via-callable only. For
+    // booking-scoped messages with a booking_id, route through the server.
+    if (commData.booking_id) {
+      try {
+        const result = await callFn<
+          { bookingId: string; message: string; type?: string },
+          { success: boolean; message: Communication }
+        >('sendBookingMessage', {
+          bookingId: commData.booking_id,
+          message: commData.message,
+          type: commData.type,
+        });
+        return { data: [result.message], error: null };
+      } catch (err: unknown) {
+        // For UX-only system messages (no real persistence required) we
+        // fall back to a synthetic in-memory message so the toast still
+        // appears for the user.
+        return {
+          data: [{
+            ...commData,
+            id: `local-${Date.now()}`,
+            created_at: new Date().toISOString(),
+            read: false,
+          }] as Communication[],
+          error: toError(err),
+        };
       }
-      const docRef = await addDoc(collection(db, 'communications'), {
+    }
+    // Non-booking system message — purely client-side for UX feedback.
+    return {
+      data: [{
         ...commData,
+        id: `local-${Date.now()}`,
         created_at: new Date().toISOString(),
-        read: false
-      });
-      const newDoc = await getDoc(docRef);
-      return { data: [{ ...newDoc.data(), id: newDoc.id }] as Communication[], error: null };
+        read: false,
+      }] as Communication[],
+      error: null,
+    };
+  },
+
+  async sendBookingMessage(bookingId: string, message: string, _sender: string, _recipient: string) {
+    try {
+      const result = await callFn<
+        { bookingId: string; message: string; type?: string },
+        { success: boolean; message: Communication }
+      >('sendBookingMessage', { bookingId, message, type: 'direct_message' });
+      return { data: result.message, error: null };
     } catch (err: unknown) {
-      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
+      return { data: null, error: toError(err) };
     }
   },
 
+  // --- Audit log (system-side append; admin reads via subscription) ---
+  // Client-side audit-log writes are blocked by firestore.rules. Server-side
+  // callables write their own audit entries. This is a no-op shim retained
+  // so existing call sites compile while we migrate them.
+  async createAuditLog(_action: string, _actorUid: string, _details: any = {}, _actorRole: 'client' | 'admin' | 'system' = 'system') {
+    return { id: null, error: null };
+  },
+
+  // --- Performer admin actions (admin role only) ---
   async updatePerformerStatus(performerId: number, status: PerformerStatus) {
-    if (!db) return { error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { error: null };
-      }
-      const docRef = doc(db, 'performers', String(performerId));
-      await updateDoc(docRef, { status });
+      await callFn<{ performerId: string; status: string }, { success: boolean }>(
+        'adminSetPerformerStatus',
+        { performerId: String(performerId), status }
+      );
       return { error: null };
     } catch (err: unknown) {
-      return { error: err instanceof Error ? err : new Error(String(err)) };
+      return { error: toError(err) };
     }
   },
 
   async updatePerformerAcceptsAsap(performerId: number, acceptsAsap: boolean) {
-    if (!db) return { error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { error: null };
-      }
-      const docRef = doc(db, 'performers', String(performerId));
-      await updateDoc(docRef, { accepts_asap: acceptsAsap });
+      await callFn<{ performerId: string; acceptsAsap: boolean }, { success: boolean }>(
+        'adminSetPerformerAcceptsAsap',
+        { performerId: String(performerId), acceptsAsap }
+      );
       return { error: null };
     } catch (err: unknown) {
-      return { error: err instanceof Error ? err : new Error(String(err)) };
+      return { error: toError(err) };
     }
   },
 
@@ -513,114 +666,63 @@ export const api = {
       const url = await getDownloadURL(result.ref);
       return { url, error: null };
     } catch (err: unknown) {
-      return { url: null, error: err instanceof Error ? err : new Error(String(err)) };
+      return { url: null, error: toError(err) };
     }
   },
 
   async createPerformer(performerData: Omit<Performer, 'id'>) {
-    if (!db) return { data: null, error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { data: { ...performerData, id: Math.floor(Math.random() * 1000) } as Performer, error: null };
-      }
-      const performersSnap = await getDocs(query(collection(db, 'performers'), orderBy('id', 'desc'), limit(1)));
-      const lastId = performersSnap.docs.length > 0 ? (performersSnap.docs[0].data() as Performer).id : 0;
-      const newId = lastId + 1;
-
-      const docRef = doc(db, 'performers', String(newId));
-      const newPerformer = { ...performerData, id: newId };
-      await setDoc(docRef, newPerformer);
-      return { data: newPerformer, error: null };
+      const result = await callFn<
+        { performer: Omit<Performer, 'id'> },
+        { success: boolean; performerId: string; performer: Performer }
+      >('adminCreatePerformer', { performer: performerData });
+      return { data: result.performer, error: null };
     } catch (err: unknown) {
-      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
+      return { data: null, error: toError(err) };
     }
   },
 
   async updatePerformer(performerId: number, updates: Partial<Performer>) {
-    if (!db) return { error: new Error('Firebase not initialized') };
     try {
-      const docRef = doc(db, 'performers', String(performerId));
-      await updateDoc(docRef, updates);
+      await callFn<{ performerId: string; updates: any }, { success: boolean }>(
+        'adminUpdatePerformer',
+        { performerId: String(performerId), updates }
+      );
       return { error: null };
     } catch (err: unknown) {
-      return { error: err instanceof Error ? err : new Error(String(err)) };
+      return { error: toError(err) };
     }
   },
 
   async deletePerformer(performerId: number) {
-    if (!db) return { error: new Error('Firebase not initialized') };
-    try {
-      const docRef = doc(db, 'performers', String(performerId));
-      // In a real app, we might want to check for active bookings first
-      await updateDoc(docRef, { status: 'offline' }); // Soft delete/Deactivate
-      // Or hard delete: await deleteDoc(docRef);
-      return { error: null };
-    } catch (err: unknown) {
-      return { error: err instanceof Error ? err : new Error(String(err)) };
-    }
+    // Soft delete by setting status to 'offline'. Admin-only via callable.
+    return api.updatePerformerStatus(performerId, 'offline');
   },
 
   async updateDoNotServeStatus(entryId: string, status: DoNotServeStatus) {
-    if (!db) return { error: new Error('Firebase not initialized') };
     try {
-      if (import.meta.env.VITE_FIREBASE_API_KEY === undefined || import.meta.env.VITE_FIREBASE_API_KEY === '') {
-        return { error: null };
-      }
-      const docRef = doc(db, 'do_not_serve', entryId);
-      await updateDoc(docRef, { status });
+      await callFn<{ entryId: string; status: string }, { success: boolean }>(
+        'adminUpdateDoNotServeStatus',
+        { entryId, status }
+      );
       return { error: null };
     } catch (err: unknown) {
-      return { error: err instanceof Error ? err : new Error(String(err)) };
+      return { error: toError(err) };
     }
   },
 
   async createDoNotServeEntry(newEntryData: Omit<DoNotServeEntry, 'id' | 'created_at' | 'status'>) {
-    if (!db) return { data: null, error: new Error('Firebase not initialized') };
     try {
-      const docRef = await addDoc(collection(db, 'do_not_serve'), {
-        ...newEntryData,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      });
-      const newDoc = await getDoc(docRef);
-      return { data: [{ ...newDoc.data(), id: newDoc.id }] as DoNotServeEntry[], error: null };
+      const result = await callFn<
+        { entry: any },
+        { success: boolean; entryId: string; entry: DoNotServeEntry }
+      >('adminCreateDoNotServeEntry', { entry: newEntryData });
+      return { data: [result.entry], error: null };
     } catch (err: unknown) {
-      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
+      return { data: null, error: toError(err) };
     }
   },
-
-  async sendBookingMessage(bookingId: string, message: string, sender: string, recipient: string) {
-    try {
-      const res = await this.addCommunication({
-        booking_id: bookingId,
-        message,
-        sender,
-        recipient,
-        type: 'direct_message'
-      });
-      return {
-        data: res.data ? res.data[0] : null,
-        error: res.error
-      };
-    } catch (err: unknown) {
-      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
-    }
-  },
-
-  async cancelBooking(bookingId: string, reason: string, cancelledBy: 'client' | 'admin' | 'performer') {
-    if (!db) return { error: new Error('Firebase not initialized') };
-    try {
-      const docRef = doc(db, 'bookings', bookingId);
-      await updateDoc(docRef, {
-        status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-        cancellation_reason: reason,
-        cancelled_by: cancelledBy,
-      });
-      return { error: null };
-    } catch (err: unknown) {
-      return { error: err instanceof Error ? err : new Error(String(err)) };
-    }
-  },
-
 };
+
+// Type-only re-export — kept for backwards compatibility with existing imports.
+export type { Performer, Booking };

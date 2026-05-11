@@ -117,6 +117,15 @@ export interface Booking {
     paymentReceivedAt?: string | null;
     expiresAt?: string | null;
     updatedAt?: string | null;
+    // Verification signals (server-driven)
+    client_uid?: string | null;
+    trustTier?: 'unverified' | 'verified' | 'trusted';
+    verification_status?: 'pending' | 'cleared' | 'manual_review' | 'denied';
+    smsOtpVerified?: boolean;
+    livenessVerified?: boolean;
+    payIdMatched?: boolean;
+    slotLock?: string | null;
+    eventSuburb?: string | null;
 }
 
 export interface PaymentEvent {
