@@ -527,6 +527,57 @@ export const adminUpdateDoNotServeStatus = fns.https.onCall(async (data: any, co
 });
 
 // ============================================================================
+// BOOKING PII
+// ============================================================================
+
+/**
+ * Fetch the sibling /bookingPII/{bookingId} doc. Same access checks as the
+ * parent booking (admin / owner / assigned performer). Wraps a getDoc so
+ * the frontend never reads /bookingPII directly — keeps the read path
+ * auditable and uniform with the rest of the lifecycle callables.
+ */
+export const getBookingPII = fns.https.onCall(async (data: any, context: any) => {
+  requireAppCheckV1(context);
+  const auth = requireAuth(context);
+
+  const bookingId = String(data?.bookingId || '').trim();
+  if (!bookingId) throw new fns.https.HttpsError('invalid-argument', 'bookingId required.');
+
+  const db = getDb();
+  const bookingSnap = await db.collection('bookings').doc(bookingId).get();
+  if (!bookingSnap.exists) throw new fns.https.HttpsError('not-found', 'Booking not found.');
+  const booking = bookingSnap.data()!;
+
+  const isAdmin = await isAdminUid(auth.uid, auth.token);
+  const performerId = await resolvePerformerIdFromAuth(auth.uid, auth.token);
+  const isPerformerForBooking = performerId != null && String(booking.performer_id) === performerId;
+  const isOwner = booking.client_uid === auth.uid;
+
+  if (!isAdmin && !isPerformerForBooking && !isOwner) {
+    throw new fns.https.HttpsError('permission-denied', 'Not a participant on this booking.');
+  }
+
+  const piiSnap = await db.collection('bookingPII').doc(bookingId).get();
+  if (!piiSnap.exists) {
+    // Legacy bookings created before the split — fall back to parent fields.
+    return {
+      bookingId,
+      legacy: true,
+      client_name: booking.client_name || null,
+      client_email: booking.client_email || null,
+      client_phone: booking.client_phone || null,
+      client_dob: booking.client_dob || null,
+      event_address: booking.event_address || null,
+      eventSuburb: booking.eventSuburb || null,
+      client_message: booking.client_message || null,
+      id_document_path: booking.id_document_path || null,
+      selfie_document_path: booking.selfie_document_path || null,
+    };
+  }
+  return { ...piiSnap.data(), legacy: false };
+});
+
+// ============================================================================
 // COMMUNICATIONS
 // ============================================================================
 

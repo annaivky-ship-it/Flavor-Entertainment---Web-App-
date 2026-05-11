@@ -536,6 +536,31 @@ export const createBookingRequest = fns.https.onCall(async (data: any, context: 
       });
 
       transaction.set(bookingRef, bookingData);
+
+      // Forward-write of PII to a sibling /bookingPII/{bookingId} doc. The
+      // /bookingPII rules permit reads to the same principals as the parent
+      // booking, while the parent booking is being gradually migrated to
+      // expose only non-PII fields. Until a backfill runs and reads are
+      // moved over, PII still lives on both docs.
+      const piiRef = db.collection('bookingPII').doc(bookingRef.id);
+      transaction.set(piiRef, {
+        bookingId: bookingRef.id,
+        performer_id: pid,
+        client_uid: authUid,
+        client_name: fullName,
+        client_email: email,
+        client_phone: mobileE164,
+        client_dob: dob,
+        event_address: eventAddress,
+        eventSuburb,
+        client_message: clientMessage || null,
+        id_document_path: typeof formState.id_document_path === 'string'
+          ? formState.id_document_path : null,
+        selfie_document_path: typeof formState.selfie_document_path === 'string'
+          ? formState.selfie_document_path : null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
       newBookings.push({ id: bookingRef.id, bookingReference });
 
       // Notification: queue with the resolved phone, not the performer id.
@@ -1190,4 +1215,5 @@ export {
   adminCreateDoNotServeEntry,
   adminUpdateDoNotServeStatus,
   sendBookingMessage,
+  getBookingPII,
 } from './booking/actions';

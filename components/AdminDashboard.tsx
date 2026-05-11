@@ -3,6 +3,7 @@ import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, C
 import { allServices } from '../data/mockData';
 import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone, Upload, Image, XCircle } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
+import { bookingsToCsv, downloadCsv, bookingsCsvFilename } from '../utils/csv';
 import { resetDemoData, isDemoMode, api } from '../services/api';
 import ChatDialog from './ChatDialog';
 import PaymentReconciliation from './PaymentReconciliation';
@@ -443,7 +444,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
              </div>
           </div>
-          <button onClick={() => alert('CSV export functionality would be implemented here.')} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md transition-colors duration-300 flex items-center gap-2 text-sm justify-center">
+          <button
+            onClick={() => downloadCsv(bookingsCsvFilename(), bookingsToCsv(filteredBookings, performers))}
+            disabled={filteredBookings.length === 0}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-md transition-colors duration-300 flex items-center gap-2 text-sm justify-center"
+            title={filteredBookings.length === 0 ? 'No bookings match current filter' : `Export ${filteredBookings.length} bookings`}
+          >
               <Download size={16}/> Export CSV
           </button>
         </div>
