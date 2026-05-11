@@ -128,13 +128,19 @@ export const api = {
     };
 
     let bookingsQuery;
+    let piiQuery;
     if (role === 'admin') {
       bookingsQuery = query(collection(db, 'bookings'), orderBy('created_at', 'desc'), limit(500));
+      piiQuery = query(collection(db, 'bookingPII'), limit(500));
     } else if (role === 'performer' && performerId) {
       bookingsQuery = query(
         collection(db, 'bookings'),
         where('performer_id', '==', performerId),
         orderBy('created_at', 'desc')
+      );
+      piiQuery = query(
+        collection(db, 'bookingPII'),
+        where('performer_id', '==', performerId)
       );
     } else if (uid) {
       bookingsQuery = query(
@@ -142,8 +148,13 @@ export const api = {
         where('client_uid', '==', uid),
         orderBy('created_at', 'desc')
       );
+      piiQuery = query(
+        collection(db, 'bookingPII'),
+        where('client_uid', '==', uid)
+      );
     } else {
       bookingsQuery = null;
+      piiQuery = null;
     }
 
     let commsQuery;
@@ -160,10 +171,13 @@ export const api = {
       commsQuery = null;
     }
 
-    const [pRes, bRes, dRes, cRes, aRes] = await Promise.all([
+    const [pRes, bRes, piiRes, dRes, cRes, aRes] = await Promise.all([
       fetchCollection('performers', query(collection(db, 'performers'))),
       bookingsQuery
         ? fetchCollection('bookings', bookingsQuery)
+        : Promise.resolve({ data: [] as any[], error: null as Error | null }),
+      piiQuery
+        ? fetchCollection('bookingPII', piiQuery)
         : Promise.resolve({ data: [] as any[], error: null as Error | null }),
       role === 'admin'
         ? fetchCollection('do_not_serve', query(collection(db, 'do_not_serve'), orderBy('created_at', 'desc')))
@@ -176,9 +190,21 @@ export const api = {
         : Promise.resolve({ data: [] as any[], error: null as Error | null }),
     ]);
 
+    // Merge sibling /bookingPII docs onto bookings so the UI sees a single
+    // shape. /bookingPII fields override the parent's PII fields (which
+    // may be absent once BOOKING_OMIT_PII_FROM_PARENT is flipped on).
+    const piiById = new Map<string, any>();
+    for (const p of piiRes.data as any[]) {
+      if (p && p.id) piiById.set(String(p.id), p);
+    }
+    const mergedBookings = (bRes.data as any[]).map((b) => {
+      const pii = piiById.get(String(b.id));
+      return pii ? { ...b, ...pii, id: b.id } : b;
+    });
+
     return {
       performers: pRes,
-      bookings: bRes,
+      bookings: { data: mergedBookings, error: bRes.error },
       doNotServeList: dRes,
       communications: cRes,
       auditLogs: aRes,
@@ -187,24 +213,61 @@ export const api = {
 
   subscribeToBookings(callback: (bookings: Booking[]) => void, role?: string, uid?: string, performerId?: number) {
     if (!db) return () => { };
-    let q;
+    let bookingsQ;
+    let piiQ;
     if (role === 'admin') {
-      q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'), limit(500));
+      bookingsQ = query(collection(db, 'bookings'), orderBy('created_at', 'desc'), limit(500));
+      piiQ = query(collection(db, 'bookingPII'), limit(500));
     } else if (role === 'performer' && performerId) {
-      q = query(collection(db, 'bookings'), where('performer_id', '==', performerId), orderBy('created_at', 'desc'));
+      bookingsQ = query(collection(db, 'bookings'), where('performer_id', '==', performerId), orderBy('created_at', 'desc'));
+      piiQ = query(collection(db, 'bookingPII'), where('performer_id', '==', performerId));
     } else if (uid) {
-      q = query(collection(db, 'bookings'), where('client_uid', '==', uid), orderBy('created_at', 'desc'));
+      bookingsQ = query(collection(db, 'bookings'), where('client_uid', '==', uid), orderBy('created_at', 'desc'));
+      piiQ = query(collection(db, 'bookingPII'), where('client_uid', '==', uid));
     } else {
       callback([]);
       return () => { };
     }
-    return onSnapshot(q, (snap) => {
-      const bookings = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Booking[];
-      callback(bookings);
+
+    // Two snapshot listeners; we re-emit the merged view whenever either
+    // side ticks. The PII map is keyed by bookingId so out-of-order
+    // delivery doesn't drop data.
+    let latestBookings: any[] = [];
+    const piiById = new Map<string, any>();
+    let bookingsReceived = false;
+
+    const emit = () => {
+      if (!bookingsReceived) return;
+      const merged = latestBookings.map((b) => {
+        const pii = piiById.get(String(b.id));
+        return pii ? { ...b, ...pii, id: b.id } : b;
+      }) as Booking[];
+      callback(merged);
+    };
+
+    const unsubBookings = onSnapshot(bookingsQ, (snap) => {
+      latestBookings = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      bookingsReceived = true;
+      emit();
     }, (err) => {
-      console.warn('Bookings subscription error (likely auth issue):', err.message);
+      console.warn('Bookings subscription error:', err.message);
       callback([]);
     });
+
+    const unsubPII = onSnapshot(piiQ, (snap) => {
+      piiById.clear();
+      for (const d of snap.docs) piiById.set(d.id, { ...d.data(), id: d.id });
+      emit();
+    }, (err) => {
+      // /bookingPII may legitimately be unreadable for some principals
+      // mid-migration — fall back silently to parent-doc PII.
+      console.warn('bookingPII subscription error (falling back to parent doc):', err.message);
+    });
+
+    return () => {
+      unsubBookings();
+      unsubPII();
+    };
   },
 
   subscribeToCommunications(callback: (comms: Communication[]) => void, role?: string, uid?: string) {
@@ -708,6 +771,23 @@ export const api = {
       return { error: null };
     } catch (err: unknown) {
       return { error: toError(err) };
+    }
+  },
+
+  /**
+   * Admin-only: incrementally backfill /bookingPII for legacy bookings.
+   * Caller invokes this repeatedly until { done: true } comes back.
+   * Pass `{ reset: true }` to restart the cursor from the beginning.
+   */
+  async adminBackfillBookingPII(opts: { limit?: number; reset?: boolean } = {}) {
+    try {
+      const data = await callFn<
+        { limit?: number; reset?: boolean },
+        { success: boolean; done: boolean; scanned: number; written: number; skipped: number; lastProcessedId: string | null }
+      >('adminBackfillBookingPII', opts);
+      return { data, error: null };
+    } catch (err: unknown) {
+      return { data: null, error: toError(err) };
     }
   },
 

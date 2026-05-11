@@ -577,6 +577,123 @@ export const getBookingPII = fns.https.onCall(async (data: any, context: any) =>
   return { ...piiSnap.data(), legacy: false };
 });
 
+/**
+ * One-shot admin callable. Backfills /bookingPII docs for legacy /bookings
+ * created before the split.
+ *
+ * Idempotent + progressive: persists a cursor in /_pii_backfill_progress/state
+ * so repeated calls walk forward through the bookings collection. Caller
+ * polls until `done: true`. Pass `{ reset: true }` to restart from the
+ * beginning (useful if a previous run produced bad data and bookingPII
+ * docs were manually cleaned up).
+ *
+ * Field set mirrors createBookingRequest's forward-write so legacy and
+ * new docs are schema-compatible.
+ */
+export const adminBackfillBookingPII = fns.https.onCall(async (data: any, context: any) => {
+  const auth = await requireAdminCtx(context);
+  const requestedLimit = Number(data?.limit);
+  const batchLimit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(Math.floor(requestedLimit), 1), 500)
+    : 200;
+  const reset = !!data?.reset;
+
+  const db = getDb();
+  const progressRef = db.collection('_pii_backfill_progress').doc('state');
+
+  if (reset) {
+    await progressRef.set({
+      lastProcessedId: null,
+      resetAt: admin.firestore.FieldValue.serverTimestamp(),
+      resetBy: auth.uid,
+    }, { merge: true });
+  }
+
+  const progressSnap = await progressRef.get();
+  const lastProcessedId: string | null = progressSnap.data()?.lastProcessedId || null;
+
+  // Order by document id so the cursor is stable even on docs with the
+  // same created_at timestamp (or missing created_at on really old docs).
+  let q: FirebaseFirestore.Query = db.collection('bookings').orderBy(admin.firestore.FieldPath.documentId());
+  if (lastProcessedId) {
+    q = q.startAfter(lastProcessedId);
+  }
+  const snap = await q.limit(batchLimit).get();
+
+  if (snap.empty) {
+    await progressRef.set({
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await writeAudit({ uid: auth.uid, role: 'admin' }, 'ADMIN_PII_BACKFILL_DONE', 'system', { batchLimit });
+    return { success: true, done: true, scanned: 0, written: 0, skipped: 0, lastProcessedId };
+  }
+
+  let written = 0;
+  let skipped = 0;
+  // Firestore batch hard cap is 500. Commit in chunks of 400 to stay safe.
+  let batch = db.batch();
+  let pending = 0;
+
+  for (const bookingDoc of snap.docs) {
+    const piiRef = db.collection('bookingPII').doc(bookingDoc.id);
+    const existing = await piiRef.get();
+    if (existing.exists) {
+      skipped++;
+      continue;
+    }
+    const b = bookingDoc.data();
+    batch.set(piiRef, {
+      bookingId: bookingDoc.id,
+      performer_id: b.performer_id ?? null,
+      client_uid: b.client_uid ?? null,
+      client_name: b.client_name ?? null,
+      client_email: b.client_email ?? null,
+      client_phone: b.client_phone ?? null,
+      client_dob: b.client_dob ?? null,
+      event_address: b.event_address ?? null,
+      eventSuburb: b.eventSuburb ?? null,
+      client_message: b.client_message ?? null,
+      id_document_path: b.id_document_path ?? null,
+      selfie_document_path: b.selfie_document_path ?? null,
+      backfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+      backfilledBy: auth.uid,
+      createdAt: b.created_at ?? admin.firestore.FieldValue.serverTimestamp(),
+    });
+    written++;
+    pending++;
+    if (pending >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      pending = 0;
+    }
+  }
+  if (pending > 0) await batch.commit();
+
+  const lastId = snap.docs[snap.docs.length - 1].id;
+  await progressRef.set({
+    lastProcessedId: lastId,
+    lastUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    lastUpdatedBy: auth.uid,
+  }, { merge: true });
+
+  await writeAudit(
+    { uid: auth.uid, role: 'admin' },
+    'ADMIN_PII_BACKFILL',
+    'system',
+    { scanned: snap.size, written, skipped, batchLimit, lastProcessedId: lastId }
+  );
+
+  // done == true when we got back fewer rows than requested (end of collection).
+  return {
+    success: true,
+    done: snap.size < batchLimit,
+    scanned: snap.size,
+    written,
+    skipped,
+    lastProcessedId: lastId,
+  };
+});
+
 // ============================================================================
 // COMMUNICATIONS
 // ============================================================================

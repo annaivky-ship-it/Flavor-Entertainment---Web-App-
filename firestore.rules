@@ -289,6 +289,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- PII backfill cursor (server-only) ---
+    match /_pii_backfill_progress/{stateId} {
+      allow read, write: if false;
+    }
+
     // --- Default: deny ---
     match /{document=**} {
       allow read, write: if false;

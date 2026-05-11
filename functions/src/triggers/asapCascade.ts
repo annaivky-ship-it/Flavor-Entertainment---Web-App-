@@ -29,6 +29,7 @@
 
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
+import { resolveBookingPII } from '../booking/pii';
 
 const getDb = () => getFirestore('default');
 
@@ -128,6 +129,7 @@ export async function cascadeStaleAsapBookings(now: Date = new Date()): Promise<
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
+      const reassignPII = await resolveBookingPII(bookingDoc.id, booking);
       const notifRef = db.collection('notification_outbox').doc();
       batch.set(notifRef, {
         type: 'asap_reassigned',
@@ -137,10 +139,10 @@ export async function cascadeStaleAsapBookings(now: Date = new Date()): Promise<
         performerName: candidate.name,
         previousPerformerId: currentPerformerId,
         previousPerformerName: booking.performer?.name || '',
-        clientName: booking.client_name || booking.fullName || '',
-        clientPhone: booking.client_phone || booking.mobile || booking.phone || '',
+        clientName: reassignPII.client_name,
+        clientPhone: reassignPII.client_phone,
         eventTime: booking.event_time || '',
-        eventAddress: booking.event_address || '',
+        eventAddress: reassignPII.event_address,
         sent: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -183,6 +185,7 @@ export async function cascadeStaleAsapBookings(now: Date = new Date()): Promise<
       batchOps++;
     }
 
+    const cascadePII = await resolveBookingPII(bookingDoc.id, booking);
     const notifRef = db.collection('notification_outbox').doc();
     batch.set(notifRef, {
       type: 'asap_cascaded',
@@ -190,11 +193,11 @@ export async function cascadeStaleAsapBookings(now: Date = new Date()): Promise<
       bookingReference: booking.bookingReference || '',
       performerId: booking.performer_id || null,
       performerName: booking.performer?.name || '',
-      clientName: booking.client_name || booking.fullName || '',
-      clientPhone: booking.client_phone || booking.mobile || booking.phone || '',
-      clientEmail: booking.client_email || booking.email || '',
+      clientName: cascadePII.client_name,
+      clientPhone: cascadePII.client_phone,
+      clientEmail: cascadePII.client_email,
       eventTime: booking.event_time || '',
-      eventAddress: booking.event_address || '',
+      eventAddress: cascadePII.event_address,
       attemptedPerformerIds: [...attempted, currentPerformerId],
       sent: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),

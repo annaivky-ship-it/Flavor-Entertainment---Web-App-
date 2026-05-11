@@ -11,6 +11,7 @@ import { createIncidentReport, approveIncidentReport, rejectIncidentReport } fro
 import { recordConsent, CONSENT_TEXT } from './consent';
 import { dnsLookup, normalizeEmail, normalizePhoneToE164, sha256 } from './dns';
 import { handleMonoovaWebhook, expireUnpaidBookings, generateBookingReference } from './payments';
+import { resolveBookingPII } from './booking/pii';
 // Fix: Declaring Buffer to resolve 'Cannot find name Buffer' error in environments without node types.
 declare const Buffer: any;
 
@@ -21,6 +22,15 @@ const BOOKING_PAYMENT_HOLD_MINUTES = parseInt(process.env.BOOKING_PAYMENT_HOLD_M
 // validation/rate-limit hardening in place without forcing every browser to
 // load the App Check SDK before the rollout completes.
 const APP_CHECK_REQUIRED = process.env.APP_CHECK_REQUIRED === 'true';
+
+// PII split gate. When true, createBookingRequest stops writing PII fields
+// onto the parent /bookings doc — PII lives only on /bookingPII/{id}. Flip
+// this on AFTER:
+//   1. adminBackfillBookingPII has run to completion (done: true)
+//   2. The frontend has been deployed with the PII-merge read path in api.ts
+// Otherwise existing admin/performer dashboards will display blank client
+// names/phones for new bookings.
+const OMIT_PII_FROM_PARENT = process.env.BOOKING_OMIT_PII_FROM_PARENT === 'true';
 
 function requireAppCheckV1(context: any) {
   if (!APP_CHECK_REQUIRED) return;
@@ -51,6 +61,9 @@ const TIME_24H_RE = /^\d{2}:\d{2}$/;
 function isPlainObject(v: any): boolean {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 }
+
+// resolveBookingPII lives in ./booking/pii.ts so payment webhooks, expiry
+// scheduler, and the asap cascade trigger can share it.
 
 export const analyzeVettingRisk = fns.https.onCall(async (data: any, context: any) => {
   requireAppCheckV1(context);
@@ -485,29 +498,21 @@ export const createBookingRequest = fns.https.onCall(async (data: any, context: 
       const bookingReference = generateBookingReference();
       const expiresAt = new Date(Date.now() + BOOKING_PAYMENT_HOLD_MINUTES * 60 * 1000);
 
-      // Allowlist + validated fields only — never spread client input
+      // Allowlist + validated fields only — never spread client input.
+      // Non-PII operational fields live on the parent /bookings doc.
       const bookingData: any = {
         performer_id: pid,
         client_uid: authUid,
-        client_name: fullName,
-        client_email: email,
-        client_phone: mobileE164,
-        client_dob: dob,
-        client_email_hash: legacyEmailHash,    // legacy index compatibility
-        client_phone_hash: legacyPhoneHash,    // legacy index compatibility
+        // Hashes stay on parent — they're not raw PII and are needed
+        // by existing legacy DNS / dedupe queries.
+        client_email_hash: legacyEmailHash,
+        client_phone_hash: legacyPhoneHash,
         event_date: eventDate,
         event_time: eventTime,
-        event_address: eventAddress,
-        eventSuburb,
         event_type: eventType,
         duration_hours: durationHours,
         number_of_guests: numberOfGuests,
         services_requested: selectedServices,
-        client_message: clientMessage || null,
-        id_document_path: typeof formState.id_document_path === 'string'
-          ? formState.id_document_path : null,
-        selfie_document_path: typeof formState.selfie_document_path === 'string'
-          ? formState.selfie_document_path : null,
         is_asap: !!formState.isAsap,
         trustTier,
         verification_status: trustTier === 'trusted' ? 'cleared' : 'pending',
@@ -525,6 +530,24 @@ export const createBookingRequest = fns.https.onCall(async (data: any, context: 
         // performer phone snapshot for downstream triggers (avoids re-read)
         performerPhone: performerPhonesById[pid] || null,
       };
+
+      // PII goes to the parent doc only when the omit flag is off — and
+      // always to the sibling /bookingPII/{id} doc (written below).
+      // Flipping BOOKING_OMIT_PII_FROM_PARENT=true is the production
+      // cutover that completes the split.
+      if (!OMIT_PII_FROM_PARENT) {
+        bookingData.client_name = fullName;
+        bookingData.client_email = email;
+        bookingData.client_phone = mobileE164;
+        bookingData.client_dob = dob;
+        bookingData.event_address = eventAddress;
+        bookingData.eventSuburb = eventSuburb;
+        bookingData.client_message = clientMessage || null;
+        bookingData.id_document_path = typeof formState.id_document_path === 'string'
+          ? formState.id_document_path : null;
+        bookingData.selfie_document_path = typeof formState.selfie_document_path === 'string'
+          ? formState.selfie_document_path : null;
+      }
 
       // Reserve the slot atomically
       transaction.set(slotRef, {
@@ -1009,10 +1032,11 @@ export const recordBookingConsent = fns.https.onCall(async (data: any, context: 
     );
   }
 
+  const pii = await resolveBookingPII(bookingId, booking);
   const consentId = await recordConsent({
     bookingId,
-    clientEmail: booking.client_email || booking.email,
-    clientPhone: booking.client_phone || booking.phone,
+    clientEmail: pii.client_email,
+    clientPhone: pii.client_phone,
     ipAddress: ipAddress || context.rawRequest?.ip || 'unknown',
     userAgent: userAgent || 'unknown',
     deviceFingerprint,
@@ -1141,11 +1165,12 @@ export const assessBookingRisk = fns.https.onCall(async (data: any, context: any
 
   const booking = bookingDoc.data()!;
 
+  const riskPII = await resolveBookingPII(bookingId, booking);
   const assessment = await calculateRiskScore({
     bookingId,
     customerId: booking.customerId,
-    clientEmail: booking.client_email || booking.email,
-    clientPhone: booking.client_phone || booking.phone,
+    clientEmail: riskPII.client_email,
+    clientPhone: riskPII.client_phone,
     clientEmailHash: booking.client_email_hash || '',
     clientPhoneHash: booking.client_phone_hash || '',
     ipAddress: booking.client_ip,
@@ -1216,4 +1241,5 @@ export {
   adminUpdateDoNotServeStatus,
   sendBookingMessage,
   getBookingPII,
+  adminBackfillBookingPII,
 } from './booking/actions';

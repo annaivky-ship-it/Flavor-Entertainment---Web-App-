@@ -11,6 +11,7 @@
 
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
+import { resolveBookingPII } from '../booking/pii';
 
 const getDb = () => getFirestore('default');
 
@@ -55,6 +56,10 @@ export async function expireUnpaidBookings(): Promise<number> {
       batch.delete(slotRef);
     }
 
+    // Resolve PII from the appropriate source (parent doc for legacy
+    // bookings, /bookingPII for split bookings).
+    const pii = await resolveBookingPII(bookingDoc.id, booking);
+
     // Create notification outbox for expiry
     const notifRef = db.collection('notification_outbox').doc();
     batch.set(notifRef, {
@@ -62,9 +67,9 @@ export async function expireUnpaidBookings(): Promise<number> {
       bookingId: bookingDoc.id,
       bookingReference: booking.bookingReference || '',
       performerId: booking.performer_id || null,
-      clientName: booking.client_name || booking.fullName || '',
-      clientPhone: booking.client_phone || booking.mobile || booking.phone || '',
-      clientEmail: booking.client_email || booking.email || '',
+      clientName: pii.client_name,
+      clientPhone: pii.client_phone,
+      clientEmail: pii.client_email,
       sent: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
