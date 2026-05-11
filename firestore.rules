@@ -9,6 +9,13 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Non-anonymous sign-in. Used to gate user-generated content writes so
+    // an anonymous visitor cannot spam restricted collections.
+    function isAuthedHuman() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true ||
@@ -27,6 +34,17 @@ service cloud.firestore {
       );
     }
 
+    // Match the performer's custom-claim performerId against a booking's
+    // performer_id field. Number-vs-string is normalised by comparing both forms.
+    function isOwningPerformer(performerIdField) {
+      return isPerformer()
+        && performerIdField != null
+        && (
+          request.auth.token.performerId == performerIdField
+          || string(request.auth.token.performerId) == string(performerIdField)
+        );
+    }
+
     // --- Customers (self or admin read; writes via Cloud Functions only) ---
     match /customers/{customerId} {
       allow read: if isAdmin() || isOwner(customerId);
@@ -34,29 +52,58 @@ service cloud.firestore {
     }
 
     // --- Performers ---
-    // Public can read only when status == 'active' and only safe fields are
-    // exposed via the client; admin and the performer themselves get full
-    // read. Writes are server-side only.
+    // Public read of performer profile (frontend filters by status==active).
+    // Sensitive performer fields (banking, contact email, contact phone) must
+    // live in /performers_private/{performerId} which is admin-only.
     match /performers/{performerId} {
-      allow read: if true;  // Frontend filters by status==active for public listings
+      allow read: if true;
       allow create: if false;
       allow update, delete: if false;
     }
 
-    // --- Services (public read, admin write) ---
+    // Sensitive performer-only data (banking, contact info, payout details).
+    // Performer can read their own; admin can read all. Writes server-side.
+    match /performers_private/{performerId} {
+      allow read: if isAdmin() || isOwningPerformer(performerId);
+      allow write: if false;
+    }
+
+    // --- Services (public read, admin-write via callable; rules deny direct) ---
     match /services/{serviceId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if false;
     }
 
     // --- Bookings ---
+    // CREATE: server-only — must go through createBookingRequest callable.
+    // READ:   admin sees all; client sees their own (client_uid match);
+    //         performer sees only bookings assigned to them.
+    // UPDATE/DELETE: server-only — must go through hardened callables.
     match /bookings/{bookingId} {
-      allow create: if true;  // Public booking form
+      allow create: if false;
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.client_uid == request.auth.uid)
-        || isPerformer();
-      allow update: if isAdmin();
+        || isOwningPerformer(resource.data.performer_id);
+      allow update: if false;
       allow delete: if false;
+    }
+
+    // --- Booking PII (split out from bookings — admin + owner + assigned performer only) ---
+    match /bookingPII/{bookingId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.client_uid == request.auth.uid)
+        || isOwningPerformer(resource.data.performer_id);
+      allow write: if false;
+    }
+
+    // --- Booking slot locks (server-only) ---
+    match /booking_slots/{slotId} {
+      allow read, write: if false;
+    }
+
+    // --- Notifications queue (server-only) ---
+    match /notificationsQueue/{notifId} {
+      allow read, write: if false;
     }
 
     // --- Verification records (admin-read; server writes only) ---
@@ -67,8 +114,7 @@ service cloud.firestore {
 
     // --- Face embeddings (NEVER readable by clients) ---
     match /faceEmbeddings/{subjectId} {
-      allow read: if false;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // --- DNS register (admin-read; server writes only) ---
@@ -91,8 +137,7 @@ service cloud.firestore {
 
     // --- Penny drops (server-only) ---
     match /pennyDrops/{dropId} {
-      allow read: if false;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // --- Risk signals (admin-read; server writes only) ---
@@ -103,35 +148,44 @@ service cloud.firestore {
 
     // --- OTP attempts (server-only — codes are sensitive) ---
     match /otpAttempts/{otpId} {
-      allow read: if false;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // --- Rate limit counters (server-only) ---
     match /rateLimits/{bucketKey} {
-      allow read: if false;
-      allow write: if false;
+      allow read, write: if false;
     }
 
-    // --- Audit log (append-only via server; admin-read) ---
+    // --- Audit logs (append-only via server; admin-read) ---
     match /auditLog/{eventId} {
       allow read: if isAdmin();
       allow create, update, delete: if false;
     }
+    match /audit_log/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
 
-    // --- Legacy DNS register (admin-only) ---
+    // --- Legacy DNS register (admin-read; writes server-only) ---
     match /dns_entries/{entryId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
-    // --- Legacy do_not_serve (admin-only) ---
+    // --- Legacy do_not_serve (admin-read; writes server-only) ---
     match /do_not_serve/{entryId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
-    // --- Legacy blacklist (admin-only) ---
+    // --- Legacy blacklist (admin-read; writes server-only) ---
     match /blacklist/{entryId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // --- Legacy risk_scores ---
@@ -140,19 +194,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // --- Consents (the booking client can create, admin can read) ---
+    // --- Consents (server-only — created by recordBookingConsent callable) ---
     match /consents/{consentId} {
-      allow create: if true;
       allow read: if isAdmin();
-      allow update, delete: if false;
+      allow write: if false;
     }
 
     // --- Incident Reports ---
     match /incident_reports/{reportId} {
-      allow create: if isPerformer();
+      // Created server-side via submitIncidentReport callable; deny direct create.
+      allow create: if false;
       allow read: if isAdmin()
         || (isPerformer() && resource.data.reported_by_performer_id == request.auth.uid);
-      allow update: if isAdmin();
+      allow update: if false;
       allow delete: if false;
     }
 
@@ -168,59 +222,71 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // --- Legacy audit logs (kept for backward compat) ---
-    match /audit_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-    }
-    match /audit_log/{logId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
     // --- Vetting Applications ---
+    // Create: signed-in human, only as themselves. Update: only the owner while
+    // status == 'draft', and only via the api.createVettingDraft path. Reviews
+    // are server-only via reviewApplicationApprove callable.
     match /vetting_applications/{appId} {
-      allow create: if isSignedIn();
+      allow create: if isAuthedHuman()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'draft';
       allow read: if isAdmin() || isOwner(resource.data.userId);
-      allow update: if isAdmin() || (isOwner(resource.data.userId) && resource.data.status == 'draft');
+      allow update: if isAdmin()
+        || (isOwner(resource.data.userId)
+            && resource.data.status == 'draft'
+            && request.resource.data.userId == resource.data.userId
+            && request.resource.data.status == 'draft');
       allow delete: if false;
     }
 
     // --- Communications ---
+    // Reads scoped to participants. Creates server-only — frontend must use
+    // sendBookingMessage callable which derives participant_uids server-side.
     match /communications/{msgId} {
       allow read: if isAdmin()
-        || (isSignedIn() && resource.data.participant_uids is list && request.auth.uid in resource.data.participant_uids);
-      allow create: if isSignedIn();
+        || (isSignedIn() && resource.data.participant_uids is list
+            && request.auth.uid in resource.data.participant_uids);
+      allow create: if false;
       allow update: if isAdmin()
-        || (isSignedIn() && resource.data.participant_uids is list && request.auth.uid in resource.data.participant_uids
+        || (isSignedIn() && resource.data.participant_uids is list
+            && request.auth.uid in resource.data.participant_uids
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
       allow delete: if false;
     }
 
     // --- Admin Users ---
+    // Owner can read their own admin doc (to detect "am I admin?" at login).
+    // Listing is admin-only — prevents anonymous enumeration of admin UIDs.
     match /admins/{adminId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow get: if isOwner(adminId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
     }
 
-    // --- Settings ---
+    // --- Settings (admin-only) ---
     match /settings/{settingId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // --- Notifications ---
     match /notifications/{notifId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.recipient_uid == request.auth.uid);
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.recipient_uid == request.auth.uid);
       allow create: if false;
-      allow update: if isSignedIn() && resource.data.recipient_uid == request.auth.uid;
+      // Recipient can only mark read=true. No other field changes allowed.
+      allow update: if isSignedIn()
+        && resource.data.recipient_uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if false;
     }
 
     // --- Performer Auth Mapping ---
+    // Owner can read their own mapping doc. Admins can list. Server writes only.
     match /performers_auth/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
     }
 
     // --- Default: deny ---

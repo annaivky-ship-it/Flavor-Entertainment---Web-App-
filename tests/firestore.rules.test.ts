@@ -50,12 +50,25 @@ describe('Firestore Rules - Booking Access Control', () => {
     expect(rulesContent).toContain('isPerformer()');
   });
 
-  it('only admins can update booking status', () => {
+  it('booking writes are server-only (no client-side updates)', () => {
     const bookingsSection = rulesContent.substring(
       rulesContent.indexOf('match /bookings/{bookingId}'),
       rulesContent.indexOf('allow delete: if false', rulesContent.indexOf('match /bookings/{bookingId}')) + 30
     );
-    expect(bookingsSection).toContain('allow update: if isAdmin()');
+    // Every state change must go through a Cloud Function callable.
+    expect(bookingsSection).toContain('allow create: if false');
+    expect(bookingsSection).toContain('allow update: if false');
+  });
+
+  it('performer reads are scoped to assigned booking by performerId claim', () => {
+    expect(rulesContent).toContain('function isOwningPerformer');
+    // The booking rule uses isOwningPerformer(resource.data.performer_id)
+    // so a performer can only read bookings assigned to them, not all bookings.
+    const bookingsSection = rulesContent.substring(
+      rulesContent.indexOf('match /bookings/{bookingId}'),
+      rulesContent.indexOf('allow delete: if false', rulesContent.indexOf('match /bookings/{bookingId}')) + 30
+    );
+    expect(bookingsSection).toContain('isOwningPerformer(resource.data.performer_id)');
   });
 
   it('nobody can delete bookings', () => {

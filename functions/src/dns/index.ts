@@ -6,12 +6,17 @@ import * as crypto from 'crypto';
 const getDb = () => getFirestore('default');
 const fns = functions as any;
 
-const PEPPER = process.env.DNS_HASH_PEPPER || (() => {
-  if (process.env.FUNCTIONS_EMULATOR !== 'true') {
-    console.error('CRITICAL: DNS_HASH_PEPPER not set in production. DNS lookups will use insecure fallback.');
+// Pepper resolved at first call (not module load) so a missing secret raises
+// a clear runtime error visible in Functions logs rather than a known-bad
+// fallback hash. Emulator/test runs use a deterministic dev value.
+function getPepper(): string {
+  const fromEnv = process.env.DNS_HASH_PEPPER;
+  if (fromEnv) return fromEnv;
+  if (process.env.FUNCTIONS_EMULATOR === 'true' || process.env.NODE_ENV === 'test') {
+    return 'emulator-only-dns-pepper-do-not-use-in-prod';
   }
-  return 'flavor-dns-fallback-pepper-2026';
-})();
+  throw new Error('DNS_HASH_PEPPER is not configured. Refusing to compute DNS hashes with a known fallback.');
+}
 
 // --- Helpers ---
 
@@ -30,7 +35,7 @@ export function normalizePhoneToE164(phone: string, defaultCountryCode: string =
 }
 
 export function sha256(value: string): string {
-  return crypto.createHash('sha256').update(value + PEPPER).digest('hex');
+  return crypto.createHash('sha256').update(value + getPepper()).digest('hex');
 }
 
 async function writeAuditLog(actorUid: string, actorRole: string, action: string, bookingId: string, details: any = {}) {
