@@ -10,6 +10,20 @@ service firebase.storage {
       return isSignedIn() && (request.auth.token.admin == true);
     }
 
+    function isAllowedKycType() {
+      return request.resource != null
+        && request.resource.contentType.matches('image/(jpeg|png|webp)|application/pdf');
+    }
+
+    function isAllowedPhotoType() {
+      return request.resource != null
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    function withinSize(maxBytes) {
+      return request.resource != null && request.resource.size < maxBytes;
+    }
+
     // --- studio-4495412314-3b1ce-id-uploads ---
     // Performer ID images. Direct client access is forbidden — uploads happen
     // via 15-minute signed PUT URLs (see performerRequestIdUploadUrl), reads
@@ -20,18 +34,27 @@ service firebase.storage {
       allow read, write: if false;
     }
 
-    // --- Vetting storage (legacy path; same rules) ---
+    // --- Customer KYC vetting uploads ---
+    // Owner-scoped uploads with type + size enforcement. Reads admin-only.
     match /vetting/{uid}/{appId}/{fileName} {
-      allow write: if isSignedIn() && request.auth.uid == uid;
-      allow read: if isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && isAllowedKycType()
+        && withinSize(10 * 1024 * 1024);
       allow update: if false;
+      allow delete: if false;
+      allow read: if isAdmin();
     }
 
     // --- Performer public assets (portfolio photos / video intros) ---
+    // Read public (used in marketing gallery). Writes admin-only and
+    // require image content type + 5MB cap.
     match /performers/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, update: if isAdmin()
+        && isAllowedPhotoType()
+        && withinSize(5 * 1024 * 1024);
+      allow delete: if isAdmin();
     }
 
     // --- Legacy ID upload path (kept for backward compat; no new uploads) ---

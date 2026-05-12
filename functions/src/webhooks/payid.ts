@@ -42,6 +42,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { parseMonoovaPayload, verifyMonoovaSignature } from '../payments/monoova';
 import { namesLooselyMatch, MONOOVA_WEBHOOK_SECRET } from '../integrations/monoova';
 import { REGION, writeAudit, HASH_SECRET, hashPhone, normalizePhoneE164 } from '../utils/shared';
+import { resolveBookingPII } from '../booking/pii';
 
 const getDb = () => getFirestore('default');
 
@@ -208,7 +209,8 @@ export const payIdWebhook = onRequest(
         }
 
         // --- 8. PayID name match (verification signal) ---
-        const bookingName: string = booking.client_name || booking.fullName || '';
+        const pii = await resolveBookingPII(bookingId, booking);
+        const bookingName: string = pii.client_name;
         const payerName = parsed.payerName || '';
         const nameMatched = !!(payerName && bookingName && namesLooselyMatch(bookingName, payerName));
 
@@ -222,8 +224,8 @@ export const payIdWebhook = onRequest(
           result: nameMatched ? 'pass' : 'review',
           completedAt: admin.firestore.FieldValue.serverTimestamp(),
           expiresAt: null,
-          subjectPhoneHash: booking.client_phone
-            ? hashPhone(normalizePhoneE164(booking.client_phone))
+          subjectPhoneHash: pii.client_phone
+            ? hashPhone(normalizePhoneE164(pii.client_phone))
             : null,
           meta: {
             bookingName,
@@ -269,8 +271,8 @@ export const payIdWebhook = onRequest(
             bookingReference: parsed.bookingReference,
             performerId: booking.performer_id || null,
             clientName: bookingName,
-            clientPhone: booking.client_phone || booking.mobile || booking.phone || '',
-            clientEmail: booking.client_email || booking.email || '',
+            clientPhone: pii.client_phone,
+            clientEmail: pii.client_email,
             sent: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });

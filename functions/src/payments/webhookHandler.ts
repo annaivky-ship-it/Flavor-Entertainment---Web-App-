@@ -16,6 +16,7 @@
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { parseMonoovaPayload, verifyMonoovaSignature } from './monoova';
+import { resolveBookingPII } from '../booking/pii';
 
 const getDb = () => getFirestore('default');
 
@@ -191,15 +192,16 @@ export async function handleMonoovaWebhook(req: any, res: any): Promise<void> {
       transaction.set(eventRef, eventData);
 
       // Step 10: Create notification outbox job
+      const pii = await resolveBookingPII(bookingId, booking);
       const notifRef = db.collection('notification_outbox').doc();
       transaction.set(notifRef, {
         type: 'payment_confirmed',
         bookingId,
         bookingReference: parsed.bookingReference,
         performerId: booking.performer_id || null,
-        clientName: booking.client_name || booking.fullName || '',
-        clientPhone: booking.client_phone || booking.mobile || booking.phone || '',
-        clientEmail: booking.client_email || booking.email || '',
+        clientName: pii.client_name,
+        clientPhone: pii.client_phone,
+        clientEmail: pii.client_email,
         sent: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });

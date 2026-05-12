@@ -1,0 +1,102 @@
+name: CI
+
+# Runs typecheck + tests for both the frontend (root) and the functions
+# package on every PR and push to main. Keeps build artifacts out of the
+# default branch by failing the workflow on any tsc / vitest error.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: frontend (typecheck + tests + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests (vitest)
+        run: npm test -- --run
+
+      - name: Build (production mode)
+        env:
+          # Build needs *something* for these vars to satisfy the runtime
+          # guard. CI builds are smoke tests only; they do not deploy.
+          VITE_APP_MODE: production
+          VITE_FIREBASE_API_KEY: ci-placeholder
+          VITE_FIREBASE_AUTH_DOMAIN: ci.example.com
+          VITE_FIREBASE_PROJECT_ID: ci-placeholder
+          VITE_FIREBASE_STORAGE_BUCKET: ci-placeholder.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+          VITE_FIREBASE_APP_ID: 1:000000000000:web:0000000000000000000000
+        run: npm run build
+
+  functions:
+    name: functions (typecheck + tests + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Unit tests (vitest)
+        run: npm test -- --run
+
+      - name: Build (tsc)
+        run: npm run build
+
+  rules:
+    name: firestore + storage rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      # Structural rules tests (no emulator needed). Emulator-backed tests
+      # are gated behind the FIREBASE_TOOLS env so they can be enabled
+      # later without changing the workflow shape.
+      - name: Rules structural tests
+        run: npx vitest run tests/firestore.rules.test.ts

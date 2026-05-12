@@ -3,6 +3,7 @@ import { Booking, Performer, BookingStatus, DoNotServeEntry, DoNotServeStatus, C
 import { allServices } from '../data/mockData';
 import { ShieldCheck, ShieldAlert, Check, X, MessageSquare, Download, Filter, FileText, DollarSign, CreditCard, BarChart, Inbox, Users as UsersIcon, UserCog, RefreshCcw, ChevronDown, Clock, LoaderCircle, LineChart, TrendingUp, CheckCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown, Search, Database, Plus, Edit, Trash2, Star, Mail, Phone, Upload, Image, XCircle } from 'lucide-react';
 import { calculateBookingCost } from '../utils/bookingUtils';
+import { bookingsToCsv, downloadCsv, bookingsCsvFilename } from '../utils/csv';
 import { resetDemoData, isDemoMode, api } from '../services/api';
 import ChatDialog from './ChatDialog';
 import PaymentReconciliation from './PaymentReconciliation';
@@ -76,6 +77,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
   const [sortField, setSortField] = useState<'event_date' | 'client_name' | 'performer_name' | 'status' | 'payment_status'>('event_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [loadingState, setLoadingState] = useState<{ type: string, id: string } | null>(null);
+  const [piiBackfillProgress, setPiiBackfillProgress] = useState<
+    { running: boolean; written: number; skipped: number; scanned: number; done: boolean; error: string | null } | null
+  >(null);
+
+  /**
+   * Runs adminBackfillBookingPII in a loop until the server reports
+   * done: true. Each batch processes up to 200 docs. Idempotent — the
+   * server tracks a cursor in /_pii_backfill_progress so a refresh
+   * mid-run resumes rather than restarting.
+   */
+  const runPiiBackfill = async (reset = false) => {
+    if (!confirm(reset
+      ? 'Reset cursor and re-scan ALL bookings? Existing /bookingPII docs are still skipped (idempotent), but this re-walks the collection from the start.'
+      : 'Run PII backfill? Creates /bookingPII/{id} docs for any /bookings missing them. Safe to run multiple times.')) {
+      return;
+    }
+    setPiiBackfillProgress({ running: true, written: 0, skipped: 0, scanned: 0, done: false, error: null });
+    let totalWritten = 0;
+    let totalSkipped = 0;
+    let totalScanned = 0;
+    let firstCall = true;
+    while (true) {
+      const { data, error } = await api.adminBackfillBookingPII({ limit: 200, reset: firstCall && reset });
+      firstCall = false;
+      if (error || !data) {
+        setPiiBackfillProgress({ running: false, written: totalWritten, skipped: totalSkipped, scanned: totalScanned, done: false, error: error?.message || 'unknown' });
+        return;
+      }
+      totalWritten += data.written;
+      totalSkipped += data.skipped;
+      totalScanned += data.scanned;
+      setPiiBackfillProgress({ running: !data.done, written: totalWritten, skipped: totalSkipped, scanned: totalScanned, done: data.done, error: null });
+      if (data.done) return;
+    }
+  };
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
   const [chatMessages, setChatMessages] = useState<Communication[]>([]);
   const [editingPerformer, setEditingPerformer] = useState<Performer | null>(null);
@@ -328,6 +364,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
               Seed Database
             </button>
           )}
+          <button
+            onClick={() => runPiiBackfill(false)}
+            disabled={!!piiBackfillProgress?.running}
+            title="Idempotent: walks /bookings, writes /bookingPII for any missing docs. Run before flipping BOOKING_OMIT_PII_FROM_PARENT."
+            className="bg-zinc-800 hover:bg-zinc-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 border border-zinc-700"
+          >
+            {piiBackfillProgress?.running
+              ? <LoaderCircle className="h-5 w-5 animate-spin text-orange-500" />
+              : <ShieldCheck className="h-5 w-5 text-orange-500" />
+            }
+            {piiBackfillProgress?.running
+              ? `Backfilling… ${piiBackfillProgress.scanned} scanned`
+              : piiBackfillProgress?.done
+                ? `PII Backfill ✓ (${piiBackfillProgress.written} written)`
+                : 'Backfill PII'}
+          </button>
           <button 
             onClick={onViewDoNotServe}
             className="bg-red-600/90 hover:bg-red-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 shadow-lg shadow-red-500/10 hover:shadow-red-500/20"
@@ -443,7 +495,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
              </div>
           </div>
-          <button onClick={() => alert('CSV export functionality would be implemented here.')} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md transition-colors duration-300 flex items-center gap-2 text-sm justify-center">
+          <button
+            onClick={() => downloadCsv(bookingsCsvFilename(), bookingsToCsv(filteredBookings, performers))}
+            disabled={filteredBookings.length === 0}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-md transition-colors duration-300 flex items-center gap-2 text-sm justify-center"
+            title={filteredBookings.length === 0 ? 'No bookings match current filter' : `Export ${filteredBookings.length} bookings`}
+          >
               <Download size={16}/> Export CSV
           </button>
         </div>
