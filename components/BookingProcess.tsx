@@ -60,7 +60,11 @@ function normaliseToE164(phone: string): string {
 
 const eventTypes = ['Bucks Party', 'Birthday Party', 'Corporate Event', 'Hens Party', 'Private Gathering', 'Other'];
 
-const FORM_DRAFT_KEY = 'flavor_booking_draft';
+const FORM_DRAFT_KEY = 'tpb_booking_draft';
+// Legacy key kept for one read-and-migrate cycle so users with an in-flight
+// draft (pre-rebrand) don't lose their work. Can be deleted after a few
+// release cycles.
+const LEGACY_FORM_DRAFT_KEY = 'flavor_booking_draft';
 
 export function friendlyErrorMessage(raw: string): { title: string; message: string; isAuthError: boolean } {
     const lower = raw.toLowerCase();
@@ -179,7 +183,15 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
     const [currentStep, setCurrentStep] = useState(1);
     const [form, setForm] = useState<BookingFormState>(() => {
         try {
-            const saved = localStorage.getItem(FORM_DRAFT_KEY);
+            // Try the new key first, fall back to legacy key and migrate.
+            let saved = localStorage.getItem(FORM_DRAFT_KEY);
+            if (!saved) {
+                saved = localStorage.getItem(LEGACY_FORM_DRAFT_KEY);
+                if (saved) {
+                    try { localStorage.setItem(FORM_DRAFT_KEY, saved); } catch {}
+                    try { localStorage.removeItem(LEGACY_FORM_DRAFT_KEY); } catch {}
+                }
+            }
             if (saved) {
                 const parsed = JSON.parse(saved);
                 return { ...parsed, selectedServices: parsed.selectedServices?.length ? parsed.selectedServices : initialSelectedServices, idDocument: null, selfieDocument: null };

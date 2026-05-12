@@ -115,4 +115,4 @@ The platform is engineered for scalability and efficiency, resulting in a remark
 
 *   **Visuals:** The The Private Book logo animates onto the center of the screen. A clear URL and contact email appear below.
 *   **VO:** *Ready to transform your agency? Visit our site to schedule a full demo and discuss licensing opportunities.*
-*   **Text on Screen:** **FLAV🍑R** Entertainers Platform | yourwebsite.com | sales@youremail.com
+*   **Text on Screen:** **The Private Book** | theprivatebook.au | sales@theprivatebook.au

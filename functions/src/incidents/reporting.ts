@@ -66,18 +66,13 @@ export async function approveIncidentReport(
     if (!reportDoc.exists) throw new Error('Report not found');
     const report = reportDoc.data() as IncidentReport;
 
-    // Import hash utilities from DNS module
-    const crypto = await import('crypto');
-    const PEPPER = process.env.DNS_HASH_PEPPER || 'flavor-dns-fallback-pepper-2026';
-
-    function sha256(value: string): string {
-        return crypto.createHash('sha256').update(value + PEPPER).digest('hex');
-    }
-
-    const emailNorm = report.client_email.toLowerCase().trim();
-    const phoneNorm = report.client_phone.replace(/[\s\-\(\)]/g, '');
-    const emailHash = sha256(emailNorm);
-    const phoneHash = sha256(phoneNorm);
+    // Reuse the DNS module's hashing so DNS hits from /dns_entries match the
+    // hashes computed at booking time. The DNS module enforces the missing-
+    // secret error in production and uses a deterministic dev value in the
+    // emulator/test runs.
+    const { sha256, normalizeEmail, normalizePhoneToE164 } = await import('../dns');
+    const emailHash = sha256(normalizeEmail(report.client_email));
+    const phoneHash = sha256(normalizePhoneToE164(report.client_phone));
 
     // Create DNS register entry
     await getDb().collection('dns_entries').add({
