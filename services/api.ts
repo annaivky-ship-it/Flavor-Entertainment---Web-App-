@@ -211,13 +211,14 @@ export const api = {
     };
   },
 
-  subscribeToBookings(callback: (bookings: Booking[]) => void, role?: string, uid?: string, performerId?: number) {
+  subscribeToBookings(callback: (bookings: Booking[]) => void, role?: string, uid?: string, performerId?: number, pageSize: number = 500) {
     if (!db) return () => { };
+    const cappedSize = Math.max(1, Math.min(pageSize, 5000));
     let bookingsQ;
     let piiQ;
     if (role === 'admin') {
-      bookingsQ = query(collection(db, 'bookings'), orderBy('created_at', 'desc'), limit(500));
-      piiQ = query(collection(db, 'bookingPII'), limit(500));
+      bookingsQ = query(collection(db, 'bookings'), orderBy('created_at', 'desc'), limit(cappedSize));
+      piiQ = query(collection(db, 'bookingPII'), limit(cappedSize));
     } else if (role === 'performer' && performerId) {
       bookingsQ = query(collection(db, 'bookings'), where('performer_id', '==', performerId), orderBy('created_at', 'desc'));
       piiQ = query(collection(db, 'bookingPII'), where('performer_id', '==', performerId));

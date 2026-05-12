@@ -21,6 +21,10 @@ interface AdminDashboardProps {
   onAdminChangePerformer: (bookingId: string, newPerformerId: number) => Promise<void>;
   onUpdatePerformer: (performerId: number, updates: Partial<Performer>) => Promise<void>;
   onCreatePerformer: (performerData: Omit<Performer, 'id'>) => Promise<void>;
+  // Optional pagination wired by BookingsProvider — when present, render
+  // a "Load more" button under the bookings list.
+  onLoadMoreBookings?: () => void;
+  canLoadMoreBookings?: boolean;
 }
 
 const getPaymentStatusWeight = (status?: string) => {
@@ -69,7 +73,7 @@ const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
 type AdminTab = 'management' | 'payments' | 'performers' | 'dns' | 'reporting' | 'reconciliation';
 
 // Admin Dashboard Component for managing bookings, performers, and reporting
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, doNotServeList, communications, onUpdateBookingStatus, onUpdateDoNotServeStatus, onViewDoNotServe, onAdminDecisionForPerformer, onAdminChangePerformer, onUpdatePerformer, onCreatePerformer }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, doNotServeList, communications, onUpdateBookingStatus, onUpdateDoNotServeStatus, onViewDoNotServe, onAdminDecisionForPerformer, onAdminChangePerformer, onUpdatePerformer, onCreatePerformer, onLoadMoreBookings, canLoadMoreBookings }) => {
   
   const [activeTab, setActiveTab] = useState<AdminTab>('management');
   const [statusFilter, setStatusFilter] = useState<BookingStatus | ''>('');
@@ -1086,6 +1090,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, performers, d
             </div>
           )}) : <p className="text-zinc-400 text-center py-4">No bookings match the current filter.</p>}
         </div>
+        {onLoadMoreBookings && canLoadMoreBookings && (
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={onLoadMoreBookings}
+              className="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-300 flex items-center gap-2 border border-zinc-700 text-sm"
+            >
+              <ChevronDown size={16} className="text-orange-500" />
+              Load more bookings
+              <span className="text-zinc-400">({bookings.length} loaded)</span>
+            </button>
+          </div>
+        )}
       </div>
       )}
 

@@ -23,16 +23,15 @@ const FAQ = React.lazy(() => import('./components/FAQ'));
 const PerformerOnboarding = React.lazy(() => import('./components/PerformerOnboarding'));
 const WalkthroughOverlay = React.lazy(() => import('./components/WalkthroughOverlay'));
 import { api, resetDemoData, isDemoMode } from './services/api';
-import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from './services/firebaseClient';
-import type { Performer, Booking, Role, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea, AuditLog } from './types';
+import type { Performer, Booking, PerformerStatus, BookingStatus, DoNotServeEntry, DoNotServeStatus, Communication, PhoneMessage, ServiceArea } from './types';
 import { allServices } from './data/mockData';
 import { calculateBookingCost } from './utils/bookingUtils';
+import { AuthProvider, useAuth, type AuthedUser } from './contexts/AuthContext';
+import { PerformersProvider, usePerformers } from './contexts/PerformersContext';
+import { BookingsProvider, useBookings } from './contexts/BookingsContext';
 
 
 type GalleryView = 'available_now' | 'future_bookings' | 'services';
-type AuthedUser = { name: string; role: Role; id?: number; } | null;
 
 const BookingStickyFooter: React.FC<{
   performers: Performer[];
@@ -72,7 +71,27 @@ const BookingStickyFooter: React.FC<{
 };
 
 
-const App: React.FC = () => {
+const AppShell: React.FC = () => {
+  // Auth / data come from providers (see contexts/). Local state is just
+  // the UI view + filter + ephemeral toast layer.
+  const { authedUser, authReady, firebaseUid, showLogin, setShowLogin, setAuthedUser } = useAuth();
+  const { performers, setPerformers } = usePerformers();
+  const {
+    bookings,
+    communications,
+    auditLogs,
+    doNotServeList,
+    isLoading,
+    error: dataError,
+    setBookings,
+    setCommunications,
+    setDoNotServeList,
+    loadMoreBookings,
+    canLoadMoreBookings,
+    prevBookingsRef,
+    refetch,
+  } = useBookings();
+
   const [ageVerified, setAgeVerified] = useState(() => {
     return localStorage.getItem('ageVerified') === 'true';
   });
@@ -80,20 +99,8 @@ const App: React.FC = () => {
   const [bookingOrigin, setBookingOrigin] = useState<GalleryView>('available_now');
   const [viewedPerformer, setViewedPerformer] = useState<Performer | null>(null);
   const [selectedForBooking, setSelectedForBooking] = useState<Performer[]>([]);
-
-  const [authedUser, setAuthedUser] = useState<AuthedUser>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
-  const [showLogin, setShowLogin] = useState(false);
   const [showPresentation, setShowPresentation] = useState(false);
   const [settings, setSettings] = useState({ bookingUpdates: true, confirmations: true });
-
-  const [performers, setPerformers] = useState<Performer[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [doNotServeList, setDoNotServeList] = useState<DoNotServeEntry[]>([]);
-  const [communications, setCommunications] = useState<Communication[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [phoneMessage, setPhoneMessage] = useState<PhoneMessage>(null);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
@@ -101,7 +108,6 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [serviceIdFilter, setServiceIdFilter] = useState<string | null>(null);
   const [serviceAreaFilter, setServiceAreaFilter] = useState<ServiceArea | ''>('');
-
   const [categoryFilter, setCategoryFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState<PerformerStatus | ''>('');
   const [showWalkthrough, setShowWalkthrough] = useState(() => {
@@ -110,7 +116,8 @@ const App: React.FC = () => {
   });
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' }[]>([]);
 
-  const prevBookingsRef = React.useRef<Booking[]>([]);
+  // Surface provider data-load errors through the same banner local errors use.
+  useEffect(() => { if (dataError) setError(dataError); }, [dataError]);
 
   const addNotification = useCallback((message: string, type: 'info' | 'success' | 'warning' = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -190,169 +197,60 @@ const App: React.FC = () => {
   }, []);
 
 
-  // Restore auth state from Firebase on page load
+  // Detect booking status transitions across snapshot ticks and surface
+  // them as toasts. Auth + subscriptions live in the providers — this
+  // effect just runs the notification side-effect when the bookings
+  // collection mutates.
+  const lastSeenStatusesRef = React.useRef<Map<string, BookingStatus>>(new Map());
   useEffect(() => {
-    if (!auth) {
-      setAuthReady(true);
+    const seen = lastSeenStatusesRef.current;
+    if (seen.size === 0) {
+      // First tick: prime the map, do not fire notifications for the
+      // initial load.
+      bookings.forEach(b => seen.set(b.id, b.status));
       return;
     }
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setFirebaseUid(firebaseUser.uid);
-        // Determine role from custom claims and Firestore docs
-        try {
-          const token = await firebaseUser.getIdTokenResult();
-          if (token.claims.role === 'admin' || token.claims.admin === true) {
-            setAuthedUser({ name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Admin', role: 'admin' });
-          } else if (token.claims.role === 'performer' && token.claims.performerId) {
-            setAuthedUser({ name: firebaseUser.displayName || 'Performer', role: 'performer', id: Number(token.claims.performerId) });
-          } else if (db) {
-            // Check admin doc
-            const adminDoc = await getDoc(doc(db, 'admins', firebaseUser.uid));
-            if (adminDoc.exists()) {
-              setAuthedUser({ name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Admin', role: 'admin' });
-            } else {
-              // Check performer_auth doc
-              const perfDoc = await getDoc(doc(db, 'performers_auth', firebaseUser.uid));
-              if (perfDoc.exists()) {
-                const perfData = perfDoc.data();
-                setAuthedUser({ name: perfData.name || firebaseUser.displayName || 'Performer', role: 'performer', id: perfData.performerId || undefined });
-              } else {
-                // Regular client
-                setAuthedUser({ name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Client', role: 'user' });
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('Error determining user role:', err);
-          setAuthedUser({ name: firebaseUser.displayName || 'User', role: 'user' });
-        }
-      } else {
-        setFirebaseUid(null);
-        setAuthedUser(null);
-        // Sign in anonymously so every visitor has a stable UID for
-        // storage-path namespacing and return-customer tracking. The
-        // `createBookingRequest` callable doesn't require auth, so this
-        // failing (e.g. anonymous auth disabled in Firebase console) is
-        // non-fatal — the app keeps working without a UID.
-        signInAnonymously(auth!).catch(err => {
-          console.warn('Anonymous sign-in failed (non-fatal):', err.message);
-          setAuthReady(true);
-        });
-        return; // wait for the next onAuthStateChanged callback after anon sign-in
-      }
-      setAuthReady(true);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const { performers: pData, bookings: bData, doNotServeList: dData, communications: cData, auditLogs: aData } = await api.getInitialData(authedUser?.role, firebaseUid || undefined, authedUser?.id);
-
-      if (pData.error) throw new Error(`Performers Error: ${pData.error.message}`);
-      setPerformers(pData.data as Performer[] || []);
-
-      if (bData.error) throw new Error(`Bookings Error: ${bData.error.message}`);
-      setBookings(bData.data as Booking[] || []);
-
-      if (dData.error) throw new Error(`DNS List Error: ${dData.error.message}`);
-      setDoNotServeList(dData.data as DoNotServeEntry[] || []);
-
-      if (cData.error) throw new Error(`Communications Error: ${cData.error.message}`);
-      setCommunications(cData.data as Communication[] || []);
-
-      if (aData.error) throw new Error(`Audit Logs Error: ${aData.error.message}`);
-      setAuditLogs(aData.data as AuditLog[] || []);
-
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(`Backend initialization error: ${msg}.`);
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [authedUser?.role, firebaseUid, authedUser?.id]);
-
-  useEffect(() => {
-    const role = authedUser?.role;
-    const uid = firebaseUid || undefined;
-
-    const unsubscribeBookings = api.subscribeToBookings((newBookings) => {
-      // Check for status changes to notify
-      if (prevBookingsRef.current.length > 0) {
-        newBookings.forEach(newB => {
-          const oldB = prevBookingsRef.current.find(b => b.id === newB.id);
-          if (oldB && oldB.status !== newB.status) {
-            // Status changed!
-            const statusLabels: Record<BookingStatus, string> = {
-              pending_performer_acceptance: 'Pending Acceptance',
-              pending_vetting: 'Pending Vetting',
-              deposit_pending: 'Deposit Pending',
-              pending_deposit_confirmation: 'Confirming Deposit',
-              confirmed: 'Confirmed',
-              en_route: 'Performer En Route',
-              arrived: 'Performer Arrived',
-              in_progress: 'In Progress',
-              completed: 'Completed',
-              cancelled: 'Cancelled',
-              rejected: 'Rejected',
-              expired: 'Expired',
-              payment_review: 'Payment Review',
-              asap_cascaded: 'ASAP Cascaded'
-            };
-
-            const message = `Booking #${newB.id.slice(0, 8)} status updated to ${statusLabels[newB.status] || newB.status}`;
-            addNotification(message, newB.status === 'confirmed' ? 'success' : 'info');
-
-            // Also show phone message for demo feel
-            showPhoneMessage({
-              for: authedUser?.role === 'performer' ? 'Performer' : authedUser?.role === 'admin' ? 'Admin' : 'Client',
-              content: (
-                <div className="space-y-1">
-                  <p className="font-bold text-zinc-900">Booking Update</p>
-                  <p className="text-sm text-zinc-600">{message}</p>
-                </div>
-              )
-            });
-          }
-        });
-      }
-      prevBookingsRef.current = newBookings;
-      setBookings(newBookings);
-    }, role, uid, authedUser?.id);
-
-    const unsubscribeComms = api.subscribeToCommunications((newComms) => {
-      setCommunications(newComms);
-    }, role, uid);
-
-    const unsubscribePerformers = api.subscribeToPerformers((newPerformers) => {
-      setPerformers(newPerformers);
-    });
-
-    const unsubscribeDNS = api.subscribeToDoNotServe((newEntries) => {
-      setDoNotServeList(newEntries);
-    }, role);
-
-    const unsubscribeAudit = api.subscribeToAuditLogs((newLogs) => {
-      setAuditLogs(newLogs);
-    }, role);
-
-    return () => {
-      unsubscribeBookings();
-      unsubscribeComms();
-      unsubscribePerformers();
-      unsubscribeDNS();
-      unsubscribeAudit();
+    const statusLabels: Record<BookingStatus, string> = {
+      pending_performer_acceptance: 'Pending Acceptance',
+      pending_vetting: 'Pending Vetting',
+      deposit_pending: 'Deposit Pending',
+      pending_deposit_confirmation: 'Confirming Deposit',
+      confirmed: 'Confirmed',
+      en_route: 'Performer En Route',
+      arrived: 'Performer Arrived',
+      in_progress: 'In Progress',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      rejected: 'Rejected',
+      expired: 'Expired',
+      payment_review: 'Payment Review',
+      asap_cascaded: 'ASAP Cascaded',
     };
-  }, [addNotification, showPhoneMessage, authedUser?.role, firebaseUid, authedUser?.id]);
+    bookings.forEach(b => {
+      const prev = seen.get(b.id);
+      if (prev !== undefined && prev !== b.status) {
+        const message = `Booking #${b.id.slice(0, 8)} status updated to ${statusLabels[b.status] || b.status}`;
+        addNotification(message, b.status === 'confirmed' ? 'success' : 'info');
+        showPhoneMessage({
+          for: authedUser?.role === 'performer' ? 'Performer' : authedUser?.role === 'admin' ? 'Admin' : 'Client',
+          content: (
+            <div className="space-y-1">
+              <p className="font-bold text-zinc-900">Booking Update</p>
+              <p className="text-sm text-zinc-600">{message}</p>
+            </div>
+          ),
+        });
+      }
+      seen.set(b.id, b.status);
+    });
+  }, [bookings, addNotification, showPhoneMessage, authedUser?.role]);
 
-  // Wait for auth state to resolve before fetching data
-  useEffect(() => {
-    if (authReady) fetchData();
-  }, [fetchData, authReady]);
+  // Surface the provider refetch helper so handlers that need a hard reload
+  // (e.g. after performer status change) can still trigger one.
+  void refetch;
+  // prevBookingsRef is exposed for legacy comparisons; kept for parity even
+  // though most consumers now use lastSeenStatusesRef.
+  void prevBookingsRef;
 
   const handleAgeVerified = () => {
     localStorage.setItem('ageVerified', 'true');
@@ -415,9 +313,8 @@ const App: React.FC = () => {
         newStatus: status
       });
 
-      // Re-fetch audit logs to show the new entry immediately
-      const { auditLogs: aData } = await api.getInitialData();
-      if (!aData.error) setAuditLogs(aData.data as AuditLog[]);
+      // Provider's audit-log subscription will surface the new entry on
+      // its next snapshot; no manual refetch needed here.
 
       addCommunication({ sender: 'System', recipient: 'admin', message: `${performerName}'s status changed to ${status}.`, type: 'admin_message' });
     } catch (err) {
@@ -763,7 +660,9 @@ const App: React.FC = () => {
   };
 
   const handleBookingSubmitted = () => {
-    fetchData();
+    // Provider snapshot listeners auto-refresh; explicit refetch only
+    // needed when a non-realtime side channel was used.
+    refetch();
     setSelectedForBooking([]);
     setView('client_dashboard');
   };
@@ -994,6 +893,8 @@ const App: React.FC = () => {
           onAdminChangePerformer={handleAdminChangePerformer}
           onUpdatePerformer={handleUpdatePerformer}
           onCreatePerformer={handleCreatePerformer}
+          onLoadMoreBookings={loadMoreBookings}
+          canLoadMoreBookings={canLoadMoreBookings}
         />;
       case 'performer_dashboard': {
         if (authedUser?.role !== 'performer') return <AccessDenied />;
@@ -1234,5 +1135,18 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+// The exported App composes the three data providers around AppShell so
+// auth + performer + booking state is provider-owned rather than living
+// as 25+ useState hooks inside one component.
+const App: React.FC = () => (
+  <AuthProvider>
+    <PerformersProvider>
+      <BookingsProvider>
+        <AppShell />
+      </BookingsProvider>
+    </PerformersProvider>
+  </AuthProvider>
+);
 
 export default App;
