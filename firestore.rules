@@ -294,6 +294,24 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // --- PII retention log (admin-read; server writes only) ---
+    match /pii_retention_log/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // --- Marketing consents (server-only — populated by recordMarketingConsent) ---
+    match /marketingConsents/{consentId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // --- Message logs (admin-read; server writes only) ---
+    match /message_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // --- Default: deny ---
     match /{document=**} {
       allow read, write: if false;

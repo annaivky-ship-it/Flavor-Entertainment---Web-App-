@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 // Fix: Import Service type
 import type { Performer, Service } from '../types';
-import { allServices } from '../data/mockData';
+import { publishedServices } from '../data/mockData';
 import { ArrowLeft, Briefcase, MapPin, Sparkles, Star, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PerformerProfileProps {
@@ -20,7 +20,7 @@ const PerformerProfile: React.FC<PerformerProfileProps> = ({ performer, onBack, 
   const [activePhoto, setActivePhoto] = useState(0);
 
   const performerServices = useMemo(() => {
-    return allServices.filter(service => performer.service_ids.includes(service.id));
+    return publishedServices.filter(service => performer.service_ids.includes(service.id));
   }, [performer.service_ids]);
 
   const servicesByCategory = useMemo(() => {

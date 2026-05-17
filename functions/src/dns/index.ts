@@ -97,6 +97,11 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
   const payid_reference = `BK-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
   if (isBlocked) {
+    // Generate an opaque support reference. The reference is stored on the
+    // booking doc so an admin handling a customer enquiry can look up the
+    // original DNS hit, but the reference itself reveals nothing.
+    const supportReference = `SR-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
     const bookingData: any = {
       client_name,
       client_email,
@@ -104,6 +109,7 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
       client_email_hash: emailHash,
       client_phone_hash: phoneHash,
       payid_reference,
+      support_reference: supportReference,
       amount_deposit,
       amount_total_due: amount_deposit,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -120,20 +126,25 @@ export const createBookingAndScreenDns = fns.https.onCall(async (data: any, cont
       context.auth ? 'client' : 'system',
       'DNS_HIT',
       bookingRef.id,
-      { reason: 'Matched active DNS entry during initial screening' }
+      { reason: 'Matched active DNS entry during initial screening', supportReference }
     );
     await writeAuditLog(
       context.auth?.uid || 'anonymous',
       context.auth ? 'client' : 'system',
       'BOOKING_DENIED',
       bookingRef.id,
-      { reason: 'DNS_HIT' }
+      { reason: 'DNS_HIT', supportReference }
     );
 
-    // Silent fail: do not reveal a DNS match to the client.
+    // Structured rejection: do not reveal that a DNS register match
+    // occurred, but give the customer a route to contact us for review
+    // (APP 12/13). The support reference resolves to this booking doc.
     return {
       success: false,
-      message: 'We can’t proceed with this booking.'
+      message:
+        "We're unable to proceed with this booking. If you believe this is in error, " +
+        `email support@theprivatebook.au and quote reference ${supportReference}.`,
+      supportReference,
     };
   }
 

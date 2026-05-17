@@ -74,7 +74,11 @@ const BookingStickyFooter: React.FC<{
 
 const App: React.FC = () => {
   const [ageVerified, setAgeVerified] = useState(() => {
-    return localStorage.getItem('ageVerified') === 'true';
+    // Session-scoped, not permanent, so the gate re-appears on every fresh
+    // tab/visit. Server-side age verification still runs at booking creation
+    // (functions/src/index.ts createBookingRequest) — the gate here is a UX
+    // affordance, not a security control.
+    return sessionStorage.getItem('ageVerified') === 'true';
   });
   const [view, setView] = useState<GalleryView | 'profile' | 'booking' | 'performer_dashboard' | 'admin_dashboard' | 'do_not_serve' | 'client_dashboard' | 'settings' | 'faq' | 'performer_onboarding'>('available_now');
   const [bookingOrigin, setBookingOrigin] = useState<GalleryView>('available_now');
@@ -355,7 +359,11 @@ const App: React.FC = () => {
   }, [fetchData, authReady]);
 
   const handleAgeVerified = () => {
-    localStorage.setItem('ageVerified', 'true');
+    // Session-scoped only — cleared when the tab closes. Stronger age
+    // assurance (DOB validated server-side) runs at booking creation.
+    sessionStorage.setItem('ageVerified', 'true');
+    // Best-effort cleanup of the legacy permanent flag.
+    try { localStorage.removeItem('ageVerified'); } catch { /* ignore */ }
     setAgeVerified(true);
   };
 
@@ -1220,17 +1228,33 @@ const App: React.FC = () => {
       {showPrivacyPolicy && <PrivacyPolicy onClose={() => setShowPrivacyPolicy(false)} />}
       {showTermsOfService && <TermsOfService onClose={() => setShowTermsOfService(false)} />}
       {showLogin && <Login onLogin={handleLogin} onClose={() => setShowLogin(false)} performers={performers} onNavigateToOnboarding={() => { setShowLogin(false); setView('performer_onboarding'); }} />}
-      {showPresentation && <PresentationVideo onClose={() => setShowPresentation(false)} />}
+      {/*
+        PresentationVideo is a B2B sales pitch ("schedule a full demo and
+        discuss licensing opportunities") aimed at agency operators, not
+        customers. Shown only in dev/demo builds until it's replaced with
+        customer-facing "How it works" content.
+      */}
+      {showPresentation && (import.meta.env.DEV || isDemoMode) && (
+        <PresentationVideo onClose={() => setShowPresentation(false)} />
+      )}
       <BookingStickyFooter performers={selectedForBooking} onProceed={handleProceedToBooking} />
       {!ageVerified && <AgeGate onVerified={handleAgeVerified} onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTermsOfService={handleShowTermsOfService} />}
-      <WalkthroughOverlay
-        isActive={showWalkthrough && ageVerified}
-        onClose={() => {
-          setShowWalkthrough(false);
-          localStorage.setItem('walkthroughShown', 'true');
-        }}
-        onRoleChange={() => {}}
-      />
+      {/*
+        The walkthrough is a sales-pitch overlay (references "AgencyFlow" and
+        a "live interactive demo") and is currently only safe to show in
+        dev/demo builds — exposing it to production visitors would be misleading
+        under ACL s18. Rebrand or remove before un-gating.
+      */}
+      {(import.meta.env.DEV || isDemoMode) && (
+        <WalkthroughOverlay
+          isActive={showWalkthrough && ageVerified}
+          onClose={() => {
+            setShowWalkthrough(false);
+            localStorage.setItem('walkthroughShown', 'true');
+          }}
+          onRoleChange={() => {}}
+        />
+      )}
     </div>
   );
 };

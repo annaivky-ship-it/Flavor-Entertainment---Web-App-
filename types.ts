@@ -34,6 +34,10 @@ export interface Service {
   min_duration_hours?: number;
   duration_minutes?: number;
   booking_notes?: string;
+  // Default-disabled SKUs are held in the catalogue but excluded from
+  // bookable/published lists until counsel signs off on the descriptive copy.
+  // Treat `undefined` as enabled.
+  enabled?: boolean;
 }
 
 export interface Performer {

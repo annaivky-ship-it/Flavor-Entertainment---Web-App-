@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { allServices } from '../data/mockData';
+import { publishedServices } from '../data/mockData';
 import type { Service } from '../types';
 import { Briefcase, Sparkles } from 'lucide-react';
 
@@ -12,7 +12,7 @@ const ServicesGallery: React.FC<ServicesGalleryProps> = ({ onBookService }) => {
   const servicesByCategory = useMemo(() => {
     // Fix: Explicitly type the accumulator's initial value to ensure correct type inference for Object.entries.
     // Without this, `services` in the `.map()` below would be of type `unknown`.
-    return allServices.reduce((acc, service) => {
+    return publishedServices.reduce((acc, service) => {
       (acc[service.category] = acc[service.category] || []).push(service);
       return acc;
     }, {} as Record<string, Service[]>);

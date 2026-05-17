@@ -44,11 +44,23 @@ const db = getFirestore('default');
 const fns = functions as any;
 
 // --- Service catalogue allowlist (mirrors data/mockData.ts) ---
+// All catalogue ids — used by webhooks and legacy lookups so historical
+// bookings that referenced now-disabled SKUs continue to resolve.
 const KNOWN_SERVICE_IDS: ReadonlySet<string> = new Set([
   'waitress-lingerie', 'waitress-topless', 'waitress-nude',
   'show-hot-cream', 'show-pearl', 'show-toy', 'show-pearls-vibe-cream',
   'show-works-fruit', 'show-deluxe-works', 'show-fisting-squirting',
   'show-works-greek', 'show-absolute-works',
+  'misc-promo-model', 'misc-atmospheric', 'misc-games-host',
+]);
+
+// Bookable subset. Disabled in data/mockData.ts pending counsel review of
+// descriptive copy (see docs/legal-risk-assessment.md §1). createBookingRequest
+// rejects ids outside this set even though they are known.
+const PUBLISHED_SERVICE_IDS: ReadonlySet<string> = new Set([
+  'waitress-lingerie', 'waitress-topless', 'waitress-nude',
+  'show-hot-cream', 'show-pearl', 'show-toy', 'show-pearls-vibe-cream',
+  'show-works-fruit',
   'misc-promo-model', 'misc-atmospheric', 'misc-games-host',
 ]);
 
@@ -329,6 +341,10 @@ export const createBookingRequest = fns.https.onCall(async (data: any, context: 
     if (!KNOWN_SERVICE_IDS.has(id)) {
       throw new fns.https.HttpsError('invalid-argument', `Unknown service id: ${id}`);
     }
+    if (!PUBLISHED_SERVICE_IDS.has(id)) {
+      // SKU withheld pending counsel review of descriptive copy.
+      throw new fns.https.HttpsError('failed-precondition', `Service ${id} is not currently bookable.`);
+    }
     selectedServices.push(id);
   }
   if (selectedServices.length === 0) {
@@ -420,6 +436,15 @@ export const createBookingRequest = fns.https.onCall(async (data: any, context: 
     console.warn('booking_create rate limit skipped:', err?.message || err);
   }
 
+  // Opaque support reference written into the deny audit log so a customer
+  // who quotes it can be matched back to this denial without exposing
+  // register contents at request time.
+  const denySupportRef = () =>
+    `SR-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+  const denyMessage = (ref: string) =>
+    "We're unable to proceed with this booking. If you believe this is in error, " +
+    `email support@theprivatebook.au and quote reference ${ref}.`;
+
   // --- DNS check (HMAC system) ---
   try {
     const { hashPhone, hashEmail, isOnDoNotServeList } = await import('./utils/shared');
@@ -427,8 +452,17 @@ export const createBookingRequest = fns.https.onCall(async (data: any, context: 
     const emailHashHmac = hashEmail(email);
     const dns = await isOnDoNotServeList({ phoneHash: phoneHashHmac, emailHash: emailHashHmac });
     if (dns.matched) {
-      // Silent fail (no enumeration signal)
-      throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
+      const supportRef = denySupportRef();
+      try {
+        await db.collection('audit_log').add({
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          actor_id: context.auth?.uid || 'anonymous',
+          actor_role: context.auth ? 'client' : 'system',
+          action: 'BOOKING_DENIED',
+          details: { reason: 'DNS_HIT_HMAC', supportReference: supportRef, severity: dns.severity || null },
+        });
+      } catch { /* audit best-effort */ }
+      throw new fns.https.HttpsError('permission-denied', denyMessage(supportRef), { supportReference: supportRef });
     }
   } catch (err: any) {
     if (err?.code === 'permission-denied') throw err;
@@ -439,7 +473,17 @@ export const createBookingRequest = fns.https.onCall(async (data: any, context: 
   const legacyEmailHash = sha256(normalizeEmail(email));
   const legacyPhoneHash = sha256(normalizePhoneToE164(mobileE164));
   if (await dnsLookup(legacyEmailHash, legacyPhoneHash)) {
-    throw new fns.https.HttpsError('permission-denied', 'Application could not be processed.');
+    const supportRef = denySupportRef();
+    try {
+      await db.collection('audit_log').add({
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        actor_id: context.auth?.uid || 'anonymous',
+        actor_role: context.auth ? 'client' : 'system',
+        action: 'BOOKING_DENIED',
+        details: { reason: 'DNS_HIT_LEGACY', supportReference: supportRef },
+      });
+    } catch { /* audit best-effort */ }
+    throw new fns.https.HttpsError('permission-denied', denyMessage(supportRef), { supportReference: supportRef });
   }
 
   // --- Resolve trust tier server-side (replaces client-driven 'isVerifiedBooker') ---
@@ -983,6 +1027,14 @@ export {
   onBookingCompleted,
   onPerformerActivated,
 } from './triggers/verification';
+
+// PII retention. Dry-run by default — set PII_RETENTION_ENFORCE=true to
+// actually delete. See triggers/piiRetention.ts.
+export {
+  pruneBookingPII,
+  pruneFaceEmbeddings,
+  pruneOtpAttempts,
+} from './triggers/piiRetention';
 
 // --- Unified PayID webhook (australia-southeast1) ---
 // Receives Monoova PayID inbound notifications. Single endpoint that does

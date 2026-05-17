@@ -42,7 +42,13 @@ const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTermsOfServi
           <div className="space-y-4">
             <h4 className="text-sm font-bold text-white uppercase tracking-wider">Quick Links</h4>
             <nav className="flex flex-col gap-2.5">
-              <a href="#" onClick={(e) => { e.preventDefault(); onShowPresentation(); }} className="text-sm text-zinc-400 hover:text-orange-400 transition-colors w-fit">How It Works</a>
+              {/*
+                "How It Works" used to open a B2B sales pitch (PresentationVideo
+                referencing "AgencyFlow" / "licensing opportunities"); the customer
+                site instead routes the link to the FAQ. The presentation modal is
+                only opened in dev/demo builds — see App.tsx.
+              */}
+              <a href="#" onClick={(e) => { e.preventDefault(); onNavigate?.('faq'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-sm text-zinc-400 hover:text-orange-400 transition-colors w-fit">How It Works</a>
               <a href="#" onClick={(e) => { e.preventDefault(); onNavigate?.('available_now'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-sm text-zinc-400 hover:text-orange-400 transition-colors w-fit">Browse Entertainers</a>
               <a href="#" onClick={(e) => { e.preventDefault(); onNavigate?.('faq'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-sm text-zinc-400 hover:text-orange-400 transition-colors w-fit">FAQ</a>
             </nav>

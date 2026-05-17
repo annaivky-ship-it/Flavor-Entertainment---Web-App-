@@ -12,7 +12,7 @@ const faqs = [
   },
   {
     question: "Is my payment secure?",
-    answer: "Yes, we use secure payment simulations for this demo. In a production environment, we would use a PCI-compliant payment processor like Stripe."
+    answer: "Yes. Deposits are paid by PayID — Australia's bank-to-bank instant payment scheme. You initiate the transfer from your own banking app to the PayID identifier we provide, with the booking reference. We never see or store your bank account or card details."
   },
   {
     question: "Can I cancel a booking?",

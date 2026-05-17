@@ -1,9 +1,11 @@
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
+import * as crypto from 'crypto';
 import { sendClickSendSms } from './providers/clicksend';
 import { sendTwilioMessage } from './providers/twilio';
 import { sendMessageMediaSms } from './providers/messagemedia';
 import { normalizePhone } from '../utils/phone';
+import { getMessageClass, MessageClass } from './templates';
 
 export interface SendMessageParams {
   bookingId: string;
@@ -11,20 +13,70 @@ export interface SendMessageParams {
   to: string;
   body: string;
   channel?: 'sms' | 'whatsapp';
+  // Overrides the class derived from templateKey. Use sparingly — the
+  // class derived from the template is the safe default.
+  messageClass?: MessageClass;
+}
+
+// Hash a phone number for marketing-consent lookups without storing the
+// plaintext on the consent index. Uses HASH_SECRET if available, falling
+// back to a process-local one in test/emulator runs.
+function phoneHashForConsent(e164: string): string {
+  const secret = process.env.HASH_SECRET || 'emulator-only-consent-secret';
+  return crypto.createHmac('sha256', secret).update(e164).digest('hex');
+}
+
+async function hasMarketingConsent(db: FirebaseFirestore.Firestore, phoneE164: string): Promise<boolean> {
+  const phoneHash = phoneHashForConsent(phoneE164);
+  const snap = await db
+    .collection('marketingConsents')
+    .where('phoneHash', '==', phoneHash)
+    .where('revokedAt', '==', null)
+    .limit(1)
+    .get();
+  return !snap.empty;
 }
 
 export async function sendMessage(params: SendMessageParams): Promise<void> {
   const db = getFirestore('default');
   const normalizedTo = normalizePhone(params.to);
-  
+
   if (!normalizedTo) {
     console.error(`Invalid phone number: ${params.to}`);
     return;
   }
 
+  // Resolve message class. Unknown template keys default to 'transactional'
+  // to preserve existing behaviour, but a console warning is emitted so the
+  // template can be classified explicitly.
+  const messageClass: MessageClass =
+    params.messageClass || getMessageClass(params.templateKey) || 'transactional';
+  if (!params.messageClass && !getMessageClass(params.templateKey)) {
+    console.warn(`messaging: template '${params.templateKey}' is unclassified; defaulting to transactional`);
+  }
+
+  // Spam Act 2003 (Cth): marketing-class messages require a positive
+  // consent record. Drop and log if absent — never silently send.
+  if (messageClass === 'marketing') {
+    const consented = await hasMarketingConsent(db, normalizedTo);
+    if (!consented) {
+      await db.collection('message_logs').add({
+        bookingId: params.bookingId,
+        to: normalizedTo,
+        templateKey: params.templateKey,
+        channel: params.channel || 'sms',
+        messageClass,
+        status: 'DROPPED_NO_CONSENT',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return;
+    }
+  }
+
   const settingsDoc = await db.collection('settings').doc('messaging').get();
   const settings = settingsDoc.data() || {};
-  
+
   const primary = settings.providerPrimary || 'clicksend';
   const fallback = settings.providerFallback || 'twilio';
   const dryRun = process.env.MESSAGING_DRY_RUN === 'true';
@@ -37,6 +89,7 @@ export async function sendMessage(params: SendMessageParams): Promise<void> {
     templateKey: params.templateKey,
     bodyPreview: params.body.substring(0, 120),
     channel,
+    messageClass,
     status: 'QUEUED',
     attempt: 0,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),

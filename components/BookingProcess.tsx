@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../services/firebaseClient';
 import type { Performer, Booking, BookingStatus, DoNotServeEntry, Communication, Service } from '../types';
-import { allServices } from '../data/mockData';
+import { allServices, publishedServices } from '../data/mockData';
 import { getBookingDurationInfo, calculateBookingCost } from '../utils/bookingUtils';
 import InputField from './InputField';
 import BookingCostCalculator from './BookingCostCalculator';
@@ -69,6 +69,12 @@ export function friendlyErrorMessage(raw: string): { title: string; message: str
     }
     if (lower.includes('internal') || lower.includes('unknown error')) {
         return { title: 'Something Went Wrong', message: 'We hit a temporary issue processing your booking. Please try again in a moment.', isAuthError: false };
+    }
+    // Booking-deny path returns a permission-denied error whose message
+    // contains the support reference. Preserve the raw message so the user
+    // sees the reference to quote.
+    if (lower.includes('quote reference') || lower.includes('support@theprivatebook.au')) {
+        return { title: 'Unable to Proceed', message: raw, isAuthError: false };
     }
     if (lower.includes('permission') || lower.includes('denied')) {
         return { title: 'Access Denied', message: 'You don\'t have permission to perform this action. Please log in with the correct account.', isAuthError: true };
@@ -338,7 +344,7 @@ const BookingProcess: React.FC<BookingProcessProps> = ({ performers, onBack, onB
 
     const availableServices = useMemo(() => {
         const uniqueServiceIds = [...new Set(performers.flatMap(p => p.service_ids))];
-        return allServices.filter(s => uniqueServiceIds.includes(s.id));
+        return publishedServices.filter(s => uniqueServiceIds.includes(s.id));
     }, [performers]);
 
     const servicesByCategory = useMemo(() => {
